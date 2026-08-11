@@ -1,5 +1,5 @@
 import { formatDuration } from '#game/util/time.js'
-import { getBuildingSpriteImage } from './buildingSprites.js'
+import { getBuildingSpriteImage, getBuildingSpriteCrop } from './buildingSprites.js'
 
 // Real building icons, downloaded as local static SVGs (see public/icons/buildings)
 // so they render fully offline with no runtime fetch. Loaded lazily and
