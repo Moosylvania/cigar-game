@@ -10,6 +10,7 @@ import StorePanel from '~/components/game/StorePanel.vue'
 import LandExpansionPanel from '~/components/game/LandExpansionPanel.vue'
 import PrestigePanel from '~/components/game/PrestigePanel.vue'
 import DecorationPanel from '~/components/game/DecorationPanel.vue'
+import TutorialCard from '~/components/game/TutorialCard.vue'
 import OfflineEarningsModal from '~/components/game/OfflineEarningsModal.vue'
 import { useGameStore } from '~/stores/game.js'
 import { getDecorationDefinition } from '#game/config/decorations.config.js'
@@ -31,6 +32,18 @@ const gameCanvasRef = ref(null)
 const placingDecorationName = computed(() => {
   if (!placingDecorationId.value) return null
   return getDecorationDefinition(placingDecorationId.value)?.name ?? null
+})
+
+const tutorialHighlightBuildingType = computed(() => {
+  if (!store.isTutorialVisible) return null
+  const highlight = store.currentTutorialStep?.highlight
+  return highlight?.kind === 'building' ? highlight.type : null
+})
+
+const storeButtonHighlighted = computed(() => {
+  if (!store.isTutorialVisible) return false
+  const highlight = store.currentTutorialStep?.highlight
+  return highlight?.kind === 'toolbar' && highlight.label === 'Store'
 })
 
 function onBuildingSelected(building) {
@@ -75,8 +88,8 @@ function cancelRearrange() {
 
 <template>
   <div class="game-layout">
-    <ResourceBar />
-    <InventoryBar />
+    <ResourceBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
+    <InventoryBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
 
     <div class="toolbar">
       <template v-if="placingDecorationId">
@@ -84,12 +97,15 @@ function cancelRearrange() {
         <button class="cancel" @click="cancelPlacingDecoration"><Icon name="mdi:close" /> Cancel</button>
       </template>
       <template v-else-if="!layoutEditMode">
-        <button @click="showLand = true"><Icon name="mdi:map-plus" /> Expand Territory</button>
-        <button @click="showLab = true"><Icon name="mdi:flask-outline" /> Research Lab</button>
-        <button @click="showStore = true"><Icon name="mdi:storefront-outline" /> Store</button>
-        <button @click="showPrestige = true"><Icon name="mdi:crown" /> Prestige</button>
-        <button @click="startRearrange"><Icon name="mdi:cursor-move" /> Rearrange Buildings</button>
-        <button v-if="isDev" class="dev" @click="store.skipAllTimers()"><Icon name="mdi:fast-forward" /> Skip Timers (dev)</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLand = true"><Icon name="mdi:map-plus" /> Expand Territory</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLab = true"><Icon name="mdi:flask-outline" /> Research Lab</button>
+        <button class="store-btn" :class="{ 'tutorial-glow': storeButtonHighlighted, 'tutorial-dim': store.isTutorialVisible && !storeButtonHighlighted }" @click="showStore = true">
+          <Icon name="mdi:storefront-outline" /> Store
+        </button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showPrestige = true"><Icon name="mdi:crown" /> Prestige</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startRearrange"><Icon name="mdi:cursor-move" /> Rearrange Buildings</button>
+        <button v-if="isDev" class="dev" :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="store.skipAllTimers()"><Icon name="mdi:fast-forward" /> Skip Timers (dev)</button>
+        <button class="help" title="Replay tutorial" @click="store.reopenTutorial()"><Icon name="mdi:help-circle-outline" /></button>
       </template>
       <template v-else>
         <span class="rearrange-hint">Drag buildings to move them</span>
@@ -99,16 +115,23 @@ function cancelRearrange() {
     </div>
 
     <div class="main-area">
-      <BuildMenu :active-type="placingType" :class="{ disabled: layoutEditMode || placingDecorationId }" @select="(type) => (placingType = type)" />
+      <BuildMenu
+        :active-type="placingType"
+        :class="{ disabled: layoutEditMode || placingDecorationId, 'tutorial-dim': store.isTutorialVisible }"
+        @select="(type) => (placingType = type)"
+      />
       <GameCanvas
         ref="gameCanvasRef"
         :placing-type="placingType"
         :placing-decoration-id="placingDecorationId"
         :edit-mode="layoutEditMode"
+        :tutorial-highlight-type="tutorialHighlightBuildingType"
+        :tutorial-dim="store.isTutorialVisible"
         @building-selected="onBuildingSelected"
         @decoration-selected="onDecorationSelected"
         @placed="onPlaced"
       />
+      <TutorialCard />
     </div>
 
     <BuildingUpgradePanel
@@ -190,6 +213,17 @@ function cancelRearrange() {
       color: $color-text-muted;
     }
 
+    &.help {
+      padding: $spacing-xs;
+      min-width: 36px;
+      justify-content: center;
+    }
+
+    &.tutorial-glow {
+      border-color: $color-accent;
+      animation: tutorial-pulse 1.4s ease-in-out infinite;
+    }
+
     @include mobile {
       font-size: 0.72rem;
       padding: $spacing-xs $spacing-sm;
@@ -216,9 +250,20 @@ function cancelRearrange() {
   flex: 1;
   display: flex;
   min-height: 0;
+  position: relative;
 
   @include mobile {
     flex-direction: column-reverse;
+  }
+}
+
+@keyframes tutorial-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(212, 169, 74, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(212, 169, 74, 0);
   }
 }
 

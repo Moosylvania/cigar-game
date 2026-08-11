@@ -69,6 +69,15 @@ export function createInitialState() {
       fleet: { vehicleTierId: 'truck', count: 1 }
     },
     decorations: [],
+    // Only meaningful for a genuinely brand-new game (see game-init.client.js) -
+    // a prestige reset discards this fresh copy and keeps the player's
+    // existing tutorial state instead (see prestigeEngine.js doPrestige),
+    // and migrations.js backfills existing saves with it already dismissed.
+    tutorial: {
+      active: true,
+      dismissed: false,
+      currentStep: 0
+    },
     meta: {
       createdAt: timestamp,
       lastSavedAt: timestamp,

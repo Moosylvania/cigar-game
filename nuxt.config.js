@@ -62,7 +62,10 @@ const ICON_NAMES = [
   'mdi:star-four-points-outline',
   'mdi:weather-partly-cloudy',
   'mdi:crown-outline',
-  'mdi:delete-outline'
+  'mdi:delete-outline',
+  'mdi:help-circle-outline',
+  'mdi:cursor-default-click-outline',
+  'mdi:check-circle-outline'
 ]
 
 export default defineNuxtConfig({

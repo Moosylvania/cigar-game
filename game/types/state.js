@@ -9,6 +9,7 @@
  * @property {import('./lab.js').LabState} lab
  * @property {import('./distribution.js').DistributionState} distribution
  * @property {import('./decoration.js').PlacedDecoration[]} decorations
+ * @property {import('./tutorial.js').TutorialState} tutorial
  * @property {{ createdAt: number, lastSavedAt: number, lifetimeMoneyEarned: number }} meta
  * @property {import('./prestige.js').PrestigeState} prestige
  */

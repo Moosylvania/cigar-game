@@ -49,6 +49,13 @@ function repairState(state) {
     state.decorations = []
   }
 
+  // Tutorial system added after some saves already existed - an existing
+  // player is not a first-time session, so backfill it already dismissed
+  // rather than suddenly popping the onboarding card on their next load.
+  if (!state.tutorial || typeof state.tutorial !== 'object') {
+    state.tutorial = { active: false, dismissed: true, currentStep: 0 }
+  }
+
   // Prestige/tobacco-variety/trophy/epic-research system added after some
   // saves already existed - backfill the fields it reads/writes so an old
   // save doesn't crash the first time it's touched.

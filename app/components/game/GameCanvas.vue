@@ -10,7 +10,9 @@ import { getDecorationDefinition } from '#game/config/decorations.config.js'
 const props = defineProps({
   placingType: { type: String, default: null },
   placingDecorationId: { type: String, default: null },
-  editMode: { type: Boolean, default: false }
+  editMode: { type: Boolean, default: false },
+  tutorialHighlightType: { type: String, default: null },
+  tutorialDim: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['building-selected', 'decoration-selected', 'placed', 'place-failed'])
@@ -241,7 +243,41 @@ function render() {
     }
   }
 
+  if (props.tutorialDim) {
+    const target = props.tutorialHighlightType
+      ? store.allBuildings.find((b) => b.type === props.tutorialHighlightType)
+      : null
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+
+    // A canvas has no real layers - erasing a hole in the dim overlay
+    // would reveal nothing (transparent), not "the building underneath",
+    // since that pixel data was already blended away. Redrawing the
+    // target fresh on top of the dim layer achieves the same spotlight
+    // effect correctly. With no target (welcome/buy_seeds/done steps),
+    // the whole canvas just stays dimmed.
+    if (target) {
+      const config = store.getBuildingConfig(target.type)
+      const rect = getBuildingRect(target, camera)
+      drawBuilding(ctx, target, config, rect, tilePx)
+      drawTutorialRing(ctx, rect)
+    }
+  }
+
   rafId = requestAnimationFrame(render)
+}
+
+/** Pulsing gold ring around the tutorial's current target building. */
+function drawTutorialRing(ctx, rect) {
+  const pulse = (Math.sin(Date.now() / 260) + 1) / 2 // 0..1
+  const pad = 5 + pulse * 4
+  ctx.save()
+  ctx.strokeStyle = `rgba(212, 169, 74, ${0.6 + pulse * 0.4})`
+  ctx.lineWidth = 3
+  ctx.setLineDash([8, 5])
+  ctx.strokeRect(rect.x - pad, rect.y - pad, rect.width + pad * 2, rect.height + pad * 2)
+  ctx.restore()
 }
 
 function findBuildingAt(gridPos) {

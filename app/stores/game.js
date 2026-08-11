@@ -41,6 +41,7 @@ import {
   isEpicResearchUnlocked as engineIsEpicResearchUnlocked
 } from '#game/engine/epicResearchEngine.js'
 import { getBuildingConfig } from '#game/config/buildings/index.js'
+import { TUTORIAL_STEPS } from '#game/config/tutorial.config.js'
 import { TOBACCO_VARIETIES } from '#game/config/prestige.config.js'
 import { TROPHIES } from '#game/config/trophies.config.js'
 import { getEpicResearchDefinition } from '#game/config/epicResearch.config.js'
@@ -60,6 +61,9 @@ export const useGameStore = defineStore('game', {
     townHall: (state) => state.game.townHall,
     buildings: (state) => state.game.buildings,
     allBuildings: (state) => [state.game.townHall, ...state.game.buildings],
+    hasActiveTimers(state) {
+      return this.allBuildings.some((b) => b.slot?.status === 'processing' || b.upgrade)
+    },
     landRegion: (state) => getUnlockedRegion(state.game),
     nextLandTier: (state) => getNextLandTier(state.game),
     labMultipliers: (state) => getMultipliers(state.game.lab),
@@ -139,6 +143,18 @@ export const useGameStore = defineStore('game', {
     trophyRows() {
       const unlockedIds = this.prestige.unlockedTrophyIds
       return TROPHIES.map((trophy) => ({ trophy, unlocked: unlockedIds.includes(trophy.id) }))
+    },
+
+    tutorial: (state) => state.game.tutorial,
+    isTutorialVisible(state) {
+      return state.game.tutorial.active && !state.game.tutorial.dismissed
+    },
+    currentTutorialStep(state) {
+      return TUTORIAL_STEPS[state.game.tutorial.currentStep] ?? null
+    },
+    isCurrentTutorialStepComplete(state) {
+      const step = this.currentTutorialStep
+      return step?.isComplete ? step.isComplete(state.game) : false
     }
   },
 
@@ -305,6 +321,32 @@ export const useGameStore = defineStore('game', {
 
     doPrestige() {
       return engineDoPrestige(this.game)
+    },
+
+    nextTutorialStep() {
+      const tutorial = this.game.tutorial
+      if (tutorial.currentStep >= TUTORIAL_STEPS.length - 1) {
+        tutorial.active = false
+        tutorial.dismissed = true
+      } else {
+        tutorial.currentStep += 1
+      }
+    },
+
+    previousTutorialStep() {
+      const tutorial = this.game.tutorial
+      if (tutorial.currentStep > 0) tutorial.currentStep -= 1
+    },
+
+    skipTutorial() {
+      this.game.tutorial.active = false
+      this.game.tutorial.dismissed = true
+    },
+
+    reopenTutorial() {
+      this.game.tutorial.currentStep = 0
+      this.game.tutorial.active = true
+      this.game.tutorial.dismissed = false
     },
 
     /**
