@@ -1,6 +1,6 @@
 {
   "name": "Cigar Builder Top-Down Sprite Pack",
-  "version": "3.0.0",
+  "version": "3.2.0-level-scaled",
   "format": "PNG",
   "camera": "strict 90-degree overhead orthographic",
   "grid": "north-up axis-aligned square",
@@ -15,30 +15,90 @@
     "transparent_sheets": 12
   },
   "canvas_sizes": {
-    "buildings": [512, 512],
-    "decorations": [512, 512],
-    "vehicles": [512, 512],
-    "terrain": [256, 256],
-    "rails": [256, 256],
-    "building_sheets": [1536, 1024],
-    "world_sheets": [1254, 1254]
+    "buildings": [
+      512,
+      512
+    ],
+    "decorations": [
+      512,
+      512
+    ],
+    "vehicles": [
+      512,
+      512
+    ],
+    "terrain": [
+      256,
+      256
+    ],
+    "rails": [
+      256,
+      256
+    ],
+    "building_sheets": [
+      1536,
+      1024
+    ],
+    "world_sheets": [
+      1254,
+      1254
+    ]
   },
   "pivots": {
-    "buildings": [0.5, 0.5],
-    "decorations": [0.5, 0.5],
-    "vehicles": [0.5, 0.5],
-    "terrain": [0.5, 0.5],
-    "rails": [0.5, 0.5]
+    "buildings": [
+      0.5,
+      0.5
+    ],
+    "decorations": [
+      0.5,
+      0.5
+    ],
+    "vehicles": [
+      0.5,
+      0.5
+    ],
+    "terrain": [
+      0.5,
+      0.5
+    ],
+    "rails": [
+      0.5,
+      0.5
+    ]
   },
   "suggested_grid_footprints": {
-    "main_factory": [2, 2],
-    "distribution_depot": [2, 2],
-    "seed_nursery": [1, 1],
-    "farm_field": [2, 2],
-    "curing_barn": [1, 1],
-    "steam_house": [1, 1],
-    "fermentation_center": [1, 1],
-    "rolling_house": [1, 1]
+    "main_factory": [
+      2,
+      2
+    ],
+    "distribution_depot": [
+      2,
+      2
+    ],
+    "seed_nursery": [
+      1,
+      1
+    ],
+    "farm_field": [
+      2,
+      2
+    ],
+    "curing_barn": [
+      1,
+      1
+    ],
+    "steam_house": [
+      1,
+      1
+    ],
+    "fermentation_center": [
+      1,
+      1
+    ],
+    "rolling_house": [
+      1,
+      1
+    ]
   },
   "buildings": [
     {
@@ -184,8 +244,49 @@
       "cargo_train",
       "freight_train"
     ],
-    "directions": ["n", "e", "s", "w"],
+    "directions": [
+      "n",
+      "e",
+      "s",
+      "w"
+    ],
     "path_pattern": "sprites/vehicles/{tier}_{direction}.png"
+  },
+  "individual_sprite_trimming": {
+    "groups": [
+      "decorations",
+      "vehicles"
+    ],
+    "padding_pixels": 12,
+    "crop_shape": "square",
+    "unchanged_groups": [
+      "terrain",
+      "rails",
+      "sheets",
+      "catalog",
+      "preview"
+    ],
+    "note": "Decorations and vehicles retain the tight crop from v3.1. Buildings use the level-specific sizing profile in building_scale_manifest.json."
+  },
+  "building_scale_profile": {
+    "canvas_size": [
+      512,
+      512
+    ],
+    "visible_footprint_by_level": {
+      "level_01": 0.6,
+      "level_02": 0.633333,
+      "level_03": 0.666667,
+      "level_04": 0.7,
+      "level_05": 0.733333,
+      "level_06": 0.766667,
+      "level_07": 0.8,
+      "level_08": 0.833333,
+      "level_09": 0.866667,
+      "level_10": 0.9
+    },
+    "interpolation": "linear from 60% at level 1 to 90% at level 10",
+    "vehicle_sprites": "unchanged from tight-crop pack",
+    "details_file": "building_scale_manifest.json"
   }
 }
-

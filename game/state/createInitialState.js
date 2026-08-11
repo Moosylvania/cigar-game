@@ -66,7 +66,7 @@ export function createInitialState() {
       researchLevels: {}
     },
     distribution: {
-      fleet: { vehicleTierId: 'truck', count: 1 }
+      fleet: [{ vehicleTierId: 'truck', count: 1 }]
     },
     decorations: [],
     // Only meaningful for a genuinely brand-new game (see game-init.client.js) -

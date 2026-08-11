@@ -97,7 +97,7 @@ export function getStatusIndicatorHitbox(building, rect, tilePx) {
   // Same size and position regardless of status, so the indicator doesn't
   // jump around or change size as a batch goes idle -> processing -> ready.
   const size = Math.max(11, tilePx * 0.2)
-  return { cx: rect.x + rect.width - size / 2 - 2, cy: rect.y + size / 2 + 2, radius: size / 2 }
+  return { cx: rect.x + rect.width - size / 2, cy: rect.y + size / 2, radius: size / 3 }
 }
 
 /**
@@ -217,7 +217,7 @@ function drawNameLabel(ctx, displayName, rect) {
   // Floor only, no cap - matches the pips/countdown text below, which
   // scale purely proportionally with the building's own on-screen size
   // rather than leveling off at high zoom.
-  const fontSize = Math.max(8, rect.width * 0.1045)
+  const fontSize = Math.min(18, rect.width * 0.08)
   ctx.save()
   ctx.beginPath()
   ctx.rect(rect.x, rect.y, rect.width, rect.height)
@@ -230,7 +230,7 @@ function drawNameLabel(ctx, displayName, rect) {
   ctx.strokeStyle = 'rgba(0,0,0,0.75)'
   ctx.fillStyle = '#ffffff'
   const x = rect.x + rect.width / 2
-  const y = rect.y + 3
+  const y = rect.y + 5
   ctx.strokeText(displayName, x, y)
   ctx.fillText(displayName, x, y)
   ctx.restore()

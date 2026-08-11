@@ -20,8 +20,10 @@ import { expandLand as engineExpandLand, canExpandLand, getUnlockedRegion, getNe
 import {
   canBuyVehicle as engineCanBuyVehicle,
   buyVehicle as engineBuyVehicle,
-  canUpgradeFleet as engineCanUpgradeFleet,
-  upgradeFleet as engineUpgradeFleet,
+  canReplaceVehicle as engineCanReplaceVehicle,
+  replaceVehicle as engineReplaceVehicle,
+  getMaxSlots as engineGetMaxFleetSlots,
+  getTotalFleetCount as engineGetTotalFleetCount,
   getCigarStorageCapacity
 } from '#game/engine/distributionEngine.js'
 import { canBuyStoreItem as engineCanBuyStoreItem, buyStoreItem as engineBuyStoreItem, getSeedsPerBatch } from '#game/engine/storeEngine.js'
@@ -108,6 +110,12 @@ export const useGameStore = defineStore('game', {
       return getCigarStorageCapacity(state.game, this.combinedMultipliers)
     },
     fleet: (state) => state.game.distribution.fleet,
+    fleetMaxSlots(state) {
+      return engineGetMaxFleetSlots(state.game)
+    },
+    fleetSlotsUsed(state) {
+      return engineGetTotalFleetCount(state.game)
+    },
     seedsPerBatch(state) {
       return getSeedsPerBatch(state.game, this.combinedMultipliers)
     },
@@ -274,20 +282,20 @@ export const useGameStore = defineStore('game', {
       return engineBuyResearch(this.game, researchId)
     },
 
-    canBuyVehicle() {
-      return engineCanBuyVehicle(this.game)
+    canBuyVehicle(vehicleTierId) {
+      return engineCanBuyVehicle(this.game, vehicleTierId)
     },
 
-    buyVehicle() {
-      return engineBuyVehicle(this.game)
+    buyVehicle(vehicleTierId) {
+      return engineBuyVehicle(this.game, vehicleTierId)
     },
 
-    canUpgradeFleet() {
-      return engineCanUpgradeFleet(this.game)
+    canReplaceVehicle(fromVehicleTierId, toVehicleTierId) {
+      return engineCanReplaceVehicle(this.game, fromVehicleTierId, toVehicleTierId)
     },
 
-    upgradeFleet() {
-      return engineUpgradeFleet(this.game)
+    replaceVehicle(fromVehicleTierId, toVehicleTierId) {
+      return engineReplaceVehicle(this.game, fromVehicleTierId, toVehicleTierId)
     },
 
     canBuyStoreItem(itemId) {

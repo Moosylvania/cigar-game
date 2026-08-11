@@ -1,4 +1,3 @@
-import { VEHICLE_TIERS } from '../config/vehicles.config.js'
 import { TOBACCO_VARIETIES } from '../config/prestige.config.js'
 
 /**
@@ -29,20 +28,14 @@ function repairState(state) {
     state.resources.storage.cigars = 0
   }
 
-  // The fleet used to be an array of tier/count entries (freely mixed
-  // tiers); it's now a single { vehicleTierId, count } - only one tier
-  // owned at a time, upgraded in place. Collapse an old mixed fleet down
-  // to its highest tier, discarding lower-tier vehicles, since there's no
-  // lossless way to represent "some trucks and some semis" in the new
-  // single-tier model.
-  if (Array.isArray(state.distribution?.fleet)) {
-    const tierOrder = VEHICLE_TIERS.map((tier) => tier.id)
-    const entries = state.distribution.fleet
-    state.distribution.fleet = entries.length === 0
-      ? { vehicleTierId: 'truck', count: 0 }
-      : entries.reduce((best, entry) =>
-          tierOrder.indexOf(entry.vehicleTierId) > tierOrder.indexOf(best.vehicleTierId) ? entry : best
-        )
+  // The fleet briefly went through a single-tier { vehicleTierId, count }
+  // shape (one tier owned at a time); it's back to an array of tier/count
+  // entries now (freely mixed tiers again, capped by depot level instead
+  // of by tier progression) - wrap a lingering single-tier save's fleet
+  // back into array form. An already-array fleet (pre-single-tier saves,
+  // or saves already on this shape) is left as-is.
+  if (state.distribution?.fleet && !Array.isArray(state.distribution.fleet)) {
+    state.distribution.fleet = [state.distribution.fleet]
   }
 
   if (!Array.isArray(state.decorations)) {

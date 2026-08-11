@@ -8,13 +8,16 @@ import { BASE_CIGAR_SALE_PRICE } from '../config/economy.config.js'
  * exportCigars). Sale price instead comes from Rolling's own level plus
  * Lab research (see getEffectiveSalePrice) - "upgrade the building that
  * makes the thing" rather than "buy trucks" is what makes cigars worth more.
+ * The fleet can freely mix tiers, so this sums every owned entry.
  * @param {import('../types/distribution.js').DistributionState} distributionState
  * @param {{ fleetThroughputMultiplier?: number }} [labMultipliers]
  * @returns {number} combined fleet capacity, in cigars/hour
  */
 export function getFleetCapacityPerHour(distributionState, labMultipliers) {
-  const tier = getVehicleTier(distributionState.fleet.vehicleTierId)
-  const base = tier ? tier.capacityPerHour * distributionState.fleet.count : 0
+  const base = distributionState.fleet.reduce((sum, entry) => {
+    const tier = getVehicleTier(entry.vehicleTierId)
+    return sum + (tier ? tier.capacityPerHour * entry.count : 0)
+  }, 0)
   return base * (labMultipliers?.fleetThroughputMultiplier ?? 1)
 }
 
