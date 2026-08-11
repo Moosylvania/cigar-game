@@ -1,0 +1,49 @@
+$color-bg: #1c2320;
+$color-panel: #263028;
+$color-panel-border: #3a4a3e;
+$color-text: #e8ece8;
+$color-text-muted: #9aab9d;
+$color-accent: #d4a94a;
+$color-money: #7bc96f;
+$color-danger: #d16a5a;
+
+$color-tile-locked: #2a2a2a;
+$color-tile-unlocked: #3d4a3a;
+$color-tile-border: #232a24;
+
+$radius-sm: 4px;
+$radius-md: 8px;
+
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+
+$font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+$breakpoint-mobile: 700px;
+
+@mixin mobile {
+  @media (max-width: $breakpoint-mobile) {
+    @content;
+  }
+}
+
+// For horizontally-scrollable strips: hide the native scrollbar (looks out
+// of place in this UI) while keeping touch/trackpad scroll fully working.
+@mixin hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+// Fades the trailing edge of a horizontally-scrollable strip so it's
+// visually obvious there's more content to swipe to, instead of content
+// abruptly cutting off mid-item at the container's edge.
+@mixin scroll-fade-right($width: 28px) {
+  mask-image: linear-gradient(to right, black calc(100% - #{$width}), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - #{$width}), transparent 100%);
+}

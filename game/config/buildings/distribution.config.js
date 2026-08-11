@@ -1,0 +1,30 @@
+import { generateLevelCurve } from '../curve.js'
+
+const baseLevels = generateLevelCurve({
+  baseCost: 300,
+  costGrowth: 1.8,
+  baseUpgradeDurationSec: 180,
+  upgradeDurationGrowth: 1.4
+})
+
+// Distribution has no batch/processing step - it has no slot at all. Its
+// level gates how many fleet slots are available (which vehicle tiers can
+// be upgraded to, see vehicles.config.js) and how many cigars it can hold
+// in storage before they overflow and are lost - the fleet then exports
+// (sells) from that storage at a throughput-limited rate (capacityPerHour),
+// not instantly. Sale price no longer comes from the fleet at all - it
+// scales with Rolling's own level and Lab research instead (see
+// rolling.config.js / engine/economy.js).
+export const distributionConfig = {
+  type: 'distribution',
+  displayName: 'Distribution Depot',
+  description: 'Exports cigars from storage at a rate set by your vehicle fleet - let production outrun that rate and cigars overflow and are lost.',
+  color: '#3a5a7a',
+  icon: 'mdi:warehouse',
+  footprint: { width: 2, height: 2 },
+  levels: baseLevels.map((level, i) => ({
+    ...level,
+    maxVehicleSlots: 1 + i,
+    cigarStorageCapacity: Math.round(40 * 1.32 ** i)
+  }))
+}
