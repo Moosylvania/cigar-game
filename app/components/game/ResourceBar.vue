@@ -1,21 +1,27 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 
 const store = useGameStore()
 
-const formattedMoney = computed(() =>
-  Math.floor(store.money).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
-)
+const formattedMoney = computed(() => {
+  const value = Math.floor(store.money)
+  return value >= 1e6
+    ? `$${formatCompactNumber(value)}`
+    : value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+})
+
+const formattedCigarPrice = computed(() => {
+  const value = store.effectiveSalePrice
+  return value >= 1e6 ? formatCompactNumber(value) : value.toFixed(2)
+})
 
 const readyCount = computed(() => store.readyBuildingIds.length)
 
 const prestigeMultiplierLabel = computed(() => {
   const value = store.totalPrestigeMultiplier
-  if (value <= 1) return null
-  if (value < 1000) return `${value.toFixed(value < 10 ? 2 : 1)}x`
-  if (value < 1e6) return `${(value / 1000).toFixed(1)}Kx`
-  return `${value.toExponential(2)}x`
+  return value <= 1 ? null : formatMultiplier(value)
 })
 
 function collectAll() {
@@ -36,7 +42,7 @@ function collectAll() {
     </div>
     <div class="resource">
       <span class="label"><Icon name="mdi:tag-outline" /> Cigar price</span>
-      <span class="value">${{ store.effectiveSalePrice.toFixed(2) }}</span>
+      <span class="value">${{ formattedCigarPrice }}</span>
     </div>
     <div class="resource">
       <span class="label"><Icon name="mdi:factory" /> Town Hall</span>

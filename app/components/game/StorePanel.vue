@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { STORE_ITEMS } from '#game/config/store.config.js'
 import { DECORATIONS } from '#game/config/decorations.config.js'
+import { formatCompactNumber } from '#game/util/format.js'
 
 const emit = defineEmits(['close', 'place-decoration'])
 const store = useGameStore()
@@ -76,7 +77,7 @@ function placeDecoration(decoration) {
             <span v-if="!row.canBuy && row.reason" class="warn">{{ reasonLabel(row.reason) }}</span>
           </div>
           <button :disabled="!row.canBuy" @click="buy(row)">
-            ${{ row.item.cost.toLocaleString() }}
+            ${{ formatCompactNumber(row.item.cost) }}
           </button>
         </div>
       </div>
@@ -89,7 +90,7 @@ function placeDecoration(decoration) {
             <span class="detail">{{ row.decoration.description }}</span>
           </div>
           <button :disabled="!row.canAfford" @click="placeDecoration(row.decoration)">
-            ${{ row.decoration.cost.toLocaleString() }}
+            ${{ formatCompactNumber(row.decoration.cost) }}
           </button>
         </div>
       </div>

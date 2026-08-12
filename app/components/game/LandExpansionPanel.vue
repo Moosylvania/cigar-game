@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { formatCompactNumber } from '#game/util/format.js'
 
 const emit = defineEmits(['close'])
 const store = useGameStore()
@@ -31,10 +32,10 @@ function doExpand() {
       <template v-if="next">
         <p class="note">
           Next tier requires Town Hall level {{ next.requiredTownHallLevel }} and costs
-          ${{ next.cost.toLocaleString() }}.
+          ${{ formatCompactNumber(next.cost) }}.
         </p>
         <button :disabled="!result.ok" @click="doExpand">
-          <template v-if="result.ok"><Icon name="mdi:map-plus" /> Expand for ${{ next.cost.toLocaleString() }}</template>
+          <template v-if="result.ok"><Icon name="mdi:map-plus" /> Expand for ${{ formatCompactNumber(next.cost) }}</template>
           <template v-else>{{ reasonText[result.reason] ?? 'Unavailable' }}</template>
         </button>
       </template>

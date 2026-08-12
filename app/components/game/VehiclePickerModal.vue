@@ -2,6 +2,7 @@
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { VEHICLE_TIERS, getVehicleTier, getVehicleSpritePath } from '#game/config/vehicles.config.js'
+import { formatCompactNumber } from '#game/util/format.js'
 
 const props = defineProps({
   // null/undefined = filling an empty slot (buyVehicle); a tier id = the
@@ -87,11 +88,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
           <span class="item-icon"><img :src="getVehicleSpritePath(row.tier.id)" :alt="row.tier.name" /></span>
           <div class="info">
             <span class="name">{{ row.tier.name }}</span>
-            <span class="detail">{{ row.tier.capacityPerHour.toLocaleString() }} cigars/hr</span>
+            <span class="detail">{{ formatCompactNumber(row.tier.capacityPerHour) }} cigars/hr</span>
             <span v-if="!row.canBuy && row.reason" class="warn" :class="{ current: row.isCurrent }">{{ reasonText[row.reason] ?? 'Unavailable' }}</span>
           </div>
           <button :disabled="!row.canBuy" @click="buy(row)">
-            ${{ row.tier.cost.toLocaleString() }}
+            ${{ formatCompactNumber(row.tier.cost) }}
           </button>
         </div>
       </div>

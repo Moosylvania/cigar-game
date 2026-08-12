@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { formatDuration } from '#game/util/time.js'
+import { formatCompactNumber } from '#game/util/format.js'
 
 const store = useGameStore()
 
@@ -25,9 +26,9 @@ function dismiss() {
       <p class="note">You were away for {{ awaySummary }}.</p>
       <p class="earned">
         <Icon name="mdi:cash-multiple" />
-        +${{ Math.floor(earnings.moneyEarned).toLocaleString() }}
+        +${{ formatCompactNumber(earnings.moneyEarned) }}
       </p>
-      <p class="note">from {{ Math.floor(earnings.cigarsSold).toLocaleString() }} cigars automatically rolled and sold.</p>
+      <p class="note">from {{ formatCompactNumber(earnings.cigarsSold) }} cigars automatically rolled and sold.</p>
       <button @click="dismiss">Nice</button>
     </div>
   </div>

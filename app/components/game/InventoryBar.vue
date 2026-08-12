@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { BUILDING_CONFIGS } from '#game/config/buildings/index.js'
+import { formatCompactNumber } from '#game/util/format.js'
 
 const store = useGameStore()
 
@@ -44,7 +45,7 @@ const items = computed(() =>
       <span class="swatch" :style="{ '--swatch': item.color }"><Icon :name="item.icon" /></span>
       <span class="label">{{ item.label }}</span>
       <span class="amount">
-        {{ item.amount.toLocaleString() }}<template v-if="item.capacity != null"> / {{ item.capacity.toLocaleString() }}</template>
+        {{ formatCompactNumber(item.amount) }}<template v-if="item.capacity != null"> / {{ formatCompactNumber(item.capacity) }}</template>
       </span>
       <Icon v-if="item.isNearFull" name="mdi:alert-outline" class="warn-icon" />
     </div>

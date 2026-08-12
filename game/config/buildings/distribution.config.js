@@ -22,9 +22,11 @@ export const distributionConfig = {
   color: '#3a5a7a',
   icon: 'mdi:warehouse',
   footprint: { width: 2, height: 2 },
+  // cigarStorageCapacity growth solved so level 10 lands on exactly 25000
+  // (40 * 2.04481^9 = 25000), starting from a level-1 base of 40.
   levels: baseLevels.map((level, i) => ({
     ...level,
     maxVehicleSlots: 1 + i,
-    cigarStorageCapacity: Math.round(40 * 1.32 ** i)
+    cigarStorageCapacity: Math.round(40 * 2.04481 ** i)
   }))
 }

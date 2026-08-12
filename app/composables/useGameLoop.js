@@ -1,4 +1,5 @@
 import { useGameStore } from '~/stores/game.js'
+import { now } from '#game/util/time.js'
 
 /**
  * Fixed-timestep game loop: accumulates real elapsed time and calls the
@@ -22,6 +23,14 @@ export function useGameLoop() {
       store.tick()
       accumulator -= TICK_SECONDS
     }
+
+    // The shared display clock updates every frame, independent of the
+    // once-per-simulated-second tick() above - tying it to the same
+    // once-a-second cadence made any countdown under ~2s effectively freeze
+    // (only one or two nowMs values ever landed inside a short batch's
+    // lifetime before it finished). Game logic itself still only resolves
+    // once per second; this only makes the *readout* smooth.
+    store.setNow(now())
 
     rafId = requestAnimationFrame(frame)
   }

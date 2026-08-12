@@ -11,7 +11,8 @@ export const VEHICLE_TIERS = [
   { id: 'box_truck', name: 'Box Truck', cost: 800, capacityPerHour: 60, icon: 'mdi:truck' },
   { id: 'semi', name: 'Semi Trailer', cost: 5000, capacityPerHour: 150, icon: 'mdi:truck-trailer' },
   { id: 'cargo_train', name: 'Cargo Train', cost: 40000, capacityPerHour: 600, icon: 'mdi:train-car-box' },
-  { id: 'freight_train', name: 'Freight Train', cost: 250000, capacityPerHour: 2500, icon: 'mdi:train-car-container' }
+  { id: 'freight_train', name: 'Freight Train', cost: 250000, capacityPerHour: 2500, icon: 'mdi:train-car-container' },
+  { id: 'bullet_train', name: 'Bullet Train', cost: 2000000, capacityPerHour: 15000, icon: 'mdi:train-variant' }
 ]
 
 export function getVehicleTier(id) {
@@ -19,13 +20,16 @@ export function getVehicleTier(id) {
 }
 
 // Each tier has 4 directional sprites (n/e/s/w) in the pack; "_s"
-// (facing the viewer) reads best as a static store/panel icon.
+// (facing the viewer) reads best as a static store/panel icon. The pack
+// has no dedicated bullet train art, so it borrows freight_train's sprite
+// (the biggest train asset available) rather than showing a broken image.
 const VEHICLE_SPRITE_FILE = {
   truck: 'pickup_truck',
   box_truck: 'box_truck',
   semi: 'semi_trailer',
   cargo_train: 'cargo_train',
-  freight_train: 'freight_train'
+  freight_train: 'freight_train',
+  bullet_train: 'freight_train'
 }
 
 export function getVehicleSpritePath(tierId) {

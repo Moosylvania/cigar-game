@@ -22,9 +22,15 @@ import { now } from '../util/time.js'
  * @param {import('../types/building.js').PlacedBuilding} building
  * @param {import('../types/state.js').GameState} state
  * @param {{ speedMultipliers: Object<string, number>, batchSizeMultipliers: Object<string, number> }} labMultipliers
+ * @param {number} [maxAmount] - caps how much this call may pull from input,
+ *   on top of the building's own capacity/available-storage caps. Used by
+ *   runAutomation/fastForwardAutomation to give same-type buildings a fair
+ *   proportional share of shared input instead of first-come-first-served
+ *   (see computeFairShares) - a manual player click never passes this, so
+ *   it always defaults to "no extra cap".
  * @returns {StartBatchResult}
  */
-export function startBatch(building, state, labMultipliers) {
+export function startBatch(building, state, labMultipliers, maxAmount = Infinity) {
   const stage = getPipelineStage(building.type)
   if (!stage) return { ok: false, reason: 'not_a_pipeline_building' }
   if (!building.slot) return { ok: false, reason: 'no_slot' }
@@ -37,7 +43,7 @@ export function startBatch(building, state, labMultipliers) {
   let moved = capacity
   if (stage.inputKey) {
     const available = state.resources.storage[stage.inputKey]
-    moved = Math.min(capacity, available)
+    moved = Math.min(capacity, available, maxAmount)
     if (moved <= 0) return { ok: false, reason: 'no_input_available' }
     state.resources.storage[stage.inputKey] -= moved
   }
@@ -113,25 +119,79 @@ function buildingsInPipelineOrder(state) {
 }
 
 /**
+ * Buildings aren't singleton - a player can place several of the same
+ * pipeline type (e.g. 5 Fermentation Cellars), and they all draw from the
+ * same shared input storage. Splitting input by array/placement order
+ * (first-come-first-served) meant whichever building happened to iterate
+ * last would systematically starve every tick once demand exceeded supply,
+ * even though the others were running fine - not a fluke, a standing bias
+ * toward whichever building placed first. This instead gives every
+ * same-type building a share of the available input proportional to how
+ * much it's asking for, so a shortfall is spread across all of them
+ * (smaller batches for everyone) instead of concentrated on one building
+ * getting nothing.
+ * @param {number} availableInput
+ * @param {import('../types/building.js').PlacedBuilding[]} buildings - same type, all idle
+ * @param {Object} labMultipliers
+ * @returns {Map<import('../types/building.js').PlacedBuilding, number>}
+ */
+function computeFairShares(availableInput, buildings, labMultipliers) {
+  const batchSizeMultiplier = labMultipliers?.batchSizeMultipliers?.[buildings[0].type] ?? 1
+  const desired = buildings.map((b) => Math.round(getLevelStats(b.type, b.level).batchSize * batchSizeMultiplier))
+  const totalDesired = desired.reduce((sum, d) => sum + d, 0)
+
+  const shares = new Map()
+  if (totalDesired <= 0) {
+    buildings.forEach((b) => shares.set(b, 0))
+  } else if (totalDesired <= availableInput) {
+    buildings.forEach((b, i) => shares.set(b, desired[i]))
+  } else {
+    const ratio = availableInput / totalDesired
+    buildings.forEach((b, i) => shares.set(b, Math.floor(desired[i] * ratio)))
+  }
+  return shares
+}
+
+/**
  * Realtime automation: once a building has leveled up enough (see
  * game/config/automation.config.js), it auto-collects finished batches and
  * auto-starts new ones every tick instead of waiting for player clicks.
- * Runs in pipeline order so a freshly auto-collected upstream output is
- * available to auto-start a downstream batch in the same tick. An
+ * Collects run first for every building, then starts - so a freshly
+ * auto-collected upstream output is available to every downstream start
+ * this same tick regardless of type ordering. Starts are grouped by
+ * building type so duplicate buildings of the same type share input
+ * fairly (see computeFairShares) rather than first-come-first-served. An
  * automated Rolling House auto-collecting into a full Depot just overflows
  * silently each tick, same as a manual collect would.
  * @param {import('../types/state.js').GameState} state
  * @param {{ speedMultipliers: Object<string, number>, batchSizeMultipliers: Object<string, number> }} labMultipliers
  */
 export function runAutomation(state, labMultipliers) {
-  for (const building of buildingsInPipelineOrder(state)) {
-    const { autoCollect, autoStart } = getAutomationTier(building.level)
+  const ordered = buildingsInPipelineOrder(state)
 
+  for (const building of ordered) {
+    const { autoCollect } = getAutomationTier(building.level)
     if (building.slot.status === 'ready' && autoCollect) {
       collectBatch(building, state, labMultipliers)
     }
-    if (building.slot.status === 'idle' && autoStart) {
-      startBatch(building, state, labMultipliers)
+  }
+
+  const idleByType = new Map()
+  for (const building of ordered) {
+    const { autoStart } = getAutomationTier(building.level)
+    if (building.slot.status !== 'idle' || !autoStart) continue
+    const list = idleByType.get(building.type) ?? []
+    list.push(building)
+    idleByType.set(building.type, list)
+  }
+
+  for (const buildings of idleByType.values()) {
+    const stage = getPipelineStage(buildings[0].type)
+    const availableInput = state.resources.storage[stage.inputKey]
+    const shares = computeFairShares(availableInput, buildings, labMultipliers)
+    for (const building of buildings) {
+      const share = shares.get(building)
+      if (share > 0) startBatch(building, state, labMultipliers, share)
     }
   }
 }
@@ -142,13 +202,16 @@ export function runAutomation(state, labMultipliers) {
  * input" instead of stepping through simulated time. Buildings without
  * full automation are left alone here - resolveOfflineSlots already
  * handled their single in-flight batch, and the player collects/restarts
- * by hand. Runs in pipeline order so upstream cycles feed downstream
- * input, same as runAutomation. Rolling's cycles are additionally capped
- * by remaining Depot storage room (cappedOutput) - it can't produce more
- * offline than the Depot could ever hold, which is also why this no
- * longer earns money directly: selling now happens in a separate
- * throughput-limited pass (see economy.js exportCigars), called once over
- * the same elapsed window after this finishes producing.
+ * by hand. Collects run before any starts (same reasoning as
+ * runAutomation), and same-type buildings split the shared input pool
+ * evenly up front instead of the first ones in array order exhausting it
+ * (see computeFairShares/runAutomation for the realtime version of this).
+ * Rolling's cycles are additionally capped by remaining Depot storage room
+ * (cappedOutput) - it can't produce more offline than the Depot could ever
+ * hold, which is also why this no longer earns money directly: selling
+ * now happens in a separate throughput-limited pass (see economy.js
+ * exportCigars), called once over the same elapsed window after this
+ * finishes producing.
  * @param {import('../types/state.js').GameState} state
  * @param {number} elapsedSeconds
  * @param {{ speedMultipliers: Object<string, number>, batchSizeMultipliers: Object<string, number> }} labMultipliers
@@ -156,48 +219,68 @@ export function runAutomation(state, labMultipliers) {
 export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
   if (elapsedSeconds <= 0) return
 
-  for (const building of buildingsInPipelineOrder(state)) {
+  const ordered = buildingsInPipelineOrder(state).filter((building) => {
     const { autoCollect, autoStart } = getAutomationTier(building.level)
-    if (!autoCollect || !autoStart) continue
+    return autoCollect && autoStart
+  })
 
-    const stage = getPipelineStage(building.type)
-    if (!stage) continue
-
+  for (const building of ordered) {
     if (building.slot.status === 'ready') {
       collectBatch(building, state, labMultipliers)
     }
+  }
+
+  const idleByType = new Map()
+  for (const building of ordered) {
     if (building.slot.status !== 'idle') continue
+    const list = idleByType.get(building.type) ?? []
+    list.push(building)
+    idleByType.set(building.type, list)
+  }
 
-    const levelStats = getLevelStats(building.type, building.level)
-    const batchSizeMultiplier = labMultipliers?.batchSizeMultipliers?.[building.type] ?? 1
-    const capacity = Math.round(levelStats.batchSize * batchSizeMultiplier)
-    const speedMultiplier = labMultipliers?.speedMultipliers?.[building.type] ?? 1
-    const durationSeconds = levelStats.processingDurationSeconds * speedMultiplier
-    if (capacity <= 0 || durationSeconds <= 0) continue
+  for (const buildings of idleByType.values()) {
+    const stage = getPipelineStage(buildings[0].type)
+    if (!stage) continue
 
-    const cyclesByTime = Math.floor(elapsedSeconds / durationSeconds)
-    const cyclesByInput = Math.floor(state.resources.storage[stage.inputKey] / capacity)
-    let cycles = Math.max(0, Math.min(cyclesByTime, cyclesByInput))
+    // Even split of the shared input pool across same-type buildings, up
+    // front - each then independently computes its own cycles/partial
+    // batch against its share instead of the whole pool.
+    const inputSharePerBuilding = state.resources.storage[stage.inputKey] / buildings.length
 
-    if (stage.cappedOutput) {
-      const remainingCapacity = getCigarStorageCapacity(state, labMultipliers) - state.resources.storage[stage.outputKey]
-      const cyclesByOutputCapacity = Math.floor(Math.max(0, remainingCapacity) / capacity)
-      cycles = Math.min(cycles, cyclesByOutputCapacity)
-    }
+    for (const building of buildings) {
+      const levelStats = getLevelStats(building.type, building.level)
+      const batchSizeMultiplier = labMultipliers?.batchSizeMultipliers?.[building.type] ?? 1
+      const capacity = Math.round(levelStats.batchSize * batchSizeMultiplier)
+      const speedMultiplier = labMultipliers?.speedMultipliers?.[building.type] ?? 1
+      const durationSeconds = levelStats.processingDurationSeconds * speedMultiplier
+      if (capacity <= 0 || durationSeconds <= 0) continue
 
-    let remainingSeconds = elapsedSeconds
-    if (cycles > 0) {
-      state.resources.storage[stage.inputKey] -= cycles * capacity
-      state.resources.storage[stage.outputKey] += cycles * capacity
-      remainingSeconds -= cycles * durationSeconds
-    }
+      const cyclesByTime = Math.floor(elapsedSeconds / durationSeconds)
+      const cyclesByInput = Math.floor(inputSharePerBuilding / capacity)
+      let cycles = Math.max(0, Math.min(cyclesByTime, cyclesByInput))
 
-    // Leave one partial batch in progress so the player comes back to
-    // something already underway rather than a fully idle building.
-    if (remainingSeconds > 0) {
-      const startResult = startBatch(building, state, labMultipliers)
-      if (startResult.ok && building.slot.status === 'processing') {
-        building.slot.completesAt -= remainingSeconds * 1000
+      if (stage.cappedOutput) {
+        const remainingCapacity = getCigarStorageCapacity(state, labMultipliers) - state.resources.storage[stage.outputKey]
+        const cyclesByOutputCapacity = Math.floor(Math.max(0, remainingCapacity) / capacity)
+        cycles = Math.min(cycles, cyclesByOutputCapacity)
+      }
+
+      let remainingSeconds = elapsedSeconds
+      let remainingShare = inputSharePerBuilding
+      if (cycles > 0) {
+        state.resources.storage[stage.inputKey] -= cycles * capacity
+        state.resources.storage[stage.outputKey] += cycles * capacity
+        remainingSeconds -= cycles * durationSeconds
+        remainingShare -= cycles * capacity
+      }
+
+      // Leave one partial batch in progress so the player comes back to
+      // something already underway rather than a fully idle building.
+      if (remainingSeconds > 0) {
+        const startResult = startBatch(building, state, labMultipliers, remainingShare)
+        if (startResult.ok && building.slot.status === 'processing') {
+          building.slot.completesAt -= remainingSeconds * 1000
+        }
       }
     }
   }

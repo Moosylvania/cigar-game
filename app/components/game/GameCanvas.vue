@@ -234,7 +234,7 @@ function render() {
 
     const isDragging = props.editMode && building.id === draggingId
     if (isDragging) ctx.globalAlpha = 0.7
-    drawBuilding(ctx, building, config, rect, tilePx)
+    drawBuilding(ctx, building, config, rect, tilePx, store.nowMs)
     if (isDragging) {
       ctx.globalAlpha = 1
       ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
@@ -260,7 +260,7 @@ function render() {
     if (target) {
       const config = store.getBuildingConfig(target.type)
       const rect = getBuildingRect(target, camera)
-      drawBuilding(ctx, target, config, rect, tilePx)
+      drawBuilding(ctx, target, config, rect, tilePx, store.nowMs)
       drawTutorialRing(ctx, rect)
     }
   }

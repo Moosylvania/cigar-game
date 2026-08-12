@@ -6,6 +6,7 @@ import { getLevelStats, MAX_BUILDING_LEVEL } from '#game/config/buildings/index.
 import { getAutomationTier, AUTO_COLLECT_LEVEL, AUTO_START_LEVEL } from '#game/config/automation.config.js'
 import { TOWN_HALL_GATING } from '#game/config/townHallGating.config.js'
 import { formatDuration } from '#game/util/time.js'
+import { formatCompactNumber } from '#game/util/format.js'
 import DistributionPanel from './DistributionPanel.vue'
 
 const props = defineProps({
@@ -48,7 +49,7 @@ function getStatEntries(type, levelStats, labMultipliers) {
     const cigarStorageCapacity = Math.round(levelStats.cigarStorageCapacity * capacityMultiplier)
     return [
       { key: 'fleetSlots', label: 'Fleet slots', value: `${levelStats.maxVehicleSlots}` },
-      { key: 'cigarCapacity', label: 'Cigar storage capacity', value: cigarStorageCapacity.toLocaleString() }
+      { key: 'cigarCapacity', label: 'Cigar storage capacity', value: formatCompactNumber(cigarStorageCapacity) }
     ]
   }
 
@@ -131,11 +132,16 @@ const currentStatEntries = computed(() => {
   // Rolling's cigars go straight into that capped Depot storage and
   // overflow if it's neglected.
   if (building.value.type === 'rolling') {
-    entries.push({ key: 'salePrice', label: 'Sale price', value: `$${store.effectiveSalePrice.toFixed(2)}/cigar` })
+    const salePrice = store.effectiveSalePrice
+    entries.push({
+      key: 'salePrice',
+      label: 'Sale price',
+      value: `$${salePrice >= 1e6 ? formatCompactNumber(salePrice) : salePrice.toFixed(2)}/cigar`
+    })
     entries.push({
       key: 'depotFullness',
       label: 'Depot storage',
-      value: `${Math.floor(store.storage.cigars).toLocaleString()} / ${store.cigarStorageCapacity.toLocaleString()}`
+      value: `${formatCompactNumber(store.storage.cigars)} / ${formatCompactNumber(store.cigarStorageCapacity)}`
     })
   }
   return entries
@@ -157,7 +163,7 @@ const upgradePreviewRows = computed(() =>
 
 const upgradeRemainingSeconds = computed(() => {
   if (!building.value?.upgrade) return 0
-  return Math.max(0, (building.value.upgrade.completesAt - Date.now()) / 1000)
+  return Math.max(0, (building.value.upgrade.completesAt - store.nowMs) / 1000)
 })
 
 const canAffordUpgrade = computed(
@@ -166,7 +172,7 @@ const canAffordUpgrade = computed(
 
 const slotRemainingSeconds = computed(() => {
   if (!building.value?.slot?.completesAt) return 0
-  return Math.max(0, (building.value.slot.completesAt - Date.now()) / 1000)
+  return Math.max(0, (building.value.slot.completesAt - store.nowMs) / 1000)
 })
 
 const inputAvailable = computed(() => {
@@ -190,7 +196,7 @@ function doStartBatch() {
 function doCollectBatch() {
   const result = store.collectBatch(props.buildingId)
   if (result.overflowed > 0) {
-    const message = `${Math.floor(result.overflowed).toLocaleString()} cigars overflowed the Depot and were lost!`
+    const message = `${formatCompactNumber(result.overflowed)} cigars overflowed the Depot and were lost!`
     collectFeedback.value = message
     setTimeout(() => {
       if (collectFeedback.value === message) collectFeedback.value = null
@@ -274,12 +280,12 @@ function doCollectBatch() {
         <template v-else>
           <button :disabled="!canAffordUpgrade" @click="doUpgrade">
             <Icon name="mdi:arrow-up-bold-circle-outline" />
-            Upgrade to Lv {{ upgradePlan.targetLevel }} — ${{ upgradePlan.cost.toLocaleString() }}
+            Upgrade to Lv {{ upgradePlan.targetLevel }} — ${{ formatCompactNumber(upgradePlan.cost) }}
             ({{ formatDuration(upgradePlan.durationSeconds) }})
           </button>
           <button v-if="showSingleLevelOption" class="secondary" :disabled="!canAffordSingleLevel" @click="doSingleLevelUpgrade">
             <Icon name="mdi:chevron-up" />
-            Just Lv {{ singleLevelPlan.targetLevel }} — ${{ singleLevelPlan.cost.toLocaleString() }}
+            Just Lv {{ singleLevelPlan.targetLevel }} — ${{ formatCompactNumber(singleLevelPlan.cost) }}
             ({{ formatDuration(singleLevelPlan.durationSeconds) }})
           </button>
           <div v-if="upgradePreviewRows.length" class="upgrade-preview">

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { getVehicleTier, getVehicleSpritePath } from '#game/config/vehicles.config.js'
+import { formatCompactNumber } from '#game/util/format.js'
 import VehiclePickerModal from './VehiclePickerModal.vue'
 
 const store = useGameStore()
@@ -42,12 +43,12 @@ const isNearFull = computed(() => cigarCapacity.value > 0 && cigarsStored.value 
   <div class="distribution-panel">
     <div class="fleet-summary">
       <span>{{ store.fleetSlotsUsed }} / {{ store.fleetMaxSlots }} fleet slots</span>
-      <span>{{ store.fleetCapacityPerHour.toLocaleString() }} cigars/hr export rate</span>
+      <span>{{ formatCompactNumber(store.fleetCapacityPerHour) }} cigars/hr export rate</span>
     </div>
 
     <div class="depot-storage" :class="{ warn: isNearFull }">
       <Icon :name="isNearFull ? 'mdi:alert-outline' : 'mdi:warehouse'" />
-      <span>Cigar storage: {{ cigarsStored.toLocaleString() }} / {{ cigarCapacity.toLocaleString() }}</span>
+      <span>Cigar storage: {{ formatCompactNumber(cigarsStored) }} / {{ formatCompactNumber(cigarCapacity) }}</span>
     </div>
 
     <div class="fleet-list">
@@ -65,7 +66,7 @@ const isNearFull = computed(() => cigarCapacity.value > 0 && cigarsStored.value 
         <div class="vehicle-info">
           <template v-if="row.occupied">
             <span class="name">{{ row.tier.name }}</span>
-            <span class="detail">+{{ row.tier.capacityPerHour.toLocaleString() }} cigars/hr &middot; tap to upgrade</span>
+            <span class="detail">+{{ formatCompactNumber(row.tier.capacityPerHour) }} cigars/hr &middot; tap to upgrade</span>
           </template>
           <template v-else>
             <span class="name">Add Vehicle</span>

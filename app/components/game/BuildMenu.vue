@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { BUILDING_CONFIGS } from '#game/config/buildings/index.js'
+import { formatCompactNumber } from '#game/util/format.js'
 
 const props = defineProps({
   activeType: { type: String, default: null }
@@ -39,7 +40,7 @@ function toggle(type) {
     >
       <span class="swatch"><Icon :name="item.config.icon" /></span>
       <span class="name">{{ item.config.displayName }}</span>
-      <span class="cost">${{ item.cost.toLocaleString() }}</span>
+      <span class="cost">${{ formatCompactNumber(item.cost) }}</span>
     </button>
   </div>
 </template>

@@ -1,4 +1,4 @@
-import { TOBACCO_VARIETIES } from '../config/prestige.config.js'
+import { PRESTIGE_TIERS } from '../config/prestige.config.js'
 
 /**
  * Patches a loaded v1 save's state against shape changes made after it was
@@ -49,7 +49,7 @@ function repairState(state) {
     state.tutorial = { active: false, dismissed: true, currentStep: 0 }
   }
 
-  // Prestige/tobacco-variety/trophy/epic-research system added after some
+  // Prestige/tier/trophy/epic-research system added after some
   // saves already existed - backfill the fields it reads/writes so an old
   // save doesn't crash the first time it's touched.
   if (state.meta && typeof state.meta.lifetimeMoneyEarned !== 'number') {
@@ -58,7 +58,6 @@ function repairState(state) {
 
   if (!state.prestige || typeof state.prestige !== 'object') {
     state.prestige = {
-      varietyPoints: new Array(TOBACCO_VARIETIES.length).fill(0),
       unlockedCount: 1,
       totalPrestigeCount: 0,
       lifetimeMoneyEarnedAllTime: 0,
@@ -66,12 +65,23 @@ function repairState(state) {
       unlockedTrophyIds: []
     }
   } else {
-    if (!Array.isArray(state.prestige.varietyPoints)) state.prestige.varietyPoints = new Array(TOBACCO_VARIETIES.length).fill(0)
-    if (typeof state.prestige.unlockedCount !== 'number') state.prestige.unlockedCount = 1
+    // Tier advancement used to be automatic (derived straight from
+    // all-time earnings); it's now an explicit per-tier choice the player
+    // makes (see prestigeEngine.js advanceTier), so unlockedCount is no
+    // longer something to recompute here - whatever value an existing
+    // save already has is preserved as-is (clamped to a sane range). Any
+    // tiers their all-time earnings already qualify for beyond that just
+    // show up as eligible-to-advance in the Prestige panel, same as a
+    // player who earns their way there from now on.
+    if (typeof state.prestige.unlockedCount !== 'number' || state.prestige.unlockedCount < 1) {
+      state.prestige.unlockedCount = 1
+    }
+    state.prestige.unlockedCount = Math.min(state.prestige.unlockedCount, PRESTIGE_TIERS.length)
     if (typeof state.prestige.totalPrestigeCount !== 'number') state.prestige.totalPrestigeCount = 0
     if (typeof state.prestige.lifetimeMoneyEarnedAllTime !== 'number') state.prestige.lifetimeMoneyEarnedAllTime = 0
     if (!state.prestige.epicResearchLevels || typeof state.prestige.epicResearchLevels !== 'object') state.prestige.epicResearchLevels = {}
     if (!Array.isArray(state.prestige.unlockedTrophyIds)) state.prestige.unlockedTrophyIds = []
+    delete state.prestige.varietyPoints
   }
 }
 

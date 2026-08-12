@@ -1,5 +1,4 @@
 import { EPIC_RESEARCH, getEpicResearchDefinition } from '../config/epicResearch.config.js'
-import { TOBACCO_VARIETIES } from '../config/prestige.config.js'
 
 const PIPELINE_TYPES = ['nursery', 'field', 'curing', 'steam', 'fermentation', 'rolling']
 
@@ -22,17 +21,6 @@ export function getEpicNextLevelCost(research, currentLevel) {
 }
 
 /**
- * @param {import('../types/prestige.js').PrestigeState} prestigeState
- * @param {ReturnType<typeof getEpicResearchDefinition>} research
- * @returns {boolean}
- */
-export function isEpicResearchUnlocked(prestigeState, research) {
-  const varietyIndex = TOBACCO_VARIETIES.findIndex((v) => v.id === research.requiredVariety)
-  const points = prestigeState.varietyPoints[varietyIndex] ?? 0
-  return points >= research.requiredPoints
-}
-
-/**
  * @param {import('../types/state.js').GameState} state
  * @param {string} researchId
  * @returns {{ ok: boolean, reason?: string, cost?: number }}
@@ -40,7 +28,6 @@ export function isEpicResearchUnlocked(prestigeState, research) {
 export function canBuyEpicResearch(state, researchId) {
   const research = getEpicResearchDefinition(researchId)
   if (!research) return { ok: false, reason: 'unknown_research' }
-  if (!isEpicResearchUnlocked(state.prestige, research)) return { ok: false, reason: 'locked' }
 
   const level = getEpicResearchLevel(state.prestige, researchId)
   if (level >= research.maxLevel) return { ok: false, reason: 'max_level' }
@@ -68,8 +55,8 @@ export function buyEpicResearch(state, researchId) {
 
 /**
  * Same merge pattern as labEngine.getMultipliers, plus
- * prestigeMultiplierBoost - an extra factor layered onto the tobacco
- * variety product (see prestigeEngine.getTotalPrestigeMultiplier).
+ * prestigeMultiplierBoost - an extra factor layered onto the prestige tier
+ * product (see prestigeEngine.getTotalPrestigeMultiplier).
  * @param {import('../types/prestige.js').PrestigeState} prestigeState
  * @returns {{ salePriceMultiplier: number, speedMultipliers: Object<string, number>, batchSizeMultipliers: Object<string, number>, depotCapacityMultiplier: number, fleetThroughputMultiplier: number, prestigeMultiplierBoost: number }}
  */

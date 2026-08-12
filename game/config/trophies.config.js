@@ -1,9 +1,9 @@
-import { TOBACCO_VARIETIES } from './prestige.config.js'
+import { PRESTIGE_TIERS } from './prestige.config.js'
 
 /**
  * Trophies tied to prestige progress - a handful of prestige-count
- * milestones plus one per tobacco variety, unlocked the moment that
- * variety unlocks. Purely collectible (no mechanical effect); see
+ * milestones plus one per prestige tier, unlocked the moment that tier
+ * unlocks. Purely collectible (no mechanical effect); see
  * prestigeEngine.checkTrophies for when these get evaluated.
  * @typedef {Object} TrophyDefinition
  * @property {string} id
@@ -43,11 +43,11 @@ export const TROPHIES = [
     icon: 'mdi:trophy-award',
     check: (p) => p.totalPrestigeCount >= 100
   },
-  ...TOBACCO_VARIETIES.map((variety, index) => ({
-    id: `unlock_${variety.id}`,
-    name: `${variety.name} Grower`,
-    description: `Unlock the ${variety.name} tobacco tier.`,
-    icon: 'mdi:leaf',
+  ...PRESTIGE_TIERS.map((tier, index) => ({
+    id: `unlock_${tier.id}`,
+    name: `${tier.name} Reached`,
+    description: `Reach the ${tier.name} prestige tier.`,
+    icon: tier.icon,
     check: (p) => p.unlockedCount > index
   }))
 ]

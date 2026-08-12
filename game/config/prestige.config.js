@@ -1,40 +1,41 @@
 /**
- * Prestige currency: 10 "tobacco varieties", unlocked one at a time in
- * order. Prestiging (resetting the farm) pays out points into whichever
- * variety is currently active (the highest unlocked one) based on this
- * run's lifetime money earned. Once the active variety's point total
- * crosses its unlockThreshold, the next variety unlocks and becomes active
- * for future payouts - already-unlocked varieties keep the points they
- * have and keep contributing their own multiplier forever. Colors darken
- * tier over tier, like a leaf curing further with each grade.
+ * Prestige currency: 10 tiers, unlocked in order purely by how much money
+ * you've ever earned (all-time, across every prestige - see
+ * prestige.lifetimeMoneyEarnedAllTime). unlockThreshold is a cumulative
+ * dollar amount, not an abstract "points" currency - the moment your
+ * all-time earnings cross a tier's threshold, it unlocks, however many
+ * prestiges that took. No separate banking step, no risk of a big single
+ * run "wasting" progress by not hitting a threshold exactly. The theme
+ * escalates from a backyard hobby to a full cosmic ascension - each tier a
+ * more absurd scale of tobacco empire than the last.
  * @type {{ id: string, name: string, description: string, icon: string, color: string, unlockThreshold: number }[]}
  */
-export const TOBACCO_VARIETIES = [
-  { id: 'virginia', name: 'Virginia', description: 'Bright, mild leaf - every grower starts here.', icon: 'mdi:leaf', color: '#d4a94a', unlockThreshold: 50 },
-  { id: 'burley', name: 'Burley', description: 'Air-cured and nutty, burns clean.', icon: 'mdi:leaf', color: '#c99a4a', unlockThreshold: 150 },
-  { id: 'oriental', name: 'Oriental', description: 'Small-leaf, sun-cured, intensely aromatic.', icon: 'mdi:leaf', color: '#bf8a3f', unlockThreshold: 400 },
-  { id: 'cavendish', name: 'Cavendish', description: 'Heat-cured and pressed, sweet and dark.', icon: 'mdi:leaf', color: '#b37a38', unlockThreshold: 1000 },
-  { id: 'latakia', name: 'Latakia', description: 'Fire-cured over smoldering hardwood.', icon: 'mdi:leaf', color: '#a66a30', unlockThreshold: 2500 },
-  { id: 'perique', name: 'Perique', description: 'Pressure-fermented in oak, famously rare.', icon: 'mdi:leaf', color: '#8f5828', unlockThreshold: 6000 },
-  { id: 'kentucky', name: 'Kentucky', description: 'Fire-cured, heavy-bodied dark leaf.', icon: 'mdi:leaf', color: '#7a4820', unlockThreshold: 15000 },
-  { id: 'connecticut', name: 'Connecticut Shade', description: 'Shade-grown under cheesecloth for a silk-smooth wrapper.', icon: 'mdi:leaf', color: '#6b3c1c', unlockThreshold: 35000 },
-  { id: 'corojo', name: 'Corojo', description: 'Cuban-seed wrapper leaf, full flavor.', icon: 'mdi:leaf', color: '#4f2c16', unlockThreshold: 80000 },
-  { id: 'habano', name: 'Habano', description: 'The pinnacle wrapper leaf - the rarest tobacco there is.', icon: 'mdi:leaf', color: '#331c0f', unlockThreshold: Infinity }
+export const PRESTIGE_TIERS = [
+  { id: 'backyard', name: 'Backyard Grower', description: 'Where every empire starts: a few plants behind the house.', icon: 'mdi:sprout', color: '#8a9a5b', unlockThreshold: 500000 },
+  { id: 'county_fair', name: 'County Fair Champion', description: 'Blue ribbons and bragging rights at the county fair.', icon: 'mdi:medal-outline', color: '#c9a227', unlockThreshold: 1500000 },
+  { id: 'state_monopoly', name: 'State Monopoly', description: 'You control the market for the entire state.', icon: 'mdi:city-variant-outline', color: '#4a7a9a', unlockThreshold: 4000000 },
+  { id: 'national_syndicate', name: 'National Syndicate', description: 'Coast to coast, your leaf is everywhere.', icon: 'mdi:flag-variant', color: '#8a4a9a', unlockThreshold: 10000000 },
+  { id: 'continental_empire', name: 'Continental Empire', description: 'An empire spanning the entire continent.', icon: 'mdi:earth', color: '#9a4a4a', unlockThreshold: 25000000 },
+  { id: 'global_conglomerate', name: 'Global Conglomerate', description: 'Every nation smokes what you grow.', icon: 'mdi:domain', color: '#d4a94a', unlockThreshold: 60000000 },
+  { id: 'orbital_greenhouse', name: 'Orbital Greenhouse', description: 'Farming has left the atmosphere.', icon: 'mdi:satellite-variant', color: '#4a6a9a', unlockThreshold: 150000000 },
+  { id: 'moon_base', name: 'Moon Base Harvest', description: 'Lunar soil, zero gravity, record yields.', icon: 'mdi:moon-waning-crescent', color: '#b8c4d4', unlockThreshold: 350000000 },
+  { id: 'heavenly_fields', name: 'Heavenly Fields', description: 'Even the angels are buying cartons.', icon: 'mdi:white-balance-sunny', color: '#f4e4b8', unlockThreshold: 800000000 },
+  { id: 'cosmic_ascendant', name: 'Cosmic Ascendant', description: "You've transcended farming. You ARE the harvest.", icon: 'mdi:star-four-points-outline', color: '#9a4ad4', unlockThreshold: Infinity }
 ]
 
-// Each variety's own points-to-multiplier curve:
-// multiplier(points) = 1 + (MAX_TIER_MULTIPLIER - 1) * points / (points + CURVE_HALF_POINT)
-// Approaches MAX_TIER_MULTIPLIER asymptotically as points grows - "up to
-// 1000x" per variety, never quite reaching it. CURVE_HALF_POINT is also
-// the point count that yields exactly half of the max (500x), and not
-// coincidentally matches Virginia's unlock threshold - by the time you
-// unlock the next tier, the one you just filled is already worth ~500x.
-export const MAX_TIER_MULTIPLIER = 1000
-export const CURVE_HALF_POINT = 50
-
-// Prestige point payout formula for a single prestige:
-// points = floor((lifetimeMoneyEarnedThisRun / POINTS_BASE) ^ POINTS_EXPONENT)
-// A square-root curve - diminishing per-run returns on purpose, so the
-// grind lives in prestiging repeatedly rather than maximizing one huge run.
-export const POINTS_BASE = 500000
-export const POINTS_EXPONENT = 0.5
+// Each tier's own multiplier grows from the fraction of its own dollar
+// "band" (from the previous tier's threshold up to its own) that your
+// all-time earnings have filled: multiplier(bandProgress) = 1 +
+// (MAX_TIER_MULTIPLIER - 1) * bandProgress / (bandProgress + halfPoint),
+// where halfPoint is CURVE_HALF_FRACTION of that band's width (or of the
+// tier's own starting threshold, for the last tier, which has no finite
+// band). Approaches MAX_TIER_MULTIPLIER asymptotically, never quite
+// reaching it. Once your earnings cross into the *next* tier's band, this
+// tier's own progress is capped at 100% (its multiplier freezes) - moving
+// on locks in what you'd built up, same as the tiers before it.
+// Kept deliberately modest (10x, not 1000x) per tier - these multiply
+// together across up to 10 tiers, so even 10x each compounds to up to
+// 10^10 (10 billion) at full completion; 1000x each was compounding into
+// absurd (1e30-scale) totals after only a handful of tiers.
+export const MAX_TIER_MULTIPLIER = 10
+export const CURVE_HALF_FRACTION = 0.15

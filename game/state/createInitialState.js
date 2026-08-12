@@ -1,7 +1,6 @@
 import { createId } from '../util/id.js'
 import { now } from '../util/time.js'
 import { isPipelineBuilding } from '../config/pipeline.config.js'
-import { TOBACCO_VARIETIES } from '../config/prestige.config.js'
 
 // One of each pipeline building plus the depot, pre-placed and free, laid
 // out around the fixed Town Hall on the starting 6x6 (0-5, 0-5) region so a
@@ -82,14 +81,14 @@ export function createInitialState() {
       createdAt: timestamp,
       lastSavedAt: timestamp,
       // This run's lifetime money earned - resets to 0 each prestige, and
-      // is the input to the prestige points formula (see prestigeEngine.js).
-      // Not the same as resources.money, which can also be spent.
+      // is added to prestige.lifetimeMoneyEarnedAllTime when you do (see
+      // prestigeEngine.js). Not the same as resources.money, which can
+      // also be spent.
       lifetimeMoneyEarned: 0
     },
     // Survives prestige resets (see prestigeEngine.js doPrestige) - unlike
     // every other top-level field above, which goes back to fresh.
     prestige: {
-      varietyPoints: new Array(TOBACCO_VARIETIES.length).fill(0),
       unlockedCount: 1,
       totalPrestigeCount: 0,
       lifetimeMoneyEarnedAllTime: 0,

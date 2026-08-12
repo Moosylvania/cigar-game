@@ -29,24 +29,23 @@ import {
 import { canBuyStoreItem as engineCanBuyStoreItem, buyStoreItem as engineBuyStoreItem, getSeedsPerBatch } from '#game/engine/storeEngine.js'
 import {
   canPrestige as engineCanPrestige,
-  calculatePrestigePoints,
   getVarietyMultiplier,
   getTotalPrestigeMultiplier,
-  doPrestige as engineDoPrestige
+  doPrestige as engineDoPrestige,
+  canAdvanceTier as engineCanAdvanceTier,
+  advanceTier as engineAdvanceTier
 } from '#game/engine/prestigeEngine.js'
 import {
   getEpicMultipliers,
   getEpicResearchLevel as engineGetEpicResearchLevel,
   getEpicNextLevelCost,
   canBuyEpicResearch as engineCanBuyEpicResearch,
-  buyEpicResearch as engineBuyEpicResearch,
-  isEpicResearchUnlocked as engineIsEpicResearchUnlocked
+  buyEpicResearch as engineBuyEpicResearch
 } from '#game/engine/epicResearchEngine.js'
 import { getBuildingConfig } from '#game/config/buildings/index.js'
 import { TUTORIAL_STEPS } from '#game/config/tutorial.config.js'
-import { TOBACCO_VARIETIES } from '#game/config/prestige.config.js'
+import { PRESTIGE_TIERS } from '#game/config/prestige.config.js'
 import { TROPHIES } from '#game/config/trophies.config.js'
-import { getEpicResearchDefinition } from '#game/config/epicResearch.config.js'
 import { now } from '#game/util/time.js'
 
 export const useGameStore = defineStore('game', {
@@ -54,7 +53,15 @@ export const useGameStore = defineStore('game', {
     /** @type {import('#game/types/state.js').GameState} */
     game: createInitialState(),
     isLoaded: false,
-    offlineEarnings: null
+    offlineEarnings: null,
+    // One shared clock, advanced once per tick() rather than each countdown
+    // display calling Date.now() on its own - components read this instead
+    // so every timer in the UI recomputes off the same instant and steps
+    // together, instead of drifting apart at each component's own pace (and,
+    // since it's a real reactive field, computed()s that depend on it
+    // actually re-run every tick - unlike a raw Date.now() call, which Vue
+    // has no way to know changed and so never triggers a recompute).
+    nowMs: now()
   }),
 
   getters: {
@@ -125,26 +132,40 @@ export const useGameStore = defineStore('game', {
 
     prestige: (state) => state.game.prestige,
     lifetimeMoneyEarnedThisRun: (state) => state.game.meta.lifetimeMoneyEarned ?? 0,
-    prestigePointsPreview() {
-      return calculatePrestigePoints(this.lifetimeMoneyEarnedThisRun)
-    },
     canPrestige(state) {
       return engineCanPrestige(state.game)
     },
-    tobaccoVarieties() {
+    canAdvanceTier(state) {
+      return engineCanAdvanceTier(state.game)
+    },
+    prestigeTiers() {
       const prestige = this.prestige
-      return TOBACCO_VARIETIES.map((variety, index) => {
-        const points = prestige.varietyPoints[index] ?? 0
+      // Includes this run's not-yet-banked earnings, so a locked tier's
+      // progress bar (and "eligible to advance" state) updates live as you
+      // play, not only right after a prestige.
+      const allTimeEarned = (prestige.lifetimeMoneyEarnedAllTime ?? 0) + this.lifetimeMoneyEarnedThisRun
+      return PRESTIGE_TIERS.map((tier, index) => {
         const unlocked = index < prestige.unlockedCount
         const active = index === prestige.unlockedCount - 1
+        const bandStart = index === 0 ? 0 : PRESTIGE_TIERS[index - 1].unlockThreshold
+        const bandEnd = tier.unlockThreshold
+        const bandWidth = Number.isFinite(bandEnd) ? bandEnd - bandStart : null
+        const earnedInBand = Math.max(0, Math.min(allTimeEarned, Number.isFinite(bandEnd) ? bandEnd : allTimeEarned) - bandStart)
+        const progress = bandWidth ? Math.min(1, earnedInBand / bandWidth) : unlocked ? 1 : 0
         return {
-          variety,
+          tier,
           index,
-          points,
           unlocked,
           active,
-          multiplier: unlocked ? getVarietyMultiplier(points) : 1,
-          progress: !unlocked ? 0 : Number.isFinite(variety.unlockThreshold) ? Math.min(1, points / variety.unlockThreshold) : 1
+          // Only a tier the player has actually moved into contributes a
+          // multiplier - reaching the threshold alone isn't enough (see
+          // prestigeEngine.js advanceTier).
+          multiplier: unlocked ? getVarietyMultiplier(index, prestige.lifetimeMoneyEarnedAllTime ?? 0) : 1,
+          eligible: !unlocked && index === prestige.unlockedCount && progress >= 1,
+          unlockAt: bandStart,
+          earnedInBand,
+          bandWidth,
+          progress
         }
       })
     },
@@ -314,11 +335,6 @@ export const useGameStore = defineStore('game', {
       return getEpicNextLevelCost(research, this.getEpicResearchLevel(research.id))
     },
 
-    isEpicResearchUnlocked(researchId) {
-      const research = getEpicResearchDefinition(researchId)
-      return research ? engineIsEpicResearchUnlocked(this.game.prestige, research) : false
-    },
-
     canBuyEpicResearch(researchId) {
       return engineCanBuyEpicResearch(this.game, researchId)
     },
@@ -329,6 +345,10 @@ export const useGameStore = defineStore('game', {
 
     doPrestige() {
       return engineDoPrestige(this.game)
+    },
+
+    advanceTier() {
+      return engineAdvanceTier(this.game)
     },
 
     nextTutorialStep() {
@@ -366,8 +386,19 @@ export const useGameStore = defineStore('game', {
      * economy.js exportCigars). useGameLoop calls tick() once per
      * simulated second, so elapsedSeconds is always 1 here.
      */
+    /**
+     * Advances the shared display clock every animation frame (see
+     * useGameLoop.js) - kept separate from tick()'s own once-per-second
+     * nowMs write below so countdown text stays smooth even though game
+     * logic itself only resolves once a second.
+     */
+    setNow(atTime) {
+      this.nowMs = atTime
+    },
+
     tick() {
       const atTime = now()
+      this.nowMs = atTime
       resolveOfflineSlots(this.game, atTime)
       resolveCompletedUpgrades(this.game, atTime)
       runAutomation(this.game, this.combinedMultipliers)

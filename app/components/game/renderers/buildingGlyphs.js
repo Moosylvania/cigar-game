@@ -72,10 +72,115 @@ const GLYPHS = {
   distribution: truckShape
 }
 
+// Solid, fully-opaque hues instead of a washed-out translucent white for
+// idle - a semi-transparent fill loses contrast fast depending on what
+// sprite/terrain happens to sit under it. Warm off-white (not the earlier
+// blue, which read as out of place next to the gold/green palette
+// everywhere else) still stays clearly distinct from processing's gold and
+// ready's green.
 const SLOT_COLORS = {
-  idle: 'rgba(255,255,255,0.55)',
+  idle: '#f2ede0',
   processing: '#d4a94a',
   ready: '#7bc96f'
+}
+
+// Shared by every on-tile chip (name, level, countdown) so they read as one
+// consistent type scale instead of each picking its own multiplier and
+// drifting apart at different zoom levels. Keeps growing well past the old
+// 14px ceiling as you zoom in (rather than pinning early and effectively
+// shrinking relative to the tile), but still has a cap - the bottom row's
+// zone widths below are fixed fractions of the tile, and a truly uncapped
+// font eventually needs more room than three chips packed into one row can
+// ever provide, no matter how far you zoom in. chipHeightFor mirrors
+// drawLabelChip's own padding math exactly (not an approximation) so
+// anything that needs to know a chip's height up front - to bottom-anchor
+// it, or to size the status circle to match, see getStatusIndicatorHitbox
+// below - gets the real value instead of a guess that could drift out of
+// sync if the padding constants change.
+function chipFontSize(tilePx) {
+  return Math.max(9, Math.min(26, tilePx * 0.1))
+}
+
+function chipHeightFor(tilePx) {
+  const fontSize = chipFontSize(tilePx)
+  return fontSize + fontSize * 0.38 * 2
+}
+
+/**
+ * Shrinks fontSize toward a floor until `text` fits within `maxWidth` -
+ * shared by drawLabelChip's own draw pass and by drawBuilding's up-front
+ * "how small would the bottom row need to be" pass (see drawLevelBadge/
+ * drawSlotIndicator), so two chips meant to share one row/size can agree
+ * on a single shared size instead of each independently fitting itself and
+ * landing on visibly different sizes whenever one has more text to shrink
+ * around than the other.
+ */
+function fitChipFontSize(ctx, text, fontSize, maxWidth) {
+  const paddingX = fontSize * 0.55
+  const availableTextWidth = Math.max(20, maxWidth - paddingX * 2)
+  ctx.font = `600 ${fontSize}px sans-serif`
+  const minFontSize = Math.max(7, fontSize * 0.65)
+  let size = fontSize
+  while (ctx.measureText(text).width > availableTextWidth && size > minFontSize) {
+    size -= 1
+    ctx.font = `600 ${size}px sans-serif`
+  }
+  return size
+}
+
+/**
+ * Small rounded pill behind light text - every on-tile label (name, batch
+ * countdown) uses this instead of a bare stroked text, since a stroke alone
+ * still loses contrast over light or busy patches of a sprite. anchorX/Y is
+ * the point named by `corner` - 'top-left'/'bottom-left' hang the chip off
+ * that corner, 'top-center'/'bottom-center' center it horizontally on
+ * anchorX instead - so callers never do their own width/height math.
+ * `maxWidth` keeps the chip from spilling past the tile's own edge (long
+ * names on a small tile at high zoom otherwise blow right through the tile
+ * boundary) - text first shrinks toward a floor size, then truncates with
+ * an ellipsis as a last resort if it still won't fit even at that floor.
+ * @returns {{ width: number, height: number }}
+ */
+function drawLabelChip(ctx, text, anchorX, anchorY, fontSize, corner = 'top-left', maxWidth = Infinity) {
+  fontSize = fitChipFontSize(ctx, text, fontSize, maxWidth)
+  const paddingX = fontSize * 0.55
+  const paddingY = fontSize * 0.38
+
+  ctx.font = `600 ${fontSize}px sans-serif`
+  let displayText = text
+  let textWidth = ctx.measureText(displayText).width
+  const availableTextWidth = Math.max(20, maxWidth - paddingX * 2)
+  while (textWidth > availableTextWidth && displayText.length > 1) {
+    displayText = displayText.slice(0, -1)
+    textWidth = ctx.measureText(`${displayText}…`).width
+  }
+  if (displayText !== text) displayText += '…'
+
+  const width = Math.min(maxWidth, textWidth + paddingX * 2)
+  const height = fontSize + paddingY * 2
+  const x = corner.includes('center') ? anchorX - width / 2 : corner.includes('left') ? anchorX : anchorX - width
+  const y = corner.includes('top') ? anchorY : anchorY - height
+
+  ctx.fillStyle = 'rgba(12, 16, 10, 0.8)'
+  roundRectPath(ctx, x, y, width, height, height / 2)
+  ctx.fill()
+
+  ctx.fillStyle = '#f5f3ea'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(displayText, x + paddingX, y + height / 2)
+
+  return { width, height }
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
 }
 
 /**
@@ -96,8 +201,17 @@ export function getStatusIndicatorHitbox(building, rect, tilePx) {
 
   // Same size and position regardless of status, so the indicator doesn't
   // jump around or change size as a batch goes idle -> processing -> ready.
-  const size = Math.max(11, tilePx * 0.2)
-  return { cx: rect.x + rect.width - size / 2, cy: rect.y + size / 2, radius: size / 3 }
+  // Bottom-right (not top-right) keeps it clear of the name label's chip up
+  // top and out of the way of the sprite's own detail, which tends to be
+  // busiest near the roofline. Diameter matches chipHeightFor exactly (not
+  // an independent tilePx-based guess) and sits on the same bottom margin
+  // the level/timer chips anchor to, so the circle's vertical center lines
+  // up with theirs instead of visibly sitting off-row.
+  const margin = tilePx * 0.06
+  const diameter = Math.max(14, chipHeightFor(tilePx))
+  const radius = diameter / 2
+  const bottomRowY = rect.y + rect.height - margin
+  return { cx: rect.x + rect.width - margin - radius, cy: bottomRowY - radius, radius }
 }
 
 /**
@@ -107,8 +221,13 @@ export function getStatusIndicatorHitbox(building, rect, tilePx) {
  * Also draws level pips, an upgrade-in-progress overlay, and a slot status
  * indicator.
  * @param {number} tilePx - rendered size of a single grid tile in pixels
+ * @param {number} nowMs - the store's shared clock, not a fresh Date.now()
+ *   per building - every building's countdown text reads the same instant,
+ *   so they all decrement together instead of each flipping to the next
+ *   second whenever *its own* completesAt happens to cross real time (which
+ *   drifts building to building based on when each batch was started).
  */
-export function drawBuilding(ctx, building, config, rect, tilePx) {
+export function drawBuilding(ctx, building, config, rect, tilePx, nowMs) {
   const isReady = building.slot?.status === 'ready'
 
   if (isReady) drawReadyGlow(ctx, rect)
@@ -140,15 +259,16 @@ export function drawBuilding(ctx, building, config, rect, tilePx) {
     }
   }
 
-  drawLevelPips(ctx, building.level, rect)
-  drawNameLabel(ctx, config.displayName, rect)
+  const bottomRow = computeBottomRowLayout(ctx, building, rect, tilePx)
+  drawLevelBadge(ctx, building.level, rect, bottomRow)
+  drawNameLabel(ctx, config.displayName, rect, tilePx)
 
   if (building.slot) {
-    drawSlotIndicator(ctx, building, rect, tilePx)
+    drawSlotIndicator(ctx, building, rect, tilePx, nowMs, bottomRow)
   }
 
   if (building.upgrade) {
-    drawUpgradeOverlay(ctx, building.upgrade, rect)
+    drawUpgradeOverlay(ctx, building.upgrade, rect, nowMs)
   }
 
   if (isReady) drawReadyBadge(ctx, building, rect, tilePx)
@@ -178,8 +298,14 @@ function drawReadyBadge(ctx, building, rect, tilePx) {
   ctx.beginPath()
   ctx.arc(x, y, radius, 0, Math.PI * 2)
   ctx.fill()
-  ctx.strokeStyle = 'rgba(0,0,0,0.5)'
-  ctx.lineWidth = 1.5
+  // A light ring first, then a dark one on top of it - together they hold
+  // up against both light and dark patches of whatever sprite/terrain the
+  // badge happens to sit over, where a single dark stroke alone can vanish.
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)'
+  ctx.lineWidth = 1
   ctx.stroke()
 
   ctx.strokeStyle = '#153018'
@@ -194,52 +320,83 @@ function drawReadyBadge(ctx, building, rect, tilePx) {
   ctx.restore()
 }
 
-function drawLevelPips(ctx, level, rect) {
-  const maxPips = 10
-  const pipSize = Math.max(2, rect.width / (maxPips * 2.2))
-  const totalWidth = maxPips * pipSize * 1.6
-  const startX = rect.x + (rect.width - totalWidth) / 2 + pipSize / 2
-  const y = rect.y + rect.height - pipSize - 2
+// Widest realistic countdown text ("MM:SS left", worst-case digits) - used
+// to size the bottom row instead of whatever the countdown actually says
+// right now. Sizing off the live text made the whole row visibly resize as
+// the countdown's own digit count changed (e.g. "12:31 left" -> "9:05
+// left" -> "0:04 left" needs less and less room) and jump the instant a
+// batch started or finished. Sizing off a fixed placeholder means the row
+// only ever changes size with zoom, never with what state a building is in
+// or how far along its countdown is.
+const WORST_CASE_TIMER_TEXT = '88:88 left'
 
-  for (let i = 0; i < maxPips; i++) {
-    ctx.fillStyle = i < level ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.25)'
-    ctx.beginPath()
-    ctx.arc(startX + i * pipSize * 1.6, y, pipSize / 2, 0, Math.PI * 2)
-    ctx.fill()
-  }
+/**
+ * Works out ONE font size shared by both bottom-row chips (level, batch
+ * countdown) before either is drawn - fitting each independently (as
+ * before) meant whichever one had more text to squeeze into its zone
+ * shrank on its own, so a short "Lv 4" stayed full-size right next to a
+ * "12:34 left" that had shrunk to fit - visibly different sizes on the
+ * same row. The level chip's zone is sized off its own actual text at the
+ * base size (it's always short - "Lv 1".."Lv 10" - so this is never the
+ * binding constraint) rather than a fixed fraction of the tile, which
+ * doesn't track font size the same way text metrics do and either wastes
+ * space or starves whichever chip it wasn't tuned around.
+ * @returns {{ fontSize: number, margin: number, levelZoneWidth: number, timerZoneWidth: number, bottomY: number }}
+ */
+function computeBottomRowLayout(ctx, building, rect, tilePx) {
+  const baseFontSize = chipFontSize(tilePx)
+  const margin = tilePx * 0.06
+
+  ctx.font = `600 ${baseFontSize}px sans-serif`
+  const levelPaddingX = baseFontSize * 0.55
+  const levelZoneWidth = ctx.measureText(`Lv ${building.level}`).width + levelPaddingX * 2
+
+  const indicatorReserve = Math.max(14, chipHeightFor(tilePx)) + margin
+  const timerZoneLeft = rect.x + margin * 2 + levelZoneWidth
+  const timerZoneWidth = Math.max(20, rect.x + rect.width - indicatorReserve - timerZoneLeft)
+
+  const fontSize = fitChipFontSize(ctx, WORST_CASE_TIMER_TEXT, baseFontSize, timerZoneWidth)
+
+  return { fontSize, margin, levelZoneWidth, timerZoneWidth, bottomY: rect.y + rect.height - margin }
 }
 
-/** Building type name, drawn along the top edge in white with a dark
- * outline so it stays legible over any sprite/background. */
-function drawNameLabel(ctx, displayName, rect) {
-  if (!displayName || rect.width < 34) return
-
-  // Floor only, no cap - matches the pips/countdown text below, which
-  // scale purely proportionally with the building's own on-screen size
-  // rather than leveling off at high zoom.
-  const fontSize = Math.min(18, rect.width * 0.08)
+/** A "Lv X" chip, bottom-left - replaces a 10-dot pip row that was too
+ * faint/small to read at a glance. `bottomRow` (see computeBottomRowLayout)
+ * carries the font size already agreed with the countdown chip, so the two
+ * always render at the same size instead of each fitting independently. */
+function drawLevelBadge(ctx, level, rect, bottomRow) {
   ctx.save()
   ctx.beginPath()
   ctx.rect(rect.x, rect.y, rect.width, rect.height)
   ctx.clip()
-  ctx.font = `600 ${fontSize}px sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'top'
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = Math.max(2, fontSize * 0.28)
-  ctx.strokeStyle = 'rgba(0,0,0,0.75)'
-  ctx.fillStyle = '#ffffff'
-  const x = rect.x + rect.width / 2
-  const y = rect.y + 5
-  ctx.strokeText(displayName, x, y)
-  ctx.fillText(displayName, x, y)
+  drawLabelChip(ctx, `Lv ${level}`, rect.x + bottomRow.margin, bottomRow.bottomY, bottomRow.fontSize, 'bottom-left', bottomRow.levelZoneWidth)
+  ctx.restore()
+}
+
+/** Building type name, top-center on a dark chip - a stroke alone still
+ * loses contrast over light or busy patches of a sprite, where a solid
+ * backdrop reads cleanly regardless of what's underneath. Sized off
+ * tilePx (not rect.width) so a 2x2 building's name isn't twice the size of
+ * a 1x1 building's at the same zoom level. */
+function drawNameLabel(ctx, displayName, rect, tilePx) {
+  if (!displayName || rect.width < 34) return
+
+  const fontSize = chipFontSize(tilePx)
+  const margin = tilePx * 0.06
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(rect.x, rect.y, rect.width, rect.height)
+  ctx.clip()
+  drawLabelChip(ctx, displayName, rect.x + rect.width / 2, rect.y + margin, fontSize, 'top-center', rect.width - margin * 2)
   ctx.restore()
 }
 
 /** Idle/processing status button - a "+" hints "tap to start" when idle;
  * a countdown shows while processing. 'ready' is handled by drawReadyBadge
- * instead, so it isn't lost as a tiny corner dot. */
-function drawSlotIndicator(ctx, building, rect, tilePx) {
+ * instead, so it isn't lost as a tiny corner dot. `bottomRow` (see
+ * computeBottomRowLayout) carries the font size/zone already agreed with
+ * the level chip, so the two always render at the same size. */
+function drawSlotIndicator(ctx, building, rect, tilePx, nowMs, bottomRow) {
   const slot = building.slot
   if (slot.status === 'ready') return
 
@@ -252,8 +409,14 @@ function drawSlotIndicator(ctx, building, rect, tilePx) {
   ctx.beginPath()
   ctx.arc(cx, cy, radius, 0, Math.PI * 2)
   ctx.fill()
-  ctx.strokeStyle = 'rgba(0,0,0,0.45)'
-  ctx.lineWidth = 1.5
+  // Light ring then dark ring, same reasoning as the ready badge below -
+  // holds contrast over both light and dark sprite/terrain patches instead
+  // of relying on one dark stroke that can disappear over darker art.
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)'
+  ctx.lineWidth = 1
   ctx.stroke()
 
   if (slot.status === 'idle') {
@@ -270,25 +433,44 @@ function drawSlotIndicator(ctx, building, rect, tilePx) {
   }
   ctx.restore()
 
-  if (slot.status === 'processing' && slot.completesAt) {
-    const remaining = (slot.completesAt - Date.now()) / 1000
-    if (remaining > 0 && rect.width > 40) {
-      ctx.fillStyle = 'rgba(255,255,255,0.9)'
-      ctx.font = `${Math.max(9, rect.width * 0.09)}px sans-serif`
-      ctx.textAlign = 'center'
-      ctx.fillText(formatDuration(remaining), rect.x + rect.width / 2, rect.y + rect.height / 2 + rect.height * 0.32)
-    }
+  if (slot.status === 'processing' && slot.completesAt && rect.width > 40) {
+    // formatDuration already clamps to 0 rather than going negative, so
+    // this keeps showing "0:00 left" instead of the chip vanishing for the
+    // (up to ~1s) gap between the countdown reaching zero and tick()
+    // actually resolving the batch to 'ready' - a blank gap there read as
+    // the whole indicator flickering out and back.
+    const remaining = Math.max(0, (slot.completesAt - nowMs) / 1000)
+    // Right-aligned against the status button's own left edge (not
+    // centered in the middle zone) so the two read as one paired unit -
+    // countdown right next to the button it's counting down to.
+    const gap = bottomRow.margin * 0.6
+    const rightEdge = cx - radius - gap
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(rect.x, rect.y, rect.width, rect.height)
+    ctx.clip()
+    drawLabelChip(
+      ctx,
+      `${formatDuration(remaining)} left`,
+      rightEdge,
+      bottomRow.bottomY,
+      bottomRow.fontSize,
+      'bottom-right',
+      bottomRow.timerZoneWidth
+    )
+    ctx.restore()
   }
 }
 
-function drawUpgradeOverlay(ctx, upgrade, rect) {
+function drawUpgradeOverlay(ctx, upgrade, rect, nowMs) {
   ctx.fillStyle = 'rgba(0,0,0,0.45)'
   ctx.fillRect(rect.x, rect.y, rect.width, rect.height * 0.3)
 
   if (rect.width > 40) {
-    const remaining = (upgrade.completesAt - Date.now()) / 1000
+    const remaining = (upgrade.completesAt - nowMs) / 1000
     ctx.fillStyle = '#fff'
-    ctx.font = `${Math.max(9, rect.width * 0.1)}px sans-serif`
+    ctx.font = `${Math.min(16, Math.max(9, rect.width * 0.1))}px sans-serif`
     ctx.textAlign = 'center'
     ctx.fillText(
       remaining > 0 ? formatDuration(remaining) : '...',

@@ -1,8 +1,9 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { LAB_RESEARCH } from '#game/config/lab.config.js'
 import { EPIC_RESEARCH } from '#game/config/epicResearch.config.js'
+import { formatCompactNumber } from '#game/util/format.js'
 
 const emit = defineEmits(['close'])
 const store = useGameStore()
@@ -52,37 +53,53 @@ function buy(researchId) {
   store.buyResearch(researchId)
 }
 
+// Click-and-hold to keep buying levels without a separate click per level -
+// fires once immediately (so a plain tap/click still works normally),
+// waits HOLD_DELAY_MS to make sure it's a hold and not just a click, then
+// repeats every HOLD_REPEAT_MS. A no-op past max level or when unaffordable
+// (buyResearch/buyEpicResearch just return {ok: false}) so holding down on
+// a maxed-out or too-expensive row is harmless, not an error.
+const HOLD_DELAY_MS = 400
+const HOLD_REPEAT_MS = 120
+let holdTimeout = null
+let holdInterval = null
+
+function startHold(action) {
+  stopHold()
+  action()
+  holdTimeout = setTimeout(() => {
+    holdInterval = setInterval(action, HOLD_REPEAT_MS)
+  }, HOLD_DELAY_MS)
+}
+
+function stopHold() {
+  clearTimeout(holdTimeout)
+  clearInterval(holdInterval)
+  holdTimeout = null
+  holdInterval = null
+}
+
 function epicEffectLabel(research, level) {
   if (level <= 0) return null
   if (research.effect.type === 'prestige_multiplier_boost') {
     const pct = (((1 + research.perLevelValue) ** level - 1) * 100).toFixed(0)
-    return `+${pct}% to every tobacco tier's multiplier`
+    return `+${pct}% to every prestige tier's multiplier`
   }
   return effectLabel(research, level)
-}
-
-function requiredVarietyRow(research) {
-  return store.tobaccoVarieties.find((v) => v.variety.id === research.requiredVariety) ?? null
 }
 
 const epicRows = computed(() =>
   EPIC_RESEARCH.map((research) => {
     const level = store.getEpicResearchLevel(research.id)
     const maxed = level >= research.maxLevel
-    const unlocked = store.isEpicResearchUnlocked(research.id)
     const cost = maxed ? null : store.getNextEpicResearchCost(research)
-    const varietyRow = requiredVarietyRow(research)
     return {
       research,
       level,
       maxed,
-      unlocked,
       cost,
       current: epicEffectLabel(research, level),
-      canBuy: unlocked && !maxed && store.money >= cost,
-      lockLabel: varietyRow
-        ? `Requires ${research.requiredPoints.toLocaleString()} ${varietyRow.variety.name} points (have ${Math.floor(varietyRow.points).toLocaleString()})`
-        : ''
+      canBuy: !maxed && store.money >= cost
     }
   })
 )
@@ -90,6 +107,8 @@ const epicRows = computed(() =>
 function buyEpic(researchId) {
   store.buyEpicResearch(researchId)
 }
+
+onBeforeUnmount(stopHold)
 </script>
 
 <template>
@@ -110,15 +129,22 @@ function buyEpic(researchId) {
               <span class="level">Lv {{ row.level }}/{{ row.research.maxLevel }}</span>
             </div>
             <span class="detail">{{ row.research.description }}</span>
-            <span v-if="row.current" class="current-effect">{{ row.current }} so far</span>
+            <span v-if="row.current" class="current-effect">{{ row.current }}</span>
             <div class="progress-track">
               <div class="progress-fill" :style="{ width: `${(row.level / row.research.maxLevel) * 100}%` }" />
             </div>
           </div>
           <span v-if="row.maxed" class="status">MAX</span>
-          <button v-else :disabled="!row.canBuy" @click="buy(row.research.id)">
+          <button
+            v-else
+            :disabled="!row.canBuy"
+            @pointerdown="startHold(() => buy(row.research.id))"
+            @pointerup="stopHold"
+            @pointerleave="stopHold"
+            @pointercancel="stopHold"
+          >
             +{{ (row.research.perLevelValue * 100).toFixed(0) }}%<br />
-            ${{ row.cost.toLocaleString() }}
+            ${{ formatCompactNumber(row.cost) }}
           </button>
         </div>
       </div>
@@ -126,30 +152,34 @@ function buyEpic(researchId) {
       <div class="epic-header">
         <Icon name="mdi:crown" />
         <h4>Epic Research</h4>
-        <span class="epic-subtitle">Gated behind prestige tobacco tiers</span>
       </div>
 
       <div class="research-list">
-        <div v-for="row in epicRows" :key="row.research.id" class="research-row epic" :class="{ maxed: row.maxed, locked: !row.unlocked }">
-          <span class="research-icon"><Icon :name="row.unlocked ? row.research.icon : 'mdi:lock-outline'" /></span>
+        <div v-for="row in epicRows" :key="row.research.id" class="research-row epic" :class="{ maxed: row.maxed }">
+          <span class="research-icon"><Icon :name="row.research.icon" /></span>
           <div class="info">
             <div class="title-line">
               <span class="name">{{ row.research.name }}</span>
               <span class="level">Lv {{ row.level }}/{{ row.research.maxLevel }}</span>
             </div>
             <span class="detail">{{ row.research.description }}</span>
-            <span v-if="row.current" class="current-effect">{{ row.current }} so far</span>
-            <span v-if="!row.unlocked" class="lock-label">{{ row.lockLabel }}</span>
-            <div v-else class="progress-track">
+            <span v-if="row.current" class="current-effect">{{ row.current }}</span>
+            <div class="progress-track">
               <div class="progress-fill epic-fill" :style="{ width: `${(row.level / row.research.maxLevel) * 100}%` }" />
             </div>
           </div>
           <span v-if="row.maxed" class="status">MAX</span>
-          <button v-else-if="row.unlocked" :disabled="!row.canBuy" @click="buyEpic(row.research.id)">
+          <button
+            v-else
+            :disabled="!row.canBuy"
+            @pointerdown="startHold(() => buyEpic(row.research.id))"
+            @pointerup="stopHold"
+            @pointerleave="stopHold"
+            @pointercancel="stopHold"
+          >
             +{{ (row.research.perLevelValue * 100).toFixed(0) }}%<br />
-            ${{ row.cost.toLocaleString() }}
+            ${{ formatCompactNumber(row.cost) }}
           </button>
-          <span v-else class="status locked-status"><Icon name="mdi:lock-outline" /></span>
         </div>
       </div>
     </div>
@@ -254,14 +284,6 @@ function buyEpic(researchId) {
     border-color: $color-money;
     background: rgba(123, 201, 111, 0.08);
   }
-
-  &.epic:not(.locked) {
-    border-color: $color-accent;
-  }
-
-  &.locked {
-    opacity: 0.6;
-  }
 }
 
 .epic-header {
@@ -279,24 +301,8 @@ function buyEpic(researchId) {
   }
 }
 
-.epic-subtitle {
-  font-size: 0.7rem;
-  color: $color-text-muted;
-}
-
 .epic-fill {
   background: $color-accent;
-}
-
-.lock-label {
-  font-size: 0.7rem;
-  color: $color-text-muted;
-  font-style: italic;
-}
-
-.locked-status {
-  font-size: 1rem;
-  color: $color-text-muted;
 }
 
 .research-icon {

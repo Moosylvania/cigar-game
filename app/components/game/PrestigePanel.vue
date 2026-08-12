@@ -1,46 +1,59 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 
 const emit = defineEmits(['close'])
 const store = useGameStore()
 
-const confirming = ref(false)
+// null = no pending confirmation; 'prestige' = plain reset+bank; 'advance'
+// = reset+bank AND move up into the next eligible tier. Two distinct
+// actions rather than one, so earning enough for the next tier never
+// silently moves the player into it - they have to choose to.
+const pendingAction = ref(null)
 const feedback = ref(null)
 
-const pointsPreview = computed(() => store.prestigePointsPreview)
+const dollarsPreview = computed(() => store.lifetimeMoneyEarnedThisRun)
 const canPrestigeResult = computed(() => store.canPrestige)
-
-function formatMultiplier(value) {
-  if (value < 1000) return `${value.toFixed(value < 10 ? 2 : 1)}x`
-  if (value < 1e6) return `${(value / 1000).toFixed(1)}Kx`
-  return `${value.toExponential(2)}x`
-}
+const canAdvanceResult = computed(() => store.canAdvanceTier)
+const nextEligibleTier = computed(() => store.prestigeTiers.find((row) => row.eligible)?.tier ?? null)
 
 const totalMultiplierLabel = computed(() => formatMultiplier(store.totalPrestigeMultiplier))
 
 function requestPrestige() {
   if (!canPrestigeResult.value.ok) return
-  confirming.value = true
+  pendingAction.value = 'prestige'
 }
 
-function cancelPrestige() {
-  confirming.value = false
+function requestAdvance() {
+  if (!canAdvanceResult.value.ok) return
+  pendingAction.value = 'advance'
 }
 
-function confirmPrestige() {
-  const result = store.doPrestige()
-  confirming.value = false
-  if (!result.ok) return
-  const varietyName = store.tobaccoVarieties.find((v) => v.variety.id === result.varietyId)?.variety.name
-  feedback.value = result.unlockedNewVariety
-    ? `Prestiged! +${result.pointsEarned} ${varietyName} points - new tobacco tier unlocked!`
-    : `Prestiged! +${result.pointsEarned} ${varietyName} points.`
+function cancelAction() {
+  pendingAction.value = null
+}
+
+function showFeedback(message) {
+  feedback.value = message
   setTimeout(() => {
-    if (feedback.value) feedback.value = null
+    if (feedback.value === message) feedback.value = null
   }, 3200)
 }
 
+function confirmAction() {
+  if (pendingAction.value === 'advance') {
+    const result = store.advanceTier()
+    pendingAction.value = null
+    if (!result.ok) return
+    showFeedback(`Advanced to ${result.newTierName}! Your farm has reset.`)
+  } else {
+    const result = store.doPrestige()
+    pendingAction.value = null
+    if (!result.ok) return
+    showFeedback(`Prestiged! +$${formatCompactNumber(result.dollarsEarned)} added to your all-time total.`)
+  }
+}
 </script>
 
 <template>
@@ -61,11 +74,11 @@ function confirmPrestige() {
         </div>
         <div class="overview-row">
           <span class="overview-label">This run's lifetime earnings</span>
-          <span class="overview-value">${{ Math.floor(store.lifetimeMoneyEarnedThisRun).toLocaleString() }}</span>
+          <span class="overview-value">${{ formatCompactNumber(store.lifetimeMoneyEarnedThisRun) }}</span>
         </div>
         <div class="overview-row">
-          <span class="overview-label">Prestige points if you prestige now</span>
-          <span class="overview-value highlight">+{{ pointsPreview.toLocaleString() }}</span>
+          <span class="overview-label">All-time earnings (across every prestige)</span>
+          <span class="overview-value highlight">${{ formatCompactNumber(store.prestige.lifetimeMoneyEarnedAllTime) }}</span>
         </div>
         <div class="overview-row">
           <span class="overview-label">Times prestiged</span>
@@ -74,50 +87,67 @@ function confirmPrestige() {
 
         <p class="explainer">
           Prestiging resets your farm - buildings, money, land, and Lab research all go back to
-          the start - in exchange for permanent tobacco points, which multiply all future money
-          earned forever. Points always go to your currently active tobacco variety below.
+          the start - in exchange for adding this run's earnings to your all-time total, which
+          multiplies all future money earned forever. Your tier never changes just from earning
+          enough - once a tier's threshold is reached it becomes available below, but moving up
+          into it (and resetting again) is your call.
         </p>
 
-        <template v-if="!confirming">
+        <template v-if="!pendingAction">
           <button class="prestige-btn" :disabled="!canPrestigeResult.ok" @click="requestPrestige">
             <Icon name="mdi:crown" />
-            {{ canPrestigeResult.ok ? `Prestige Now (+${pointsPreview.toLocaleString()} points)` : 'Not enough progress yet' }}
+            {{ canPrestigeResult.ok ? `Prestige Now (+$${formatCompactNumber(dollarsPreview)})` : 'Not enough progress yet' }}
           </button>
+          <button v-if="nextEligibleTier" class="advance-btn" @click="requestAdvance">
+            <Icon name="mdi:arrow-up-bold-circle-outline" />
+            Advance to {{ nextEligibleTier.name }} (resets your farm)
+          </button>
+        </template>
+        <template v-else-if="pendingAction === 'prestige'">
+          <div class="confirm-row">
+            <span>Reset your farm, adding +${{ formatCompactNumber(dollarsPreview) }} to your all-time total?</span>
+            <div class="confirm-buttons">
+              <button class="confirm" @click="confirmAction">Confirm</button>
+              <button class="cancel" @click="cancelAction">Cancel</button>
+            </div>
+          </div>
         </template>
         <template v-else>
           <div class="confirm-row">
-            <span>Reset your farm for +{{ pointsPreview.toLocaleString() }} points?</span>
+            <span>Reset your farm and move up to {{ nextEligibleTier?.name }}? Every tier below stays locked in at its current bonus.</span>
             <div class="confirm-buttons">
-              <button class="confirm" @click="confirmPrestige">Confirm</button>
-              <button class="cancel" @click="cancelPrestige">Cancel</button>
+              <button class="confirm" @click="confirmAction">Confirm</button>
+              <button class="cancel" @click="cancelAction">Cancel</button>
             </div>
           </div>
         </template>
       </div>
 
       <div class="section">
-        <h4>Tobacco Varieties</h4>
+        <h4>Prestige Tiers</h4>
         <div class="variety-list">
           <div
-            v-for="row in store.tobaccoVarieties"
-            :key="row.variety.id"
+            v-for="row in store.prestigeTiers"
+            :key="row.tier.id"
             class="variety-row"
-            :class="{ locked: !row.unlocked, active: row.active }"
+            :class="{ locked: !row.unlocked, active: row.active, eligible: row.eligible }"
           >
-            <span class="variety-icon" :style="{ background: row.unlocked ? `${row.variety.color}33` : undefined, color: row.unlocked ? row.variety.color : undefined }">
-              <Icon :name="row.unlocked ? row.variety.icon : 'mdi:lock-outline'" />
+            <span class="variety-icon" :style="{ background: row.unlocked ? `${row.tier.color}33` : undefined, color: row.unlocked ? row.tier.color : undefined }">
+              <Icon :name="row.unlocked ? row.tier.icon : row.eligible ? 'mdi:arrow-up-bold-circle-outline' : 'mdi:lock-outline'" />
             </span>
             <div class="info">
               <div class="title-line">
-                <span class="name">{{ row.variety.name }}</span>
+                <span class="name">{{ row.tier.name }}</span>
                 <span v-if="row.unlocked" class="multiplier">{{ formatMultiplier(row.multiplier) }}</span>
+                <span v-else-if="row.eligible" class="multiplier eligible-label">Ready!</span>
               </div>
-              <span class="detail">{{ row.variety.description }}</span>
-              <div v-if="row.unlocked && Number.isFinite(row.variety.unlockThreshold)" class="progress-track">
-                <div class="progress-fill" :style="{ width: `${row.progress * 100}%`, background: row.variety.color }" />
+              <span class="detail">{{ row.tier.description }}</span>
+              <div v-if="row.bandWidth" class="progress-track">
+                <div class="progress-fill" :style="{ width: `${row.progress * 100}%`, background: row.tier.color }" />
               </div>
-              <span v-if="row.unlocked" class="points">{{ Math.floor(row.points).toLocaleString() }}<template v-if="Number.isFinite(row.variety.unlockThreshold)"> / {{ row.variety.unlockThreshold.toLocaleString() }} to next tier</template></span>
-              <span v-else class="points locked-label">Locked</span>
+              <span v-if="row.unlocked" class="points">${{ formatCompactNumber(row.earnedInBand) }}<template v-if="row.bandWidth"> / ${{ formatCompactNumber(row.bandWidth) }} to next tier</template></span>
+              <span v-else-if="row.eligible" class="points eligible-label">Earned enough - advance above when you're ready</span>
+              <span v-else class="points locked-label">Locked - unlocks at ${{ formatCompactNumber(row.unlockAt) }} all-time earnings</span>
             </div>
           </div>
         </div>
@@ -285,6 +315,27 @@ function confirmPrestige() {
   }
 }
 
+.advance-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: $spacing-sm;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: $spacing-sm;
+  border-radius: $radius-sm;
+  border: 1px solid $color-money;
+  background: rgba(123, 201, 111, 0.18);
+  color: $color-money;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(123, 201, 111, 0.28);
+  }
+}
+
 .confirm-row {
   display: flex;
   flex-direction: column;
@@ -359,6 +410,15 @@ function confirmPrestige() {
   &.locked {
     opacity: 0.55;
   }
+
+  // Comes after .locked so it wins on opacity - an eligible tier is
+  // technically still "locked" (not yet selected), but should read as
+  // exciting/ready rather than dimmed out.
+  &.eligible {
+    opacity: 1;
+    border-color: $color-money;
+    border-style: dashed;
+  }
 }
 
 .variety-icon {
@@ -422,6 +482,16 @@ function confirmPrestige() {
   &.locked-label {
     font-style: italic;
   }
+
+  &.eligible-label {
+    color: $color-money;
+    font-weight: 600;
+    font-style: normal;
+  }
+}
+
+.multiplier.eligible-label {
+  color: $color-money;
 }
 
 .trophy-grid {
