@@ -13,7 +13,3 @@ function entryFor(townHallLevel) {
 export function maxLevelFor(townHallLevel) {
   return entryFor(townHallLevel).maxOtherBuildingLevel
 }
-
-export function maxLandTierFor(townHallLevel) {
-  return entryFor(townHallLevel).unlockedLandTier
-}

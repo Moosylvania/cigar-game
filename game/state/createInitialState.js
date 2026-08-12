@@ -58,8 +58,12 @@ export function createInitialState() {
         cigars: 0
       }
     },
+    // Starting territory is the fixed free region defined by
+    // STARTING_REGION in land.config.js - nothing to list here since it's
+    // implicit/always-owned. purchasedTiles holds every tile bought beyond
+    // that region one at a time (see landEngine.js).
     land: {
-      unlockedTier: 0
+      purchasedTiles: []
     },
     lab: {
       researchLevels: {}

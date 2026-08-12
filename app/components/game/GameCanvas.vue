@@ -1,16 +1,18 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { useClock } from '~/composables/useClock.js'
 import { drawGrid, screenToGrid } from './renderers/drawGrid.js'
 import { drawBuilding, getStatusIndicatorHitbox } from './renderers/buildingGlyphs.js'
 import { drawDecoration } from './renderers/decorationSprites.js'
-import { getLandTier, MAX_LAND_TIER } from '#game/config/land.config.js'
+import { MAX_REGION } from '#game/config/land.config.js'
 import { getDecorationDefinition } from '#game/config/decorations.config.js'
 
 const props = defineProps({
   placingType: { type: String, default: null },
   placingDecorationId: { type: String, default: null },
   editMode: { type: Boolean, default: false },
+  expandMode: { type: Boolean, default: false },
   tutorialHighlightType: { type: String, default: null },
   tutorialDim: { type: Boolean, default: false }
 })
@@ -18,29 +20,29 @@ const props = defineProps({
 const emit = defineEmits(['building-selected', 'decoration-selected', 'placed', 'place-failed'])
 
 const store = useGameStore()
+const { nowMs } = useClock()
 const canvasRef = ref(null)
 const containerRef = ref(null)
 
 const TILE_SIZE = 48
-const maxRegion = getLandTier(MAX_LAND_TIER).region
+const maxRegion = MAX_REGION
 
-// Land tiers are centered on the Town Hall's starting tile and grow
-// outward on all four sides (see land.config.js) - drawing the *entire*
-// locked territory up to maxRegion every time would still work visually
-// (it's symmetric now, unlike the old 0,0-anchored layout), but showing
-// only a modest ring of "coming soon" locked tiles around the current
-// unlocked region keeps the far-future tiles from dominating the view at
-// low land tiers. Clamped to maxRegion on every side (not just the far
-// side) since the region itself can extend in the negative direction now.
+// Land is bought one tile at a time now (see land.config.js/landEngine.js),
+// centered on the Town Hall's starting tile - drawing the *entire* possible
+// territory out to maxRegion every time would swamp the view with locked
+// tiles at low ring counts, so instead this shows a modest ring of "coming
+// soon" locked/purchasable tiles around the current owned bounding box.
+// Clamped to maxRegion on every side (not just the far side) since the
+// bounding box can extend in the negative direction.
 const LOCKED_PREVIEW_PADDING = 3
 
 function getVisibleRegion() {
-  const unlocked = store.landRegion
+  const owned = store.ownedBounds
   return {
-    x0: Math.max(maxRegion.x0, unlocked.x0 - LOCKED_PREVIEW_PADDING),
-    y0: Math.max(maxRegion.y0, unlocked.y0 - LOCKED_PREVIEW_PADDING),
-    x1: Math.min(maxRegion.x1, unlocked.x1 + LOCKED_PREVIEW_PADDING),
-    y1: Math.min(maxRegion.y1, unlocked.y1 + LOCKED_PREVIEW_PADDING)
+    x0: Math.max(maxRegion.x0, owned.x0 - LOCKED_PREVIEW_PADDING),
+    y0: Math.max(maxRegion.y0, owned.y0 - LOCKED_PREVIEW_PADDING),
+    x1: Math.min(maxRegion.x1, owned.x1 + LOCKED_PREVIEW_PADDING),
+    y1: Math.min(maxRegion.y1, owned.y1 + LOCKED_PREVIEW_PADDING)
   }
 }
 
@@ -96,18 +98,18 @@ function baseCamera(zoom) {
   const usedWidth = regionWidthTiles * TILE_SIZE * scale
   const usedHeight = regionHeightTiles * TILE_SIZE * scale
 
-  // Center on the unlocked region's own midpoint, not the padded preview
+  // Center on the owned bounding box's own midpoint, not the padded preview
   // region's midpoint - the preview ring gets clamped against maxRegion
   // near the outer edge of the map (see getVisibleRegion), which can make
-  // it lopsided even though the unlocked area itself is always centered on
+  // it lopsided even though the owned area itself is always centered on
   // the Town Hall. Centering on the preview box in that situation would
   // drag the camera off the actual buildings toward whichever side still
   // has room to show locked tiles.
-  const unlocked = store.landRegion
-  const unlockedCenterX = (unlocked.x0 + unlocked.x1 + 1) / 2
-  const unlockedCenterY = (unlocked.y0 + unlocked.y1 + 1) / 2
-  const baseOffsetX = canvasWidth / 2 - unlockedCenterX * TILE_SIZE * scale
-  const baseOffsetY = canvasHeight / 2 - unlockedCenterY * TILE_SIZE * scale
+  const owned = store.ownedBounds
+  const ownedCenterX = (owned.x0 + owned.x1 + 1) / 2
+  const ownedCenterY = (owned.y0 + owned.y1 + 1) / 2
+  const baseOffsetX = canvasWidth / 2 - ownedCenterX * TILE_SIZE * scale
+  const baseOffsetY = canvasHeight / 2 - ownedCenterY * TILE_SIZE * scale
 
   return {
     scale,
@@ -203,9 +205,11 @@ function render() {
 
   drawGrid(ctx, {
     maxRegion: getVisibleRegion(),
-    unlockedRegion: store.landRegion,
+    ownedTileSet: store.ownedTileSet,
     tileSize: TILE_SIZE,
-    camera
+    camera,
+    expandMode: props.expandMode,
+    maxPurchasableRing: store.maxPurchasableRing
   })
 
   for (const decoration of store.decorations) {
@@ -235,7 +239,7 @@ function render() {
 
     const isDragging = props.editMode && building.id === draggingId
     if (isDragging) ctx.globalAlpha = 0.7
-    drawBuilding(ctx, building, config, rect, tilePx, store.nowMs)
+    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value)
     if (isDragging) {
       ctx.globalAlpha = 1
       ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
@@ -261,7 +265,7 @@ function render() {
     if (target) {
       const config = store.getBuildingConfig(target.type)
       const rect = getBuildingRect(target, camera)
-      drawBuilding(ctx, target, config, rect, tilePx, store.nowMs)
+      drawBuilding(ctx, target, config, rect, tilePx, nowMs.value)
       drawTutorialRing(ctx, rect)
     }
   }
@@ -489,6 +493,18 @@ function handlePointerUp(event) {
       emit('placed', result.decoration)
     } else {
       emit('place-failed', result.reason)
+    }
+    return
+  }
+
+  if (props.expandMode) {
+    // Only the Expand Territory toggle makes locked tiles buyable - a
+    // normal tap elsewhere in the game never spends money on land by
+    // accident. Tapping an already-owned tile while in this mode is a
+    // harmless no-op (buyLandTile rejects it as already_owned).
+    if (!store.isTileOwned(clickGridPos.x, clickGridPos.y)) {
+      const result = store.buyLandTile(clickGridPos.x, clickGridPos.y)
+      if (!result.ok) emit('place-failed', result.reason)
     }
     return
   }

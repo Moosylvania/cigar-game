@@ -7,7 +7,6 @@ import GameCanvas from '~/components/game/GameCanvas.vue'
 import BuildingUpgradePanel from '~/components/game/BuildingUpgradePanel.vue'
 import LabPanel from '~/components/game/LabPanel.vue'
 import StorePanel from '~/components/game/StorePanel.vue'
-import LandExpansionPanel from '~/components/game/LandExpansionPanel.vue'
 import PrestigePanel from '~/components/game/PrestigePanel.vue'
 import DecorationPanel from '~/components/game/DecorationPanel.vue'
 import TutorialCard from '~/components/game/TutorialCard.vue'
@@ -24,9 +23,9 @@ const selectedBuildingId = ref(null)
 const selectedDecorationInstanceId = ref(null)
 const showLab = ref(false)
 const showStore = ref(false)
-const showLand = ref(false)
 const showPrestige = ref(false)
 const layoutEditMode = ref(false)
+const expandMode = ref(false)
 const gameCanvasRef = ref(null)
 
 const placingDecorationName = computed(() => {
@@ -72,6 +71,7 @@ function onPlaced() {
 function startRearrange() {
   placingType.value = null
   selectedBuildingId.value = null
+  expandMode.value = false
   layoutEditMode.value = true
 }
 
@@ -83,6 +83,17 @@ function saveLayout() {
 function cancelRearrange() {
   gameCanvasRef.value?.cancelLayout()
   layoutEditMode.value = false
+}
+
+function startExpand() {
+  placingType.value = null
+  selectedBuildingId.value = null
+  layoutEditMode.value = false
+  expandMode.value = true
+}
+
+function stopExpand() {
+  expandMode.value = false
 }
 </script>
 
@@ -96,8 +107,12 @@ function cancelRearrange() {
         <span class="rearrange-hint">Placing {{ placingDecorationName }} - tap an empty tile</span>
         <button class="cancel" @click="cancelPlacingDecoration"><Icon name="mdi:close" /> Cancel</button>
       </template>
+      <template v-else-if="expandMode">
+        <span class="rearrange-hint">Tap a highlighted tile to buy it</span>
+        <button class="confirm" @click="stopExpand"><Icon name="mdi:check" /> Done</button>
+      </template>
       <template v-else-if="!layoutEditMode">
-        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLand = true"><Icon name="mdi:map-plus" /> Expand Territory</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startExpand"><Icon name="mdi:map-plus" /> Expand Territory</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLab = true"><Icon name="mdi:flask-outline" /> Research Lab</button>
         <button class="store-btn" :class="{ 'tutorial-glow': storeButtonHighlighted, 'tutorial-dim': store.isTutorialVisible && !storeButtonHighlighted }" @click="showStore = true">
           <Icon name="mdi:storefront-outline" /> Store
@@ -117,7 +132,7 @@ function cancelRearrange() {
     <div class="main-area">
       <BuildMenu
         :active-type="placingType"
-        :class="{ disabled: layoutEditMode || placingDecorationId, 'tutorial-dim': store.isTutorialVisible }"
+        :class="{ disabled: layoutEditMode || placingDecorationId || expandMode, 'tutorial-dim': store.isTutorialVisible }"
         @select="(type) => (placingType = type)"
       />
       <GameCanvas
@@ -125,6 +140,7 @@ function cancelRearrange() {
         :placing-type="placingType"
         :placing-decoration-id="placingDecorationId"
         :edit-mode="layoutEditMode"
+        :expand-mode="expandMode"
         :tutorial-highlight-type="tutorialHighlightBuildingType"
         :tutorial-dim="store.isTutorialVisible"
         @building-selected="onBuildingSelected"
@@ -141,7 +157,6 @@ function cancelRearrange() {
     />
     <LabPanel v-if="showLab" @close="showLab = false" />
     <StorePanel v-if="showStore" @close="showStore = false" @place-decoration="startPlacingDecoration" />
-    <LandExpansionPanel v-if="showLand" @close="showLand = false" />
     <PrestigePanel v-if="showPrestige" @close="showPrestige = false" />
     <DecorationPanel
       v-if="selectedDecorationInstanceId"

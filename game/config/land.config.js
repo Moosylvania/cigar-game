@@ -1,34 +1,56 @@
 /**
- * Land expansion tiers. Tier 0 is the free starting region (not purchasable).
- * Tiers 1-9 each require reaching a Town Hall level and paying a cost to
- * grow the unlocked grid region. Region bounds are inclusive grid coordinates.
- *
- * Every region is centered on (2,2) - the Town Hall's own starting position
- * (see createInitialState.js) - so each new tier grows the map outward on
- * all four sides around the existing buildings, instead of only extending
- * to the right/down from (0,0) and leaving the starter cluster stranded in
- * a corner as the map grows. Widths/heights per tier are unchanged from the
- * original 0,0-anchored version (so cost/pacing is identical) - only the
- * x0/y0/x1/y1 placement shifts to stay centered; that's also why some of
- * these bounds are negative (that's expected and fully supported - nothing
- * downstream assumes non-negative grid coordinates).
- * @type {{ tier: number, cost: number, requiredTownHallLevel: number, region: import('../types/grid.js').LandRegion }[]}
+ * Land expansion: a fixed free starting region (the same 6x6 area the
+ * starter buildings are placed in - see createInitialState.js), plus
+ * individually-purchasable tiles beyond it. Every tile's price is
+ * TILE_BASE_COST times its "ring" - the Chebyshev distance from the tile to
+ * the nearest edge of the starting region, so a tile directly touching the
+ * starting region costs 200, one two tiles out costs 400, ten tiles out
+ * costs 2000, and so on. MAX_RING bounds how far purchasing (and rendering)
+ * can ever reach, so the play area stays finite.
+ * @type {import('../types/grid.js').LandRegion}
  */
-export const LAND_TIERS = [
-  { tier: 0, cost: 0, requiredTownHallLevel: 1, region: { x0: 0, y0: 0, x1: 5, y1: 5 } },
-  { tier: 1, cost: 200, requiredTownHallLevel: 2, region: { x0: -2, y0: 0, x1: 6, y1: 5 } },
-  { tier: 2, cost: 500, requiredTownHallLevel: 3, region: { x0: -2, y0: -2, x1: 6, y1: 6 } },
-  { tier: 3, cost: 1200, requiredTownHallLevel: 4, region: { x0: -3, y0: -2, x1: 8, y1: 6 } },
-  { tier: 4, cost: 2800, requiredTownHallLevel: 5, region: { x0: -3, y0: -3, x1: 8, y1: 8 } },
-  { tier: 5, cost: 6000, requiredTownHallLevel: 6, region: { x0: -5, y0: -3, x1: 9, y1: 8 } },
-  { tier: 6, cost: 13000, requiredTownHallLevel: 7, region: { x0: -5, y0: -5, x1: 9, y1: 9 } },
-  { tier: 7, cost: 28000, requiredTownHallLevel: 8, region: { x0: -6, y0: -5, x1: 11, y1: 9 } },
-  { tier: 8, cost: 60000, requiredTownHallLevel: 9, region: { x0: -6, y0: -6, x1: 11, y1: 11 } },
-  { tier: 9, cost: 130000, requiredTownHallLevel: 10, region: { x0: -8, y0: -6, x1: 12, y1: 11 } }
-]
+export const STARTING_REGION = { x0: 0, y0: 0, x1: 5, y1: 5 }
 
-export function getLandTier(tier) {
-  return LAND_TIERS.find((t) => t.tier === tier) ?? null
+export const TILE_BASE_COST = 200
+export const MAX_RING = 30
+
+/**
+ * Chebyshev distance from a tile to the starting region's nearest edge - 0
+ * for any tile inside the region (already owned, free), 1 for a tile
+ * orthogonally OR diagonally touching the region's border, 2 for the next
+ * ring out, and so on. Using Chebyshev (not Manhattan) distance is what
+ * makes this form clean concentric square rings around the starting
+ * region, with corner tiles costing the same as edge tiles at the same
+ * ring - the natural shape for "buy the next layer out."
+ * @param {number} x
+ * @param {number} y
+ * @returns {number}
+ */
+export function getTileRing(x, y) {
+  const dx = Math.max(STARTING_REGION.x0 - x, 0, x - STARTING_REGION.x1)
+  const dy = Math.max(STARTING_REGION.y0 - y, 0, y - STARTING_REGION.y1)
+  return Math.max(dx, dy)
 }
 
-export const MAX_LAND_TIER = LAND_TIERS.length - 1
+/**
+ * @param {number} x
+ * @param {number} y
+ * @returns {number} 0 for a tile already inside the starting region
+ */
+export function getTileCost(x, y) {
+  return getTileRing(x, y) * TILE_BASE_COST
+}
+
+/**
+ * The absolute furthest the map can ever be purchased/rendered out to - a
+ * fixed square bound derived from the starting region + MAX_RING, replacing
+ * the old fixed-tier system's "highest tier's region" as the outer clamp
+ * for camera bounds and the locked-tile preview ring.
+ * @type {import('../types/grid.js').LandRegion}
+ */
+export const MAX_REGION = {
+  x0: STARTING_REGION.x0 - MAX_RING,
+  y0: STARTING_REGION.y0 - MAX_RING,
+  x1: STARTING_REGION.x1 + MAX_RING,
+  y1: STARTING_REGION.y1 + MAX_RING
+}

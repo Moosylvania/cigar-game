@@ -1,4 +1,5 @@
 import { useGameStore } from '~/stores/game.js'
+import { useClock } from './useClock.js'
 import { now } from '#game/util/time.js'
 
 /**
@@ -8,6 +9,7 @@ import { now } from '#game/util/time.js'
  */
 export function useGameLoop() {
   const store = useGameStore()
+  const { nowMs } = useClock()
   let rafId = null
   let lastFrameTime = null
   let accumulator = 0
@@ -29,8 +31,10 @@ export function useGameLoop() {
     // once-a-second cadence made any countdown under ~2s effectively freeze
     // (only one or two nowMs values ever landed inside a short batch's
     // lifetime before it finished). Game logic itself still only resolves
-    // once per second; this only makes the *readout* smooth.
-    store.setNow(now())
+    // once per second; this only makes the *readout* smooth. Lives outside
+    // the game store entirely (see useClock.js) so this per-frame write
+    // doesn't retrigger the store's autosave debounce every single frame.
+    nowMs.value = now()
 
     rafId = requestAnimationFrame(frame)
   }

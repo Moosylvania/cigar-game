@@ -1,4 +1,4 @@
-/** @typedef {{ unlockedTier: number }} LandState */
+/** @typedef {{ purchasedTiles: import('./grid.js').GridPosition[] }} LandState */
 
 /**
  * @typedef {Object} GameState

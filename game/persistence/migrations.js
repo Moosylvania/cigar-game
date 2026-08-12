@@ -1,4 +1,22 @@
 import { PRESTIGE_TIERS } from '../config/prestige.config.js'
+import { STARTING_REGION } from '../config/land.config.js'
+
+// Land expansion used to unlock in whole rectangular "tiers" (index ->
+// region) instead of individual tiles - kept here, and only here, purely so
+// an old save's `unlockedTier` can be converted into the equivalent set of
+// purchasedTiles once, on load. Nothing else in the game reads this table.
+const LEGACY_LAND_TIER_REGIONS = [
+  { x0: 0, y0: 0, x1: 5, y1: 5 },
+  { x0: -2, y0: 0, x1: 6, y1: 5 },
+  { x0: -2, y0: -2, x1: 6, y1: 6 },
+  { x0: -3, y0: -2, x1: 8, y1: 6 },
+  { x0: -3, y0: -3, x1: 8, y1: 8 },
+  { x0: -5, y0: -3, x1: 9, y1: 8 },
+  { x0: -5, y0: -5, x1: 9, y1: 9 },
+  { x0: -6, y0: -5, x1: 11, y1: 9 },
+  { x0: -6, y0: -6, x1: 11, y1: 11 },
+  { x0: -8, y0: -6, x1: 12, y1: 11 }
+]
 
 /**
  * Patches a loaded v1 save's state against shape changes made after it was
@@ -40,6 +58,25 @@ function repairState(state) {
 
   if (!Array.isArray(state.decorations)) {
     state.decorations = []
+  }
+
+  // Land expansion switched from whole-rectangle "tiers" to individually
+  // purchased tiles - an old save has `unlockedTier` instead of
+  // `purchasedTiles`. Convert it once: every tile inside that tier's old
+  // region, minus the (unchanged) starting region itself, becomes a
+  // purchased tile, so previously-unlocked land - and anything built on
+  // it - doesn't suddenly become locked territory again.
+  if (!state.land || !Array.isArray(state.land.purchasedTiles)) {
+    const legacyTier = typeof state.land?.unlockedTier === 'number' ? state.land.unlockedTier : 0
+    const region = LEGACY_LAND_TIER_REGIONS[Math.min(legacyTier, LEGACY_LAND_TIER_REGIONS.length - 1)] ?? LEGACY_LAND_TIER_REGIONS[0]
+    const purchasedTiles = []
+    for (let x = region.x0; x <= region.x1; x++) {
+      for (let y = region.y0; y <= region.y1; y++) {
+        const withinStartingRegion = x >= STARTING_REGION.x0 && x <= STARTING_REGION.x1 && y >= STARTING_REGION.y0 && y <= STARTING_REGION.y1
+        if (!withinStartingRegion) purchasedTiles.push({ x, y })
+      }
+    }
+    state.land = { purchasedTiles }
   }
 
   // Tutorial system added after some saves already existed - an existing

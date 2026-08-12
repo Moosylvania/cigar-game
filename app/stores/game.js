@@ -16,7 +16,16 @@ import {
   placeDecoration as enginePlaceDecoration,
   removeDecoration as engineRemoveDecoration
 } from '#game/engine/decorationEngine.js'
-import { expandLand as engineExpandLand, canExpandLand, getUnlockedRegion, getNextLandTier } from '#game/engine/landEngine.js'
+import {
+  getOwnedTileSet,
+  getOwnedBounds,
+  getMaxPurchasableRing,
+  isOwnedTile as engineIsOwnedTile,
+  isTilePurchasable as engineIsTilePurchasable,
+  getTileCost as engineGetTileCost,
+  canBuyTile as engineCanBuyTile,
+  buyTile as engineBuyTile
+} from '#game/engine/landEngine.js'
 import {
   canBuyVehicle as engineCanBuyVehicle,
   buyVehicle as engineBuyVehicle,
@@ -53,15 +62,7 @@ export const useGameStore = defineStore('game', {
     /** @type {import('#game/types/state.js').GameState} */
     game: createInitialState(),
     isLoaded: false,
-    offlineEarnings: null,
-    // One shared clock, advanced once per tick() rather than each countdown
-    // display calling Date.now() on its own - components read this instead
-    // so every timer in the UI recomputes off the same instant and steps
-    // together, instead of drifting apart at each component's own pace (and,
-    // since it's a real reactive field, computed()s that depend on it
-    // actually re-run every tick - unlike a raw Date.now() call, which Vue
-    // has no way to know changed and so never triggers a recompute).
-    nowMs: now()
+    offlineEarnings: null
   }),
 
   getters: {
@@ -73,8 +74,26 @@ export const useGameStore = defineStore('game', {
     hasActiveTimers(state) {
       return this.allBuildings.some((b) => b.slot?.status === 'processing' || b.upgrade)
     },
-    landRegion: (state) => getUnlockedRegion(state.game),
-    nextLandTier: (state) => getNextLandTier(state.game),
+    // A Set, not a rectangle - owned land is now individually-purchased
+    // tiles, not always a single contiguous rect. Computed here (once per
+    // reactive dependency change, not per call) so per-tile lookups during
+    // rendering/placement stay O(1) instead of re-scanning purchasedTiles.
+    ownedTileSet(state) {
+      return getOwnedTileSet(state.game)
+    },
+    // Bounding box around all owned land, for camera centering/framing -
+    // see getOwnedBounds's own doc comment for why it's an envelope, not
+    // the true owned shape.
+    ownedBounds(state) {
+      return getOwnedBounds(state.game)
+    },
+    // How far out (in rings from the starting region) a tile can currently
+    // be purchased - memoized off ownedTileSet, not recomputed per rendered
+    // tile, since finding it means scanning whole ring perimeters (see
+    // landEngine.js getHighestCompletedRing).
+    maxPurchasableRing() {
+      return getMaxPurchasableRing(this.ownedTileSet)
+    },
     labMultipliers: (state) => getMultipliers(state.game.lab),
     epicMultipliers: (state) => getEpicMultipliers(state.game.prestige),
     totalPrestigeMultiplier() {
@@ -279,12 +298,24 @@ export const useGameStore = defineStore('game', {
       return { count: readyBuildings.length, overflowed }
     },
 
-    canExpandLand() {
-      return canExpandLand(this.game)
+    isTileOwned(x, y) {
+      return engineIsOwnedTile(this.ownedTileSet, x, y)
     },
 
-    expandLand() {
-      return engineExpandLand(this.game)
+    isTilePurchasable(x, y) {
+      return engineIsTilePurchasable(this.ownedTileSet, x, y, this.maxPurchasableRing)
+    },
+
+    getTileCost(x, y) {
+      return engineGetTileCost(x, y)
+    },
+
+    canBuyLandTile(x, y) {
+      return engineCanBuyTile(this.game, x, y)
+    },
+
+    buyLandTile(x, y) {
+      return engineBuyTile(this.game, x, y)
     },
 
     getResearchLevel(researchId) {
@@ -384,21 +415,14 @@ export const useGameStore = defineStore('game', {
      * throughput rate - this last step is what continuously turns cigars
      * into money now, independent of Rolling's own automation tier (see
      * economy.js exportCigars). useGameLoop calls tick() once per
-     * simulated second, so elapsedSeconds is always 1 here.
+     * simulated second, so elapsedSeconds is always 1 here. The shared
+     * display clock (countdown text) is a separate thing entirely now -
+     * see useClock.js - updated every animation frame instead of once per
+     * tick, and deliberately outside this store so it doesn't interfere
+     * with the autosave debounce below.
      */
-    /**
-     * Advances the shared display clock every animation frame (see
-     * useGameLoop.js) - kept separate from tick()'s own once-per-second
-     * nowMs write below so countdown text stays smooth even though game
-     * logic itself only resolves once a second.
-     */
-    setNow(atTime) {
-      this.nowMs = atTime
-    },
-
     tick() {
       const atTime = now()
-      this.nowMs = atTime
       resolveOfflineSlots(this.game, atTime)
       resolveCompletedUpgrades(this.game, atTime)
       runAutomation(this.game, this.combinedMultipliers)

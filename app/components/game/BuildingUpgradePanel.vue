@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { useClock } from '~/composables/useClock.js'
 import { getPipelineStage } from '#game/config/pipeline.config.js'
 import { getLevelStats, MAX_BUILDING_LEVEL } from '#game/config/buildings/index.js'
 import { getAutomationTier, AUTO_COLLECT_LEVEL, AUTO_START_LEVEL } from '#game/config/automation.config.js'
@@ -15,6 +16,7 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const store = useGameStore()
+const { nowMs } = useClock()
 
 const RESOURCE_LABELS = {
   seeds: 'seeds',
@@ -40,8 +42,7 @@ function getStatEntries(type, levelStats, labMultipliers) {
   if (type === 'town_hall') {
     const gating = gatingForTownHallLevel(levelStats.level)
     return [
-      { key: 'otherMax', label: 'Other buildings unlock up to', value: `Lv ${gating.maxOtherBuildingLevel}` },
-      { key: 'landTier', label: 'Land expansion unlocks up to', value: `Tier ${gating.unlockedLandTier}` }
+      { key: 'otherMax', label: 'Other buildings unlock up to', value: `Lv ${gating.maxOtherBuildingLevel}` }
     ]
   }
   if (type === 'distribution') {
@@ -163,7 +164,7 @@ const upgradePreviewRows = computed(() =>
 
 const upgradeRemainingSeconds = computed(() => {
   if (!building.value?.upgrade) return 0
-  return Math.max(0, (building.value.upgrade.completesAt - store.nowMs) / 1000)
+  return Math.max(0, (building.value.upgrade.completesAt - nowMs.value) / 1000)
 })
 
 const canAffordUpgrade = computed(
@@ -172,7 +173,7 @@ const canAffordUpgrade = computed(
 
 const slotRemainingSeconds = computed(() => {
   if (!building.value?.slot?.completesAt) return 0
-  return Math.max(0, (building.value.slot.completesAt - store.nowMs) / 1000)
+  return Math.max(0, (building.value.slot.completesAt - nowMs.value) / 1000)
 })
 
 const inputAvailable = computed(() => {
