@@ -2,4 +2,4 @@
 // the starter fleet's 1x price multiplier, comfortably covering the ~$20
 // cost of the seed pack needed to start that batch at the Nursery (see
 // store.config.js).
-export const BASE_CIGAR_SALE_PRICE = 2000000
+export const BASE_CIGAR_SALE_PRICE = 20
