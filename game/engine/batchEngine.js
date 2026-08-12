@@ -34,6 +34,7 @@ export function startBatch(building, state, labMultipliers, maxAmount = Infinity
   const stage = getPipelineStage(building.type)
   if (!stage) return { ok: false, reason: 'not_a_pipeline_building' }
   if (!building.slot) return { ok: false, reason: 'no_slot' }
+  if (building.upgrade) return { ok: false, reason: 'building_upgrading' }
   if (building.slot.status !== 'idle') return { ok: false, reason: 'slot_not_idle' }
 
   const levelStats = getLevelStats(building.type, building.level)
@@ -179,7 +180,7 @@ export function runAutomation(state, labMultipliers) {
   const idleByType = new Map()
   for (const building of ordered) {
     const { autoStart } = getAutomationTier(building.level)
-    if (building.slot.status !== 'idle' || !autoStart) continue
+    if (building.slot.status !== 'idle' || !autoStart || building.upgrade) continue
     const list = idleByType.get(building.type) ?? []
     list.push(building)
     idleByType.set(building.type, list)
@@ -221,7 +222,7 @@ export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
 
   const ordered = buildingsInPipelineOrder(state).filter((building) => {
     const { autoCollect, autoStart } = getAutomationTier(building.level)
-    return autoCollect && autoStart
+    return autoCollect && autoStart && !building.upgrade
   })
 
   for (const building of ordered) {

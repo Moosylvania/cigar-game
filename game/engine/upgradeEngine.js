@@ -96,6 +96,14 @@ export function startUpgradeToLevel(building, state, targetLevel) {
     completesAt: startedAt + plan.durationSeconds * 1000
   }
 
+  // A building under construction can't also be producing - cancel
+  // whatever batch (in-flight or finished-but-uncollected) it was running,
+  // rather than letting it keep processing or sit there ready to collect
+  // through the upgrade.
+  if (building.slot && building.slot.status !== 'idle') {
+    building.slot = { status: 'idle', batchSize: 0 }
+  }
+
   return { ok: true }
 }
 

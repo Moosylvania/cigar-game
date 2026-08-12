@@ -59,7 +59,7 @@ let zoomLevel = 1
 let panX = 0
 let panY = 0
 const MIN_ZOOM = 1
-const MAX_ZOOM = 4
+const MAX_ZOOM = 10
 
 // Multi-touch tracking for pinch-to-zoom, keyed by pointerId -> {x, y}
 // (canvas-relative). Pointer Events unify mouse/touch/pen so this same code

@@ -228,7 +228,10 @@ function doCollectBatch() {
       <section v-if="stage" class="batch-section">
         <h4>Production</h4>
         <div class="slot-status">
-          <template v-if="building.slot.status === 'idle'">
+          <template v-if="building.upgrade">
+            <span>Under construction — production paused</span>
+          </template>
+          <template v-else-if="building.slot.status === 'idle'">
             <span v-if="automation.autoStart">Idle — will auto-start when input is available</span>
             <template v-else>
               <span>Idle{{ stage.inputKey ? ` — needs ${RESOURCE_LABELS[stage.inputKey] ?? stage.inputKey}` : '' }}</span>

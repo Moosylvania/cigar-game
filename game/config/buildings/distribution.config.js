@@ -24,12 +24,14 @@ export const distributionConfig = {
   color: '#3a5a7a',
   icon: 'mdi:warehouse',
   footprint: { width: 2, height: 2 },
-  // cigarStorageCapacity starts at a level-1 base of 100 (up from 40),
-  // same growth rate as before so it still scales smoothly - level 10 now
-  // lands on 62500 (100 * 2.04481^9) instead of the old 25000.
+  // cigarStorageCapacity starts at a level-1 base of 100, growing to a
+  // level-10 base of 174110 (100 * 2.29135^9). Warehouse Expansion research
+  // maxed out (30 levels @ 6%) multiplies that by ~5.74x, so a fully
+  // upgraded Depot (level 10 + maxed Lab) caps out at ~1,000,000 cigars -
+  // see getCigarStorageCapacity in engine/distributionEngine.js.
   levels: baseLevels.map((level, i) => ({
     ...level,
     maxVehicleSlots: 1 + i,
-    cigarStorageCapacity: Math.round(100 * 2.04481 ** i)
+    cigarStorageCapacity: Math.round(100 * 2.29135 ** i)
   }))
 }
