@@ -33,9 +33,11 @@ export const PRESTIGE_TIERS = [
 // reaching it. Once your earnings cross into the *next* tier's band, this
 // tier's own progress is capped at 100% (its multiplier freezes) - moving
 // on locks in what you'd built up, same as the tiers before it.
-// Kept deliberately modest (10x, not 1000x) per tier - these multiply
-// together across up to 10 tiers, so even 10x each compounds to up to
-// 10^10 (10 billion) at full completion; 1000x each was compounding into
-// absurd (1e30-scale) totals after only a handful of tiers.
-export const MAX_TIER_MULTIPLIER = 10
+// Kept deliberately modest (3x, not 10x) per tier - these multiply
+// together across up to 10 tiers, so even 3x each still compounds to
+// 3^10 (~59,000x) at full completion. 10x each was compounding to 10^10
+// (10 billion) at full completion, which read as absurd rather than
+// rewarding; 1000x each (an even earlier pass) was worse still, landing
+// around 1e30.
+export const MAX_TIER_MULTIPLIER = 3
 export const CURVE_HALF_FRACTION = 0.15

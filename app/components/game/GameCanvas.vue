@@ -24,22 +24,21 @@ const containerRef = ref(null)
 const TILE_SIZE = 48
 const maxRegion = getLandTier(MAX_LAND_TIER).region
 
-// Land tiers always grow from (0,0) outward to the right/down (see
-// land.config.js), so the true unlocked region is never symmetric around
-// its own center - drawing the *entire* locked territory up to maxRegion
-// every time skews the whole composition toward the top-left (nothing but
-// canvas background to the left/above; locked tiles filling everything to
-// the right/below). Showing only a modest ring of "coming soon" locked
-// tiles around the current unlocked region - clamped so it can't go
-// negative - keeps that asymmetry small enough that the camera's centering
-// (below) reads as genuinely centered instead of pinned to a corner.
+// Land tiers are centered on the Town Hall's starting tile and grow
+// outward on all four sides (see land.config.js) - drawing the *entire*
+// locked territory up to maxRegion every time would still work visually
+// (it's symmetric now, unlike the old 0,0-anchored layout), but showing
+// only a modest ring of "coming soon" locked tiles around the current
+// unlocked region keeps the far-future tiles from dominating the view at
+// low land tiers. Clamped to maxRegion on every side (not just the far
+// side) since the region itself can extend in the negative direction now.
 const LOCKED_PREVIEW_PADDING = 3
 
 function getVisibleRegion() {
   const unlocked = store.landRegion
   return {
-    x0: Math.max(0, unlocked.x0 - LOCKED_PREVIEW_PADDING),
-    y0: Math.max(0, unlocked.y0 - LOCKED_PREVIEW_PADDING),
+    x0: Math.max(maxRegion.x0, unlocked.x0 - LOCKED_PREVIEW_PADDING),
+    y0: Math.max(maxRegion.y0, unlocked.y0 - LOCKED_PREVIEW_PADDING),
     x1: Math.min(maxRegion.x1, unlocked.x1 + LOCKED_PREVIEW_PADDING),
     y1: Math.min(maxRegion.y1, unlocked.y1 + LOCKED_PREVIEW_PADDING)
   }
@@ -98,10 +97,12 @@ function baseCamera(zoom) {
   const usedHeight = regionHeightTiles * TILE_SIZE * scale
 
   // Center on the unlocked region's own midpoint, not the padded preview
-  // region's midpoint - land always grows right/down from (0,0), so the
-  // preview ring is never symmetric around the unlocked area. Centering on
-  // the preview box instead would leave actual buildings sitting off to one
-  // side even though the box itself looked centered.
+  // region's midpoint - the preview ring gets clamped against maxRegion
+  // near the outer edge of the map (see getVisibleRegion), which can make
+  // it lopsided even though the unlocked area itself is always centered on
+  // the Town Hall. Centering on the preview box in that situation would
+  // drag the camera off the actual buildings toward whichever side still
+  // has room to show locked tiles.
   const unlocked = store.landRegion
   const unlockedCenterX = (unlocked.x0 + unlocked.x1 + 1) / 2
   const unlockedCenterY = (unlocked.y0 + unlocked.y1 + 1) / 2

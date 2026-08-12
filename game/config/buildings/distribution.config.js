@@ -1,9 +1,11 @@
 import { generateLevelCurve } from '../curve.js'
 
+// Level 1->2 (the first real upgrade - nothing upgrades into level 1
+// itself) lands on exactly 5 minutes: 214.2857 * 1.4 = 300.
 const baseLevels = generateLevelCurve({
   baseCost: 300,
   costGrowth: 1.8,
-  baseUpgradeDurationSec: 180,
+  baseUpgradeDurationSec: 214.2857,
   upgradeDurationGrowth: 1.4
 })
 

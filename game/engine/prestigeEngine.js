@@ -79,7 +79,13 @@ export function checkTrophies(prestige) {
   return newlyUnlocked
 }
 
-/** Shared by doPrestige and advanceTier - everything except state.prestige goes back to fresh. */
+/**
+ * Shared by doPrestige and advanceTier - everything except state.prestige
+ * goes back to fresh, and even within state.prestige, epicResearchLevels
+ * resets too (unlike the tier/trophy/all-time-earnings fields, which stay
+ * permanent) - Epic Research is meant to be bought fresh each run, not
+ * accumulated forever across prestiges.
+ */
 function resetBoard(state) {
   const fresh = createInitialState()
   state.townHall = fresh.townHall
@@ -90,6 +96,7 @@ function resetBoard(state) {
   state.distribution = fresh.distribution
   state.decorations = fresh.decorations
   state.meta = fresh.meta
+  state.prestige.epicResearchLevels = {}
 }
 
 /**

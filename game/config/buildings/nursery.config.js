@@ -10,7 +10,9 @@ export const nurseryConfig = {
   levels: generateLevelCurve({
     baseCost: 50,
     costGrowth: 1.6,
-    baseUpgradeDurationSec: 30,
+    // Level 1->2 (the first real upgrade - nothing upgrades into level 1
+    // itself) lands on exactly 5 minutes: 222.2222 * 1.35 = 300.
+    baseUpgradeDurationSec: 222.2222,
     upgradeDurationGrowth: 1.35,
     baseBatchSize: 10,
     batchSizeGrowth: 1.4,

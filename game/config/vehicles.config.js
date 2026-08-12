@@ -7,9 +7,9 @@
  * @type {import('../types/distribution.js').VehicleTierConfig[]}
  */
 export const VEHICLE_TIERS = [
-  { id: 'truck', name: 'Pickup Truck', cost: 100, capacityPerHour: 20, icon: 'mdi:truck-pickup' },
-  { id: 'box_truck', name: 'Box Truck', cost: 800, capacityPerHour: 60, icon: 'mdi:truck' },
-  { id: 'semi', name: 'Semi Trailer', cost: 5000, capacityPerHour: 150, icon: 'mdi:truck-trailer' },
+  { id: 'truck', name: 'Pickup Truck', cost: 100, capacityPerHour: 40, icon: 'mdi:truck-pickup' },
+  { id: 'box_truck', name: 'Box Truck', cost: 800, capacityPerHour: 100, icon: 'mdi:truck' },
+  { id: 'semi', name: 'Semi Trailer', cost: 5000, capacityPerHour: 250, icon: 'mdi:truck-trailer' },
   { id: 'cargo_train', name: 'Cargo Train', cost: 40000, capacityPerHour: 600, icon: 'mdi:train-car-box' },
   { id: 'freight_train', name: 'Freight Train', cost: 250000, capacityPerHour: 2500, icon: 'mdi:train-car-container' },
   { id: 'bullet_train', name: 'Bullet Train', cost: 2000000, capacityPerHour: 15000, icon: 'mdi:train-variant' }
