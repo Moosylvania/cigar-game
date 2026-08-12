@@ -260,6 +260,7 @@ onBeforeUnmount(stopHold)
   font-size: 1.1rem;
   cursor: pointer;
   line-height: 1;
+  padding: 0;
   width: 32px;
   height: 32px;
   flex-shrink: 0;
