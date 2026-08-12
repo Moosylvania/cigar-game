@@ -92,6 +92,11 @@ const ICON_NAMES = [
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  app: {
+    head: {
+      title: 'Cigar Country'
+    }
+  },
   modules: ['@pinia/nuxt', '@nuxt/icon'],
   icon: {
     clientBundle: {

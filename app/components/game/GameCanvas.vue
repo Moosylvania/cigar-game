@@ -639,7 +639,7 @@ defineExpose({ commitLayout, cancelLayout })
 
 .zoom-controls {
   position: absolute;
-  right: $spacing-sm;
+  left: $spacing-sm;
   bottom: $spacing-sm;
   display: flex;
   flex-direction: column;

@@ -11,15 +11,15 @@
  * @type {{ id: string, name: string, description: string, icon: string, color: string, unlockThreshold: number }[]}
  */
 export const PRESTIGE_TIERS = [
-  { id: 'backyard', name: 'Backyard Grower', description: 'Where every empire starts: a few plants behind the house.', icon: 'mdi:sprout', color: '#8a9a5b', unlockThreshold: 500000 },
-  { id: 'county_fair', name: 'County Fair Champion', description: 'Blue ribbons and bragging rights at the county fair.', icon: 'mdi:medal-outline', color: '#c9a227', unlockThreshold: 1500000 },
-  { id: 'state_monopoly', name: 'State Monopoly', description: 'You control the market for the entire state.', icon: 'mdi:city-variant-outline', color: '#4a7a9a', unlockThreshold: 4000000 },
-  { id: 'national_syndicate', name: 'National Syndicate', description: 'Coast to coast, your leaf is everywhere.', icon: 'mdi:flag-variant', color: '#8a4a9a', unlockThreshold: 10000000 },
-  { id: 'continental_empire', name: 'Continental Empire', description: 'An empire spanning the entire continent.', icon: 'mdi:earth', color: '#9a4a4a', unlockThreshold: 25000000 },
-  { id: 'global_conglomerate', name: 'Global Conglomerate', description: 'Every nation smokes what you grow.', icon: 'mdi:domain', color: '#d4a94a', unlockThreshold: 60000000 },
-  { id: 'orbital_greenhouse', name: 'Orbital Greenhouse', description: 'Farming has left the atmosphere.', icon: 'mdi:satellite-variant', color: '#4a6a9a', unlockThreshold: 150000000 },
-  { id: 'moon_base', name: 'Moon Base Harvest', description: 'Lunar soil, zero gravity, record yields.', icon: 'mdi:moon-waning-crescent', color: '#b8c4d4', unlockThreshold: 350000000 },
-  { id: 'heavenly_fields', name: 'Heavenly Fields', description: 'Even the angels are buying cartons.', icon: 'mdi:white-balance-sunny', color: '#f4e4b8', unlockThreshold: 800000000 },
+  { id: 'backyard', name: 'Backyard Grower', description: 'Where every empire starts: a few plants behind the house.', icon: 'mdi:sprout', color: '#8a9a5b', unlockThreshold: 5000000 },
+  { id: 'county_fair', name: 'County Fair Champion', description: 'Blue ribbons and bragging rights at the county fair.', icon: 'mdi:medal-outline', color: '#c9a227', unlockThreshold: 100000000 },
+  { id: 'state_monopoly', name: 'State Monopoly', description: 'You control the market for the entire state.', icon: 'mdi:city-variant-outline', color: '#4a7a9a', unlockThreshold: 10000000000 },
+  { id: 'national_syndicate', name: 'National Syndicate', description: 'Coast to coast, your leaf is everywhere.', icon: 'mdi:flag-variant', color: '#8a4a9a', unlockThreshold: 1000000000000 },
+  { id: 'continental_empire', name: 'Continental Empire', description: 'An empire spanning the entire continent.', icon: 'mdi:earth', color: '#9a4a4a', unlockThreshold: 100000000000000 },
+  { id: 'global_conglomerate', name: 'Global Conglomerate', description: 'Every nation smokes what you grow.', icon: 'mdi:domain', color: '#d4a94a', unlockThreshold: 10000000000000000 },
+  { id: 'orbital_greenhouse', name: 'Orbital Greenhouse', description: 'Farming has left the atmosphere.', icon: 'mdi:satellite-variant', color: '#4a6a9a', unlockThreshold: 1000000000000000000 },
+  { id: 'moon_base', name: 'Moon Base Harvest', description: 'Lunar soil, zero gravity, record yields.', icon: 'mdi:moon-waning-crescent', color: '#b8c4d4', unlockThreshold: 100000000000000000000 },
+  { id: 'heavenly_fields', name: 'Heavenly Fields', description: 'Even the angels are buying cartons.', icon: 'mdi:white-balance-sunny', color: '#f4e4b8', unlockThreshold: 10000000000000000000000 },
   { id: 'cosmic_ascendant', name: 'Cosmic Ascendant', description: "You've transcended farming. You ARE the harvest.", icon: 'mdi:star-four-points-outline', color: '#9a4ad4', unlockThreshold: Infinity }
 ]
 
