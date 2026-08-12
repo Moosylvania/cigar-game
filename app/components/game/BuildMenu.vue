@@ -11,14 +11,17 @@ const emit = defineEmits(['select'])
 
 const store = useGameStore()
 
-const placeableTypes = ['nursery', 'field', 'curing', 'steam', 'fermentation', 'rolling', 'distribution']
+// Town Hall and Distribution are both placed for free at game start and
+// can't be built again (there's only ever one of each) - only the
+// pipeline buildings, which can be placed as many times as land allows,
+// belong here.
+const placeableTypes = ['nursery', 'field', 'curing', 'steam', 'fermentation', 'rolling']
 
 const items = computed(() =>
   placeableTypes.map((type) => {
     const config = BUILDING_CONFIGS[type]
     const cost = config.levels[0].upgradeCost
-    const alreadyPlaced = type === 'distribution' && store.buildings.some((b) => b.type === type)
-    return { type, config, cost, disabled: alreadyPlaced || store.money < cost }
+    return { type, config, cost, disabled: store.money < cost }
   })
 )
 
