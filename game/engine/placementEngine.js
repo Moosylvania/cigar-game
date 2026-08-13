@@ -1,5 +1,6 @@
-import { getBuildingConfig, getLevelStats } from '../config/buildings/index.js'
+import { getBuildingConfig, getLevelStats, getBuildingWorth } from '../config/buildings/index.js'
 import { isPipelineBuilding } from '../config/pipeline.config.js'
+import { BUILDING_SELL_REFUND_RATE } from '../config/economy.config.js'
 import { isWithinUnlockedRegion } from './landEngine.js'
 import { createId } from '../util/id.js'
 
@@ -131,4 +132,46 @@ export function placeBuilding(state, type, position) {
   state.buildings.push(building)
 
   return { ok: true, building }
+}
+
+/**
+ * @param {import('../types/building.js').PlacedBuilding} building
+ * @returns {number}
+ */
+export function getBuildingSellValue(building) {
+  return Math.round(getBuildingWorth(building.type, building.level) * BUILDING_SELL_REFUND_RATE)
+}
+
+/**
+ * @param {import('../types/state.js').GameState} state
+ * @param {string} buildingId
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function canSellBuilding(state, buildingId) {
+  if (state.townHall.id === buildingId) return { ok: false, reason: 'town_hall_cannot_be_sold' }
+  const building = state.buildings.find((b) => b.id === buildingId)
+  if (!building) return { ok: false, reason: 'not_found' }
+  return { ok: true }
+}
+
+/**
+ * Refunds a fraction of the building's total invested cost (see
+ * getBuildingSellValue) and removes it from play, freeing its tile
+ * immediately. Any in-progress upgrade's already-paid cost is forfeited,
+ * not refunded - same as an upgrade forfeiting an in-progress batch with
+ * no refund (see upgradeEngine.js startUpgradeToLevel).
+ * @param {import('../types/state.js').GameState} state
+ * @param {string} buildingId
+ * @returns {{ ok: boolean, reason?: string, refund?: number }}
+ */
+export function sellBuilding(state, buildingId) {
+  const result = canSellBuilding(state, buildingId)
+  if (!result.ok) return result
+
+  const index = state.buildings.findIndex((b) => b.id === buildingId)
+  const refund = getBuildingSellValue(state.buildings[index])
+  state.resources.money += refund
+  state.buildings.splice(index, 1)
+
+  return { ok: true, refund }
 }

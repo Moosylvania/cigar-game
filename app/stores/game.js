@@ -10,7 +10,14 @@ import {
   buyResearch as engineBuyResearch
 } from '#game/engine/labEngine.js'
 import { getFleetCapacityPerHour, getEffectiveSalePrice, exportCigars } from '#game/engine/economy.js'
-import { placeBuilding as enginePlaceBuilding, canPlaceBuilding, planRelocation, relocateBuildings as engineRelocateBuildings } from '#game/engine/placementEngine.js'
+import {
+  placeBuilding as enginePlaceBuilding,
+  canPlaceBuilding,
+  planRelocation,
+  relocateBuildings as engineRelocateBuildings,
+  getBuildingSellValue,
+  sellBuilding as engineSellBuilding
+} from '#game/engine/placementEngine.js'
 import {
   canPlaceDecoration as engineCanPlaceDecoration,
   placeDecoration as enginePlaceDecoration,
@@ -242,6 +249,15 @@ export const useGameStore = defineStore('game', {
 
     placeBuilding(type, position) {
       return enginePlaceBuilding(this.game, type, position)
+    },
+
+    getBuildingSellValue(buildingId) {
+      const building = this.findBuilding(buildingId)
+      return building ? getBuildingSellValue(building) : null
+    },
+
+    sellBuilding(buildingId) {
+      return engineSellBuilding(this.game, buildingId)
     },
 
     canRelocateBuildings(moves) {

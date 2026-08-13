@@ -112,13 +112,32 @@ const NUMBER_KEY_BUILDING_TYPES = {
 }
 
 const isModalOpen = computed(() =>
-  showLab.value || showStore.value || showPrestige.value || !!selectedBuildingId.value || !!selectedDecorationInstanceId.value
+  showLab.value ||
+  showStore.value ||
+  showPrestige.value ||
+  !!selectedBuildingId.value ||
+  !!selectedDecorationInstanceId.value ||
+  !!store.offlineEarnings
 )
+
+function closeAnyOpenModal() {
+  selectedDecorationInstanceId.value = null
+  selectedBuildingId.value = null
+  showLab.value = false
+  showStore.value = false
+  showPrestige.value = false
+  store.offlineEarnings = null
+}
 
 function handleKeydown(event) {
   if (event.metaKey || event.ctrlKey || event.altKey) return
   const target = event.target
   if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+
+  if (event.key === 'Escape') {
+    if (isModalOpen.value) closeAnyOpenModal()
+    return
+  }
   if (isModalOpen.value) return
 
   if (event.key === 'c' || event.key === 'C') {

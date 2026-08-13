@@ -125,6 +125,13 @@ function doSingleLevelUpgrade() {
   store.startBuildingUpgradeToLevel(props.buildingId, singleLevelPlan.value.targetLevel)
 }
 
+const sellValue = computed(() => (building.value ? store.getBuildingSellValue(props.buildingId) : 0))
+
+function doSell() {
+  const result = store.sellBuilding(props.buildingId)
+  if (result.ok) emit('close')
+}
+
 const currentStatEntries = computed(() => {
   if (!building.value) return []
   const entries = getStatEntries(building.value.type, getLevelStats(building.value.type, building.value.level), store.labMultipliers)
@@ -303,6 +310,12 @@ function doCollectBatch() {
             Affordable now — Town Hall allows up to Lv {{ upgradeCapLevel }}
           </p>
         </template>
+      </section>
+
+      <section v-if="building.type !== 'town_hall'" class="sell-section">
+        <button class="sell-btn" @click="doSell">
+          <Icon name="mdi:delete-outline" /> Sell for ${{ formatCompactNumber(sellValue) }}
+        </button>
       </section>
     </div>
   </div>
@@ -503,6 +516,16 @@ button {
     min-height: 34px;
     background: transparent;
     color: $color-text-muted;
+  }
+}
+
+.sell-btn {
+  width: 100%;
+  border-color: $color-danger;
+  background: rgba(209, 106, 90, 0.15);
+
+  &:hover {
+    background: rgba(209, 106, 90, 0.28);
   }
 }
 </style>

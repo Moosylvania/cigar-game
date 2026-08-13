@@ -33,3 +33,22 @@ export function getLevelStats(type, level) {
 }
 
 export const MAX_BUILDING_LEVEL = 10
+
+/**
+ * Total money ever invested in a building to reach `level` - the sum of
+ * every level's upgradeCost from 1 through level. Level 1's cost is
+ * exactly what placeBuilding charges to place it (see placementEngine.js),
+ * so this is "everything ever paid for this building," with no separate
+ * bookkeeping needed. Used to compute sell value (see
+ * placementEngine.js getBuildingSellValue).
+ * @param {import('../../types/building.js').BuildingType} type
+ * @param {number} level
+ * @returns {number}
+ */
+export function getBuildingWorth(type, level) {
+  let worth = 0
+  for (let l = 1; l <= level; l++) {
+    worth += getLevelStats(type, l).upgradeCost
+  }
+  return worth
+}
