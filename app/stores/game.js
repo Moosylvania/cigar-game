@@ -298,6 +298,24 @@ export const useGameStore = defineStore('game', {
       return { count: readyBuildings.length, overflowed }
     },
 
+    /**
+     * Starts a batch on every idle building of one pipeline type in one
+     * keypress (see index.vue's 1-6 shortcuts) - same per-building path as
+     * startBatch, just applied to every idle building of that type instead
+     * of one at a time. A building without enough input to start simply
+     * gets skipped (engineStartBatch already returns not-ok for that)
+     * rather than surfacing an error, same as a manual click would.
+     */
+    startAllIdleOfType(type) {
+      const idleBuildings = this.game.buildings.filter((b) => b.type === type && b.slot?.status === 'idle')
+      let started = 0
+      for (const building of idleBuildings) {
+        const result = engineStartBatch(building, this.game, this.combinedMultipliers)
+        if (result.ok) started += 1
+      }
+      return { count: started }
+    },
+
     isTileOwned(x, y) {
       return engineIsOwnedTile(this.ownedTileSet, x, y)
     },

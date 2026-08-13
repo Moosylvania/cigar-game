@@ -36,3 +36,9 @@ export function getVehicleSpritePath(tierId) {
   const file = VEHICLE_SPRITE_FILE[tierId]
   return file ? `/images/cigar_sprite_pack_topdown/sprites/vehicles/${file}_s.png` : null
 }
+
+/** @param {string} tierId @param {'n'|'e'|'s'|'w'} direction */
+export function getVehicleSpriteDirPath(tierId, direction) {
+  const file = VEHICLE_SPRITE_FILE[tierId]
+  return file ? `/images/cigar_sprite_pack_topdown/sprites/vehicles/${file}_${direction}.png` : null
+}

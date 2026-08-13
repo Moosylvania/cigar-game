@@ -5,6 +5,9 @@ import { useClock } from '~/composables/useClock.js'
 import { drawGrid, screenToGrid } from './renderers/drawGrid.js'
 import { drawBuilding, getStatusIndicatorHitbox } from './renderers/buildingGlyphs.js'
 import { drawDecoration } from './renderers/decorationSprites.js'
+import { drawVehicleSprite } from './renderers/vehicleSprites.js'
+import { useFleetAnimation, getVehicleWorldPosition } from '~/composables/useFleetAnimation.js'
+import { useBuildingAnimations } from '~/composables/useBuildingAnimations.js'
 import { MAX_REGION } from '#game/config/land.config.js'
 import { getDecorationDefinition } from '#game/config/decorations.config.js'
 
@@ -21,6 +24,8 @@ const emit = defineEmits(['building-selected', 'decoration-selected', 'placed', 
 
 const store = useGameStore()
 const { nowMs } = useClock()
+const fleetAnimation = useFleetAnimation()
+const buildingAnimations = useBuildingAnimations()
 const canvasRef = ref(null)
 const containerRef = ref(null)
 
@@ -233,19 +238,35 @@ function render() {
   }
 
   const tilePx = TILE_SIZE * camera.scale
+  buildingAnimations.sync(store.allBuildings)
   for (const building of store.allBuildings) {
     const config = store.getBuildingConfig(building.type)
     const rect = getBuildingRect(building, camera)
 
     const isDragging = props.editMode && building.id === draggingId
     if (isDragging) ctx.globalAlpha = 0.7
-    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value)
+    const popScale = buildingAnimations.getPopTransform(building.id)?.scale ?? 1
+    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale)
     if (isDragging) {
       ctx.globalAlpha = 1
       ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
       ctx.lineWidth = 3
       ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
     }
+  }
+
+  fleetAnimation.update(store)
+  for (const vehicle of fleetAnimation.getActiveVehicles()) {
+    const pos = getVehicleWorldPosition(vehicle, nowMs.value)
+    const rect = {
+      x: camera.offsetX + pos.x * TILE_SIZE * camera.scale,
+      y: camera.offsetY + pos.y * TILE_SIZE * camera.scale,
+      width: TILE_SIZE * camera.scale * 0.9,
+      height: TILE_SIZE * camera.scale * 0.9
+    }
+    ctx.globalAlpha = pos.alpha
+    drawVehicleSprite(ctx, vehicle.tierId, vehicle.direction, rect)
+    ctx.globalAlpha = 1
   }
 
   if (props.tutorialDim) {
@@ -265,7 +286,8 @@ function render() {
     if (target) {
       const config = store.getBuildingConfig(target.type)
       const rect = getBuildingRect(target, camera)
-      drawBuilding(ctx, target, config, rect, tilePx, nowMs.value)
+      const popScale = buildingAnimations.getPopTransform(target.id)?.scale ?? 1
+      drawBuilding(ctx, target, config, rect, tilePx, nowMs.value, popScale)
       drawTutorialRing(ctx, rect)
     }
   }

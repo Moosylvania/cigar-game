@@ -63,7 +63,9 @@ export const TUTORIAL_STEPS = [
     title: 'First cigars produced!',
     body:
       'The Distribution Depot automatically sells cigars from storage for money - even while you are away. ' +
-      'Keep the pipeline moving, upgrade buildings, and check the Lab and Prestige when you are ready to grow further.',
+      'Keep the pipeline moving, upgrade buildings, and check the Lab and Prestige when you are ready to grow further. ' +
+      'Keyboard shortcuts: press C to collect every ready building at once, and 1-6 to start a batch on every idle ' +
+      'Tobacco Nursery, Field, Curing Barn, Steaming House, Fermentation Cellar, or Rolling House you own.',
     highlight: null,
     isComplete: null
   }

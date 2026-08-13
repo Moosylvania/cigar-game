@@ -1,12 +1,15 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { useTweenedNumber } from '~/composables/useTweenedNumber.js'
 import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 
 const store = useGameStore()
 
+const tweenedMoney = useTweenedNumber(() => store.money)
+
 const formattedMoney = computed(() => {
-  const value = Math.floor(store.money)
+  const value = Math.floor(tweenedMoney.value)
   return value >= 1e6
     ? `$${formatCompactNumber(value)}`
     : value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })

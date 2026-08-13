@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ResourceBar from '~/components/game/ResourceBar.vue'
 import InventoryBar from '~/components/game/InventoryBar.vue'
 import BuildMenu from '~/components/game/BuildMenu.vue'
@@ -95,6 +95,43 @@ function startExpand() {
 function stopExpand() {
   expandMode.value = false
 }
+
+// Keyboard shortcuts: 1-6 start a batch on every idle building of one
+// pipeline type you already own (same per-building action as clicking
+// "Start batch" on each, just all at once - see store.startAllIdleOfType),
+// C collects every ready building at once (same as the ResourceBar
+// "Collect All" button). Both are suppressed behind an open modal so a
+// shortcut can never silently act on buildings the player can't see.
+const NUMBER_KEY_BUILDING_TYPES = {
+  1: 'nursery',
+  2: 'field',
+  3: 'curing',
+  4: 'steam',
+  5: 'fermentation',
+  6: 'rolling'
+}
+
+const isModalOpen = computed(() =>
+  showLab.value || showStore.value || showPrestige.value || !!selectedBuildingId.value || !!selectedDecorationInstanceId.value
+)
+
+function handleKeydown(event) {
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+  const target = event.target
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+  if (isModalOpen.value) return
+
+  if (event.key === 'c' || event.key === 'C') {
+    store.collectAllReady()
+    return
+  }
+
+  const buildingType = NUMBER_KEY_BUILDING_TYPES[event.key]
+  if (buildingType) store.startAllIdleOfType(buildingType)
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
 <template>

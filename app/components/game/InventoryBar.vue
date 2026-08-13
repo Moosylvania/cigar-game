@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { useTweenedNumber } from '~/composables/useTweenedNumber.js'
 import { BUILDING_CONFIGS } from '#game/config/buildings/index.js'
 import { formatCompactNumber } from '#game/util/format.js'
 
@@ -23,9 +24,16 @@ const ITEMS = [
   { key: 'cigars', label: 'Cigars', producedBy: 'rolling', capped: true }
 ]
 
+// One tween per resource, called a fixed number of times at setup (not in
+// a loop/computed) since ITEMS is a static list - keeps composable call
+// order stable across renders.
+const tweenedAmounts = Object.fromEntries(
+  ITEMS.map((item) => [item.key, useTweenedNumber(() => store.storage[item.key])])
+)
+
 const items = computed(() =>
   ITEMS.map((item) => {
-    const amount = Math.floor(store.storage[item.key])
+    const amount = Math.floor(tweenedAmounts[item.key].value)
     const capacity = item.capped ? Math.floor(store.cigarStorageCapacity) : null
     return {
       ...item,

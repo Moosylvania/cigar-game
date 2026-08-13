@@ -226,11 +226,24 @@ export function getStatusIndicatorHitbox(building, rect, tilePx) {
  *   so they all decrement together instead of each flipping to the next
  *   second whenever *its own* completesAt happens to cross real time (which
  *   drifts building to building based on when each batch was started).
+ * @param {number} [popScale] - 1 = no animation (the common case, no
+ *   transform overhead). <1 mid pop-in/level-up bounce - see
+ *   useBuildingAnimations.js. Only the sprite/fallback-shape block is
+ *   scaled, not the label chips/status indicator, so those stay legible.
  */
-export function drawBuilding(ctx, building, config, rect, tilePx, nowMs) {
+export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1) {
   const isReady = building.slot?.status === 'ready'
 
   if (isReady) drawReadyGlow(ctx, rect)
+
+  ctx.save()
+  if (popScale !== 1) {
+    const cx = rect.x + rect.width / 2
+    const cy = rect.y + rect.height / 2
+    ctx.translate(cx, cy)
+    ctx.scale(popScale, popScale)
+    ctx.translate(-cx, -cy)
+  }
 
   const spriteImg = getBuildingSpriteImage(building.type, building.level)
   const spriteReady = spriteImg && spriteImg.complete && spriteImg.naturalWidth > 0
@@ -258,6 +271,7 @@ export function drawBuilding(ctx, building, config, rect, tilePx, nowMs) {
       glyph(ctx, cx, cy, r)
     }
   }
+  ctx.restore()
 
   const bottomRow = computeBottomRowLayout(ctx, building, rect, tilePx)
   drawLevelBadge(ctx, building.level, rect, bottomRow)
@@ -265,6 +279,9 @@ export function drawBuilding(ctx, building, config, rect, tilePx, nowMs) {
 
   if (building.slot) {
     drawSlotIndicator(ctx, building, rect, tilePx, nowMs, bottomRow)
+    if (building.slot.status === 'processing') {
+      drawProcessingPuff(ctx, building, rect, tilePx, nowMs, config.color)
+    }
   }
 
   if (building.upgrade) {
@@ -283,6 +300,53 @@ function drawReadyGlow(ctx, rect) {
   ctx.strokeStyle = `rgba(123, 201, 111, ${0.55 + pulse * 0.45})`
   ctx.lineWidth = 3
   ctx.strokeRect(rect.x - pad, rect.y - pad, rect.width + pad * 2, rect.height + pad * 2)
+  ctx.restore()
+}
+
+function withAlpha(hexColor, alpha) {
+  const r = parseInt(hexColor.slice(1, 3), 16)
+  const g = parseInt(hexColor.slice(3, 5), 16)
+  const b = parseInt(hexColor.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/**
+ * Ambient "something is happening" cue drawn in addition to the numeric
+ * countdown chip: two soft circles rise and fade on a repeating cycle,
+ * offset half a cycle apart so one is always visible. Phased off the
+ * batch's own real startedAt (not nowMs directly) so every building's
+ * cycle is already staggered for free instead of every building on the
+ * map pulsing in lockstep. Tinted with the building's own config.color for
+ * a cheap per-type distinction without a full per-type particle system.
+ */
+function drawProcessingPuff(ctx, building, rect, tilePx, nowMs, color) {
+  if (rect.width < 40) return // mirrors drawUpgradeOverlay's fine-detail cutoff
+  const cycle = 1400
+  const phaseOrigin = building.slot.startedAt ?? 0
+  const cx = rect.x + rect.width * 0.5
+  const baseY = rect.y + rect.height * 0.32
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(rect.x - tilePx, rect.y - tilePx, rect.width + tilePx * 2, rect.height + tilePx * 2)
+  ctx.clip()
+  for (const offset of [0, cycle / 2]) {
+    const t = (((nowMs - phaseOrigin + offset) % cycle) + cycle) % cycle / cycle
+    const rise = tilePx * 0.55 * t
+    const radius = tilePx * (0.07 + t * 0.09)
+    ctx.beginPath()
+    ctx.arc(cx, baseY - rise, radius, 0, Math.PI * 2)
+    // Light ring first, then the color fill on top - same reasoning as the
+    // status indicator/ready badge circles: holds contrast over both light
+    // and dark sprite patches instead of a color fill alone risking
+    // blending into a similarly-hued sprite.
+    ctx.fillStyle = withAlpha('#ffffff', 0.35 * (1 - t))
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx, baseY - rise, radius * 0.7, 0, Math.PI * 2)
+    ctx.fillStyle = withAlpha(color, 0.75 * (1 - t))
+    ctx.fill()
+  }
   ctx.restore()
 }
 
