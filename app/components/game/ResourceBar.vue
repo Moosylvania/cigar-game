@@ -2,11 +2,16 @@
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { useTweenedNumber } from '~/composables/useTweenedNumber.js'
+import { useClock } from '~/composables/useClock.js'
+import { getStoreItem } from '#game/config/store.config.js'
 import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
+import { formatDuration } from '#game/util/time.js'
 
 const store = useGameStore()
+const { nowMs } = useClock()
 
 const tweenedMoney = useTweenedNumber(() => store.money)
+const tweenedCoins = useTweenedNumber(() => store.coins)
 
 const formattedMoney = computed(() => {
   const value = Math.floor(tweenedMoney.value)
@@ -14,6 +19,8 @@ const formattedMoney = computed(() => {
     ? `$${formatCompactNumber(value)}`
     : value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 })
+
+const formattedCoins = computed(() => formatCompactNumber(Math.floor(tweenedCoins.value)))
 
 const formattedCigarPrice = computed(() => {
   const value = store.effectiveSalePrice
@@ -30,10 +37,33 @@ const prestigeMultiplierLabel = computed(() => {
 function collectAll() {
   store.collectAllReady()
 }
+
+// A cigar-themed pill per active timed buff (see boostEngine.js) - the
+// icon is a lit cigar regardless of which item is active, distinct from
+// each Store item's own icon, so "a boost is running" reads at a glance
+// without needing to name the specific item.
+const activeBoosts = computed(() => {
+  const boosts = []
+  for (const key of ['processing', 'upgrade', 'money']) {
+    const boost = store.boosts[key]
+    if (!boost || boost.expiresAt <= nowMs.value) continue
+    const item = getStoreItem(boost.itemId)
+    boosts.push({
+      key,
+      name: item?.name ?? 'Boost',
+      remaining: formatDuration((boost.expiresAt - nowMs.value) / 1000)
+    })
+  }
+  return boosts
+})
 </script>
 
 <template>
   <div class="resource-bar">
+    <div v-for="boost in activeBoosts" :key="boost.key" class="boost-badge">
+      <Icon name="mdi:cigar" class="ember" />
+      {{ boost.name }} — {{ boost.remaining }}
+    </div>
     <div v-if="readyCount > 0" class="ready-banner">
       <span class="dot" />
       {{ readyCount }} building{{ readyCount > 1 ? 's' : '' }} ready to collect
@@ -42,6 +72,10 @@ function collectAll() {
     <div class="resource money">
       <span class="label"><Icon name="mdi:cash-multiple" /> Money</span>
       <span class="value">{{ formattedMoney }}</span>
+    </div>
+    <div class="resource coins">
+      <span class="label"><Icon name="mdi:hand-coin-outline" /> Coins</span>
+      <span class="value">{{ formattedCoins }}</span>
     </div>
     <div class="resource">
       <span class="label"><Icon name="mdi:tag-outline" /> Cigar price</span>
@@ -111,8 +145,32 @@ function collectAll() {
     color: $color-money;
   }
 
+  &.coins .value {
+    color: #e0b23d;
+  }
+
   &.prestige .value {
     color: $color-accent;
+  }
+}
+
+.boost-badge {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-sm;
+  background: rgba(224, 134, 47, 0.15);
+  border: 1px solid rgba(224, 134, 47, 0.5);
+  color: #e0862f;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  .ember {
+    animation: ember-glow 1.4s ease-in-out infinite;
+    flex-shrink: 0;
   }
 }
 
@@ -169,6 +227,18 @@ function collectAll() {
   50% {
     opacity: 0.4;
     transform: scale(1.4);
+  }
+}
+
+@keyframes ember-glow {
+  0%,
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(224, 134, 47, 0.8));
+  }
+  50% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 6px rgba(224, 134, 47, 0.9));
   }
 }
 </style>

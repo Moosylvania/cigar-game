@@ -1,6 +1,6 @@
 import { getStoreItem } from '../config/store.config.js'
 import { getLevelStats } from '../config/buildings/index.js'
-import { now } from '../util/time.js'
+import { activateBoost } from './boostEngine.js'
 
 /**
  * @typedef {Object} StorePurchaseResult
@@ -27,62 +27,28 @@ export function getSeedsPerBatch(state, labMultipliers) {
   return Math.max(...capacities)
 }
 
-function hasProcessingInProgress(state) {
-  return state.buildings.some((b) => b.slot?.status === 'processing')
+function getBalance(state, currency) {
+  return currency === 'coins' ? state.coins : state.resources.money
 }
 
-function hasUpgradeInProgress(state) {
-  return Boolean(state.townHall.upgrade) || state.buildings.some((b) => b.upgrade)
+function spendBalance(state, currency, amount) {
+  if (currency === 'coins') {
+    state.coins -= amount
+  } else {
+    state.resources.money -= amount
+  }
 }
 
 /**
  * @param {import('../types/state.js').GameState} state
  * @param {string} itemId
- * @param {{ batchSizeMultipliers: Object<string, number> }} [labMultipliers]
  * @returns {StorePurchaseResult}
  */
-export function canBuyStoreItem(state, itemId, labMultipliers) {
+export function canBuyStoreItem(state, itemId) {
   const item = getStoreItem(itemId)
   if (!item) return { ok: false, reason: 'unknown_item' }
-  if (state.resources.money < item.cost) return { ok: false, reason: 'insufficient_funds' }
-  if (item.type === 'speed_boost_processing' && !hasProcessingInProgress(state)) {
-    return { ok: false, reason: 'nothing_to_boost' }
-  }
-  if (item.type === 'speed_boost_upgrade' && !hasUpgradeInProgress(state)) {
-    return { ok: false, reason: 'nothing_to_boost' }
-  }
+  if (getBalance(state, item.currency) < item.cost) return { ok: false, reason: 'insufficient_funds' }
   return { ok: true }
-}
-
-/**
- * Shaves a flat percentage off the remaining time of every processing
- * batch in play - buying it with nothing processing would just burn
- * money, so canBuyStoreItem blocks that case.
- * @param {import('../types/state.js').GameState} state
- * @param {number} effectPercent
- */
-function applyProcessingSpeedBoost(state, effectPercent) {
-  const nowMs = now()
-  for (const building of state.buildings) {
-    if (building.slot?.status !== 'processing') continue
-    const remaining = building.slot.completesAt - nowMs
-    if (remaining > 0) building.slot.completesAt = nowMs + remaining * (1 - effectPercent)
-  }
-}
-
-/**
- * Same idea as applyProcessingSpeedBoost, but for building upgrades.
- * @param {import('../types/state.js').GameState} state
- * @param {number} effectPercent
- */
-function applyUpgradeSpeedBoost(state, effectPercent) {
-  const nowMs = now()
-  const allBuildings = [state.townHall, ...state.buildings]
-  for (const building of allBuildings) {
-    if (!building.upgrade) continue
-    const remaining = building.upgrade.completesAt - nowMs
-    if (remaining > 0) building.upgrade.completesAt = nowMs + remaining * (1 - effectPercent)
-  }
 }
 
 /**
@@ -92,18 +58,20 @@ function applyUpgradeSpeedBoost(state, effectPercent) {
  * @returns {StorePurchaseResult}
  */
 export function buyStoreItem(state, itemId, labMultipliers) {
-  const result = canBuyStoreItem(state, itemId, labMultipliers)
+  const result = canBuyStoreItem(state, itemId)
   if (!result.ok) return result
 
   const item = getStoreItem(itemId)
-  state.resources.money -= item.cost
+  spendBalance(state, item.currency, item.cost)
 
   if (item.type === 'seeds') {
     state.resources.storage.seeds += item.batches * getSeedsPerBatch(state, labMultipliers)
   } else if (item.type === 'speed_boost_processing') {
-    applyProcessingSpeedBoost(state, item.effectPercent)
+    activateBoost(state.boosts, 'processing', item)
   } else if (item.type === 'speed_boost_upgrade') {
-    applyUpgradeSpeedBoost(state, item.effectPercent)
+    activateBoost(state.boosts, 'upgrade', item)
+  } else if (item.type === 'money_boost') {
+    activateBoost(state.boosts, 'money', item)
   }
 
   return { ok: true }

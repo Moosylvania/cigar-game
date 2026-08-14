@@ -28,8 +28,9 @@ export function getMaxAllowedLevel(building, state) {
  * @param {import('../types/building.js').BuildingType} type
  * @param {number} fromLevel - exclusive; the first level actually paid for is fromLevel + 1
  * @param {number} targetLevel - inclusive
+ * @param {number} [speedMultiplier] - from an active Rush Delivery boost (see boostEngine.js); 1 = no boost
  */
-export function getUpgradePlan(type, fromLevel, targetLevel) {
+export function getUpgradePlan(type, fromLevel, targetLevel, speedMultiplier = 1) {
   let cost = 0
   let durationSeconds = 0
   for (let level = fromLevel + 1; level <= targetLevel; level++) {
@@ -37,7 +38,7 @@ export function getUpgradePlan(type, fromLevel, targetLevel) {
     cost += stats.upgradeCost
     durationSeconds += stats.upgradeDurationSeconds
   }
-  return { targetLevel, cost, durationSeconds }
+  return { targetLevel, cost, durationSeconds: durationSeconds * speedMultiplier }
 }
 
 /**
@@ -75,9 +76,10 @@ export function getAffordableUpgradeTarget(building, state) {
  * @param {import('../types/building.js').PlacedBuilding} building
  * @param {import('../types/state.js').GameState} state
  * @param {number} targetLevel
+ * @param {number} [speedMultiplier] - from an active Rush Delivery boost (see boostEngine.js); 1 = no boost
  * @returns {UpgradeResult}
  */
-export function startUpgradeToLevel(building, state, targetLevel) {
+export function startUpgradeToLevel(building, state, targetLevel, speedMultiplier = 1) {
   if (building.upgrade) return { ok: false, reason: 'already_upgrading' }
   if (targetLevel <= building.level) return { ok: false, reason: 'not_above_current_level' }
   if (targetLevel > MAX_BUILDING_LEVEL) return { ok: false, reason: 'max_level' }
@@ -85,7 +87,7 @@ export function startUpgradeToLevel(building, state, targetLevel) {
   const maxAllowed = getMaxAllowedLevel(building, state)
   if (targetLevel > maxAllowed) return { ok: false, reason: 'town_hall_gate' }
 
-  const plan = getUpgradePlan(building.type, building.level, targetLevel)
+  const plan = getUpgradePlan(building.type, building.level, targetLevel, speedMultiplier)
   if (state.resources.money < plan.cost) return { ok: false, reason: 'insufficient_funds' }
 
   state.resources.money -= plan.cost

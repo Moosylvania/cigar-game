@@ -1,24 +1,46 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { useClock } from '~/composables/useClock.js'
 import { STORE_ITEMS } from '#game/config/store.config.js'
 import { DECORATIONS } from '#game/config/decorations.config.js'
 import { formatCompactNumber } from '#game/util/format.js'
+import { formatDuration } from '#game/util/time.js'
 
 const emit = defineEmits(['close', 'place-decoration'])
 const store = useGameStore()
+const { nowMs } = useClock()
 
 const feedback = ref(null)
 const activeTab = ref('items')
 
+// speed_boost_* items activate a timed buff rather than an instant effect
+// (see boostEngine.js) - this maps an item's type to the boosts state key
+// its active/remaining-time display should read from.
+const BOOST_KEY_BY_ITEM_TYPE = {
+  speed_boost_processing: 'processing',
+  speed_boost_upgrade: 'upgrade',
+  money_boost: 'money'
+}
+
+function activeBoostFor(item) {
+  const key = BOOST_KEY_BY_ITEM_TYPE[item.type]
+  if (!key) return null
+  const boost = store.boosts[key]
+  if (!boost || boost.itemId !== item.id || boost.expiresAt <= nowMs.value) return null
+  return boost
+}
+
 const rows = computed(() =>
   STORE_ITEMS.map((item) => {
     const result = store.canBuyStoreItem(item.id)
+    const activeBoost = activeBoostFor(item)
     return {
       item,
       canBuy: result.ok,
       reason: result.reason,
-      seedsGranted: item.type === 'seeds' ? item.batches * store.seedsPerBatch : null
+      seedsGranted: item.type === 'seeds' ? item.batches * store.seedsPerBatch : null,
+      activeRemaining: activeBoost ? formatDuration((activeBoost.expiresAt - nowMs.value) / 1000) : null
     }
   })
 )
@@ -30,15 +52,14 @@ const decorationRows = computed(() =>
   }))
 )
 
-function reasonLabel(reason) {
-  if (reason === 'insufficient_funds') return 'Not enough money'
-  if (reason === 'nothing_to_boost') return 'Nothing in progress to speed up'
+function reasonLabel(reason, item) {
+  if (reason === 'insufficient_funds') return item?.currency === 'coins' ? 'Not enough coins' : 'Not enough money'
   return null
 }
 
 function buy(row) {
   const result = store.buyStoreItem(row.item.id)
-  const message = result.ok ? `Bought ${row.item.name}` : reasonLabel(result.reason)
+  const message = result.ok ? `Bought ${row.item.name}` : reasonLabel(result.reason, row.item)
   feedback.value = message
   setTimeout(() => {
     if (feedback.value === message) feedback.value = null
@@ -68,16 +89,20 @@ function placeDecoration(decoration) {
       </div>
 
       <div v-if="activeTab === 'items'" class="item-list">
-        <div v-for="row in rows" :key="row.item.id" class="item-row">
+        <div v-for="row in rows" :key="row.item.id" class="item-row" :class="{ active: row.activeRemaining }">
           <span class="item-icon"><Icon :name="row.item.icon" /></span>
           <div class="info">
             <span class="name">{{ row.item.name }}</span>
             <span class="detail">{{ row.item.description }}</span>
             <span v-if="row.seedsGranted !== null" class="current-effect">+{{ row.seedsGranted.toLocaleString() }} seeds</span>
-            <span v-if="!row.canBuy && row.reason" class="warn">{{ reasonLabel(row.reason) }}</span>
+            <span v-if="row.activeRemaining" class="current-effect active-boost">
+              <Icon name="mdi:cigar" /> Active — {{ row.activeRemaining }} left
+            </span>
+            <span v-if="!row.canBuy && row.reason" class="warn">{{ reasonLabel(row.reason, row.item) }}</span>
           </div>
-          <button :disabled="!row.canBuy" @click="buy(row)">
-            ${{ formatCompactNumber(row.item.cost) }}
+          <button :disabled="!row.canBuy" @click="buy(row)" class="buy-btn" :class="{ coins: row.item.currency === 'coins' }">
+            <Icon v-if="row.item.currency === 'coins'" name="mdi:hand-coin-outline" />
+            <template v-else>$</template>{{ formatCompactNumber(row.item.cost) }}
           </button>
         </div>
       </div>
@@ -237,6 +262,14 @@ function placeDecoration(decoration) {
   padding: $spacing-sm;
   border: 1px solid $color-panel-border;
   border-radius: $radius-sm;
+
+  // A running Fertilizer/Rush Delivery buff gets a warm ember glow on its
+  // own row - the same "something is active" language as the pulsing
+  // ready-glow elsewhere, just cigar-colored instead of green.
+  &.active {
+    border-color: #e0862f;
+    background: rgba(224, 134, 47, 0.08);
+  }
 }
 
 .item-icon {
@@ -274,6 +307,24 @@ function placeDecoration(decoration) {
   font-weight: 600;
 }
 
+.active-boost {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #e0862f;
+  animation: ember-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ember-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 .warn {
   font-size: 0.72rem;
   color: $color-danger;
@@ -298,6 +349,23 @@ button {
     opacity: 0.5;
     cursor: not-allowed;
     background: transparent;
+  }
+}
+
+.buy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  &.coins {
+    border-color: #e0862f;
+    background: rgba(224, 134, 47, 0.15);
+    color: #e0b23d;
+
+    &:not(:disabled):hover {
+      background: rgba(224, 134, 47, 0.28);
+    }
   }
 }
 </style>

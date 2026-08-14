@@ -43,6 +43,8 @@ import {
   getCigarStorageCapacity
 } from '#game/engine/distributionEngine.js'
 import { canBuyStoreItem as engineCanBuyStoreItem, buyStoreItem as engineBuyStoreItem, getSeedsPerBatch } from '#game/engine/storeEngine.js'
+import { getBoostMultipliers } from '#game/engine/boostEngine.js'
+import { updateCoinDelivery, collectCoinDelivery as engineCollectCoinDelivery } from '#game/engine/coinDeliveryEngine.js'
 import {
   canPrestige as engineCanPrestige,
   getVarietyMultiplier,
@@ -59,6 +61,7 @@ import {
   buyEpicResearch as engineBuyEpicResearch
 } from '#game/engine/epicResearchEngine.js'
 import { getBuildingConfig } from '#game/config/buildings/index.js'
+import { PIPELINE_STAGES } from '#game/config/pipeline.config.js'
 import { TUTORIAL_STEPS } from '#game/config/tutorial.config.js'
 import { PRESTIGE_TIERS } from '#game/config/prestige.config.js'
 import { TROPHIES } from '#game/config/trophies.config.js'
@@ -116,21 +119,28 @@ export const useGameStore = defineStore('game', {
     combinedMultipliers() {
       const lab = this.labMultipliers
       const epic = this.epicMultipliers
+      const boost = getBoostMultipliers(this.game.boosts)
+      // Iterates every pipeline type explicitly (not just whichever keys
+      // lab/epic happen to already have an entry for) so the boost's
+      // across-the-board speedup never silently drops for a type neither
+      // of those has touched yet.
       const speedMultipliers = {}
-      for (const key of new Set([...Object.keys(lab.speedMultipliers), ...Object.keys(epic.speedMultipliers)])) {
-        speedMultipliers[key] = (lab.speedMultipliers[key] ?? 1) * (epic.speedMultipliers[key] ?? 1)
+      for (const stage of PIPELINE_STAGES) {
+        const type = stage.type
+        speedMultipliers[type] = (lab.speedMultipliers[type] ?? 1) * (epic.speedMultipliers[type] ?? 1) * boost.processingSpeedMultiplier
       }
       const batchSizeMultipliers = {}
       for (const key of new Set([...Object.keys(lab.batchSizeMultipliers), ...Object.keys(epic.batchSizeMultipliers)])) {
         batchSizeMultipliers[key] = (lab.batchSizeMultipliers[key] ?? 1) * (epic.batchSizeMultipliers[key] ?? 1)
       }
       return {
-        salePriceMultiplier: lab.salePriceMultiplier * epic.salePriceMultiplier,
+        salePriceMultiplier: lab.salePriceMultiplier * epic.salePriceMultiplier * boost.salePriceMultiplier,
         speedMultipliers,
         batchSizeMultipliers,
         depotCapacityMultiplier: lab.depotCapacityMultiplier * epic.depotCapacityMultiplier,
         fleetThroughputMultiplier: lab.fleetThroughputMultiplier * epic.fleetThroughputMultiplier,
-        prestigeMultiplier: this.totalPrestigeMultiplier
+        prestigeMultiplier: this.totalPrestigeMultiplier,
+        upgradeSpeedMultiplier: boost.upgradeSpeedMultiplier
       }
     },
     fleetCapacityPerHour(state) {
@@ -153,6 +163,12 @@ export const useGameStore = defineStore('game', {
       return getSeedsPerBatch(state.game, this.combinedMultipliers)
     },
     distributionBuilding: (state) => state.game.buildings.find((b) => b.type === 'distribution') ?? null,
+    // Raw boost data (expiresAt timestamps) - components compute live
+    // remaining time themselves against useClock's nowMs, same pattern as
+    // building upgrade/slot countdowns (see BuildingUpgradePanel.vue).
+    boosts: (state) => state.game.boosts,
+    coins: (state) => state.game.coins,
+    pendingCoinDelivery: (state) => state.game.coinDelivery.pending,
     readyBuildingIds: (state) => state.game.buildings.filter((b) => b.slot?.status === 'ready').map((b) => b.id),
     decorations: (state) => state.game.decorations,
 
@@ -235,7 +251,7 @@ export const useGameStore = defineStore('game', {
 
     getUpgradePlan(buildingId, targetLevel) {
       const building = this.findBuilding(buildingId)
-      return building ? getUpgradePlan(building.type, building.level, targetLevel) : null
+      return building ? getUpgradePlan(building.type, building.level, targetLevel, this.combinedMultipliers.upgradeSpeedMultiplier) : null
     },
 
     getAffordableUpgradeTarget(buildingId) {
@@ -283,7 +299,7 @@ export const useGameStore = defineStore('game', {
     startBuildingUpgradeToLevel(buildingId, targetLevel) {
       const building = this.findBuilding(buildingId)
       if (!building) return { ok: false, reason: 'not_found' }
-      return engineStartUpgradeToLevel(building, this.game, targetLevel)
+      return engineStartUpgradeToLevel(building, this.game, targetLevel, this.combinedMultipliers.upgradeSpeedMultiplier)
     },
 
     startBatch(buildingId) {
@@ -321,15 +337,25 @@ export const useGameStore = defineStore('game', {
      * of one at a time. A building without enough input to start simply
      * gets skipped (engineStartBatch already returns not-ok for that)
      * rather than surfacing an error, same as a manual click would.
+     * Highest-level buildings go first - startBatch pulls from the shared
+     * input pool first-come-first-served (no fair share, same as a manual
+     * click - see batchEngine.js), so when input is scarce this ensures
+     * the biggest, most efficient batches claim it before smaller ones.
      */
     startAllIdleOfType(type) {
-      const idleBuildings = this.game.buildings.filter((b) => b.type === type && b.slot?.status === 'idle')
+      const idleBuildings = this.game.buildings
+        .filter((b) => b.type === type && b.slot?.status === 'idle')
+        .sort((a, b) => b.level - a.level)
       let started = 0
       for (const building of idleBuildings) {
         const result = engineStartBatch(building, this.game, this.combinedMultipliers)
         if (result.ok) started += 1
       }
       return { count: started }
+    },
+
+    collectCoinDelivery() {
+      return engineCollectCoinDelivery(this.game)
     },
 
     isTileOwned(x, y) {
@@ -385,7 +411,7 @@ export const useGameStore = defineStore('game', {
     },
 
     canBuyStoreItem(itemId) {
-      return engineCanBuyStoreItem(this.game, itemId, this.combinedMultipliers)
+      return engineCanBuyStoreItem(this.game, itemId)
     },
 
     buyStoreItem(itemId) {
@@ -461,6 +487,7 @@ export const useGameStore = defineStore('game', {
       resolveCompletedUpgrades(this.game, atTime)
       runAutomation(this.game, this.combinedMultipliers)
       exportCigars(this.game, 1, this.combinedMultipliers)
+      updateCoinDelivery(this.game, atTime)
     },
 
     /**

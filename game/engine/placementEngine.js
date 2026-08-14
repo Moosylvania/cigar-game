@@ -151,6 +151,7 @@ export function canSellBuilding(state, buildingId) {
   if (state.townHall.id === buildingId) return { ok: false, reason: 'town_hall_cannot_be_sold' }
   const building = state.buildings.find((b) => b.id === buildingId)
   if (!building) return { ok: false, reason: 'not_found' }
+  if (building.type === 'distribution') return { ok: false, reason: 'distribution_cannot_be_sold' }
   return { ok: true }
 }
 

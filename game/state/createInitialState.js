@@ -1,6 +1,7 @@
 import { createId } from '../util/id.js'
 import { now } from '../util/time.js'
 import { isPipelineBuilding } from '../config/pipeline.config.js'
+import { COIN_DELIVERY_INTERVAL_SECONDS } from '../config/economy.config.js'
 
 // One of each pipeline building plus the depot, pre-placed and free, laid
 // out around the fixed Town Hall on the starting 6x6 (0-5, 0-5) region so a
@@ -70,6 +71,22 @@ export function createInitialState() {
     },
     distribution: {
       fleet: [{ vehicleTierId: 'truck', count: 1 }]
+    },
+    // Timed store-item buffs (see store.config.js speed_boost_* items) -
+    // null until the player buys one (see engine/boostEngine.js).
+    boosts: {
+      processing: null,
+      upgrade: null,
+      money: null
+    },
+    // Separate currency earmarked for power-ups (not yet spendable
+    // anywhere). Lives outside `resources` (which resetBoard wipes on
+    // prestige) and is never touched by resetBoard itself, so it survives
+    // prestige like the rest of the prestige-adjacent meta-progression.
+    coins: 0,
+    coinDelivery: {
+      pending: null,
+      nextSpawnAt: timestamp + COIN_DELIVERY_INTERVAL_SECONDS * 1000
     },
     decorations: [],
     // Only meaningful for a genuinely brand-new game (see game-init.client.js) -

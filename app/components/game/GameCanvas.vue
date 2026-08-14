@@ -6,8 +6,10 @@ import { drawGrid, screenToGrid } from './renderers/drawGrid.js'
 import { drawBuilding, getStatusIndicatorHitbox } from './renderers/buildingGlyphs.js'
 import { drawDecoration } from './renderers/decorationSprites.js'
 import { drawVehicleSprite } from './renderers/vehicleSprites.js'
+import { drawCoinDelivery, drawCoinCollectBurst } from './renderers/coinDelivery.js'
 import { useFleetAnimation, getVehicleWorldPosition } from '~/composables/useFleetAnimation.js'
 import { useBuildingAnimations } from '~/composables/useBuildingAnimations.js'
+import { useCoinBurstEffects } from '~/composables/useCoinBurstEffects.js'
 import { MAX_REGION } from '#game/config/land.config.js'
 import { getDecorationDefinition } from '#game/config/decorations.config.js'
 
@@ -26,6 +28,7 @@ const store = useGameStore()
 const { nowMs } = useClock()
 const fleetAnimation = useFleetAnimation()
 const buildingAnimations = useBuildingAnimations()
+const coinBurstEffects = useCoinBurstEffects()
 const canvasRef = ref(null)
 const containerRef = ref(null)
 
@@ -269,6 +272,28 @@ function render() {
     ctx.globalAlpha = 1
   }
 
+  const pendingCoinDelivery = store.pendingCoinDelivery
+  if (pendingCoinDelivery) {
+    const rect = {
+      x: camera.offsetX + pendingCoinDelivery.x * TILE_SIZE * camera.scale,
+      y: camera.offsetY + pendingCoinDelivery.y * TILE_SIZE * camera.scale,
+      width: TILE_SIZE * camera.scale,
+      height: TILE_SIZE * camera.scale
+    }
+    drawCoinDelivery(ctx, rect, tilePx, nowMs.value, pendingCoinDelivery)
+  }
+
+  coinBurstEffects.update()
+  for (const burst of coinBurstEffects.getActiveBursts()) {
+    const rect = {
+      x: camera.offsetX + burst.x * TILE_SIZE * camera.scale,
+      y: camera.offsetY + burst.y * TILE_SIZE * camera.scale,
+      width: TILE_SIZE * camera.scale,
+      height: TILE_SIZE * camera.scale
+    }
+    drawCoinCollectBurst(ctx, rect, nowMs.value, burst, coinBurstEffects.durationMs)
+  }
+
   if (props.tutorialDim) {
     const target = props.tutorialHighlightType
       ? store.allBuildings.find((b) => b.type === props.tutorialHighlightType)
@@ -352,6 +377,26 @@ function handleIndicatorClick(building) {
   } else if (building.slot.status === 'ready') {
     store.collectBatch(building.id)
   }
+}
+
+/** Same generous-radius hit-test pattern as findIndicatorHitAt, against
+ * the currently-pending coin delivery (if any) instead of a building. */
+function findCoinDeliveryHitAt(screenPos) {
+  const delivery = store.pendingCoinDelivery
+  if (!delivery) return null
+  const camera = computeCamera()
+  const tilePx = TILE_SIZE * camera.scale
+  const cx = camera.offsetX + (delivery.x + 0.5) * tilePx
+  const cy = camera.offsetY + (delivery.y + 0.5) * tilePx
+  const tapRadius = tilePx * 0.45
+  const dx = screenPos.x - cx
+  const dy = screenPos.y - cy
+  return dx * dx + dy * dy <= tapRadius * tapRadius ? delivery : null
+}
+
+function handleCoinDeliveryClick(delivery) {
+  const result = store.collectCoinDelivery()
+  if (result.ok) coinBurstEffects.spawn(delivery.x, delivery.y, result.amount)
 }
 
 function screenPosFromEvent(event) {
@@ -532,6 +577,15 @@ function handlePointerUp(event) {
   }
 
   if (!props.editMode) {
+    // A pending coin delivery takes priority over everything else on the
+    // tile it's floating above - it's a transient pickup, not part of
+    // whatever building/decoration happens to be underneath it.
+    const coinDeliveryHit = findCoinDeliveryHitAt(clickScreenPos)
+    if (coinDeliveryHit) {
+      handleCoinDeliveryClick(coinDeliveryHit)
+      return
+    }
+
     // The status indicator (start/collect button) intercepts idle/ready
     // clicks; a processing indicator has nothing to do by clicking it, so
     // that falls through to opening the panel like anywhere else on the tile.

@@ -1,5 +1,7 @@
 import { PRESTIGE_TIERS } from '../config/prestige.config.js'
 import { STARTING_REGION } from '../config/land.config.js'
+import { COIN_DELIVERY_INTERVAL_SECONDS } from '../config/economy.config.js'
+import { now } from '../util/time.js'
 
 // Land expansion used to unlock in whole rectangular "tiers" (index ->
 // region) instead of individual tiles - kept here, and only here, purely so
@@ -30,6 +32,24 @@ const LEGACY_LAND_TIER_REGIONS = [
 function repairState(state) {
   if (!state.lab || typeof state.lab.researchLevels !== 'object' || state.lab.researchLevels === null) {
     state.lab = { researchLevels: {} }
+  }
+
+  // Store speed-boost items used to apply an instant retroactive effect;
+  // now they activate a timed buff tracked here (see engine/boostEngine.js)
+  // - a save from before that change has no boosts field at all.
+  if (!state.boosts || typeof state.boosts !== 'object') {
+    state.boosts = { processing: null, upgrade: null, money: null }
+  } else if (state.boosts.money === undefined) {
+    // The money boost (Money Rush) was added after processing/upgrade - a
+    // save from in between has boosts but not this key yet.
+    state.boosts.money = null
+  }
+
+  // Coins are a separate currency added later (see engine/coinDeliveryEngine.js)
+  // - a save from before that change has neither field yet.
+  if (typeof state.coins !== 'number') state.coins = 0
+  if (!state.coinDelivery || typeof state.coinDelivery !== 'object') {
+    state.coinDelivery = { pending: null, nextSpawnAt: now() + COIN_DELIVERY_INTERVAL_SECONDS * 1000 }
   }
 
   // Nursery batches now consume 'seeds' (bought from the Store) instead of

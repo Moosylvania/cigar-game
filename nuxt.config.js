@@ -86,7 +86,9 @@ const ICON_NAMES = [
   'mdi:radioactive',
   'mdi:orbit',
   'mdi:weather-lightning',
-  'mdi:creation'
+  'mdi:creation',
+  'mdi:hand-coin-outline',
+  'mdi:cash-fast'
 ]
 
 export default defineNuxtConfig({

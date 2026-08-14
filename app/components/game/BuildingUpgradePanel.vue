@@ -312,7 +312,7 @@ function doCollectBatch() {
         </template>
       </section>
 
-      <section v-if="building.type !== 'town_hall'" class="sell-section">
+      <section v-if="building.type !== 'town_hall' && building.type !== 'distribution'" class="sell-section">
         <button class="sell-btn" @click="doSell">
           <Icon name="mdi:delete-outline" /> Sell for ${{ formatCompactNumber(sellValue) }}
         </button>
