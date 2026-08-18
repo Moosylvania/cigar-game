@@ -23,24 +23,31 @@ const BOOST_KEY_BY_ITEM_TYPE = {
   money_boost: 'money'
 }
 
-function activeBoostFor(item) {
+// Every currently-running instance of exactly this item (several stack
+// concurrently now - see boostEngine.js) - a different duration tier of
+// the same money_boost type (e.g. a 10-min Money Rush) counts toward the
+// 'money' slot's combined effect but is tracked separately here so each
+// row only reports on itself, not sibling tiers.
+function activeInstancesFor(item) {
   const key = BOOST_KEY_BY_ITEM_TYPE[item.type]
-  if (!key) return null
-  const boost = store.boosts[key]
-  if (!boost || boost.itemId !== item.id || boost.expiresAt <= nowMs.value) return null
-  return boost
+  if (!key) return []
+  return (store.boosts[key] ?? []).filter((boost) => boost.itemId === item.id && boost.expiresAt > nowMs.value)
 }
 
 const rows = computed(() =>
   STORE_ITEMS.map((item) => {
     const result = store.canBuyStoreItem(item.id)
-    const activeBoost = activeBoostFor(item)
+    const activeInstances = activeInstancesFor(item)
+    const soonestExpiresAt = activeInstances.length
+      ? Math.min(...activeInstances.map((boost) => boost.expiresAt))
+      : null
     return {
       item,
       canBuy: result.ok,
       reason: result.reason,
       seedsGranted: item.type === 'seeds' ? item.batches * store.seedsPerBatch : null,
-      activeRemaining: activeBoost ? formatDuration((activeBoost.expiresAt - nowMs.value) / 1000) : null
+      activeCount: activeInstances.length,
+      activeRemaining: soonestExpiresAt ? formatDuration((soonestExpiresAt - nowMs.value) / 1000) : null
     }
   })
 )
@@ -96,7 +103,7 @@ function placeDecoration(decoration) {
             <span class="detail">{{ row.item.description }}</span>
             <span v-if="row.seedsGranted !== null" class="current-effect">+{{ row.seedsGranted.toLocaleString() }} seeds</span>
             <span v-if="row.activeRemaining" class="current-effect active-boost">
-              <Icon name="mdi:cigar" /> Active — {{ row.activeRemaining }} left
+              <Icon name="mdi:cigar" /> Active{{ row.activeCount > 1 ? ` ×${row.activeCount}` : '' }} — next expires in {{ row.activeRemaining }}
             </span>
             <span v-if="!row.canBuy && row.reason" class="warn">{{ reasonLabel(row.reason, row.item) }}</span>
           </div>

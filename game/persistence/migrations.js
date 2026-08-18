@@ -34,15 +34,16 @@ function repairState(state) {
     state.lab = { researchLevels: {} }
   }
 
-  // Store speed-boost items used to apply an instant retroactive effect;
-  // now they activate a timed buff tracked here (see engine/boostEngine.js)
-  // - a save from before that change has no boosts field at all.
-  if (!state.boosts || typeof state.boosts !== 'object') {
-    state.boosts = { processing: null, upgrade: null, money: null }
-  } else if (state.boosts.money === undefined) {
-    // The money boost (Money Rush) was added after processing/upgrade - a
-    // save from in between has boosts but not this key yet.
-    state.boosts.money = null
+  // Store speed-boost items used to apply an instant retroactive effect,
+  // then a single-slot timed buff per kind (null | one ActiveBoost); now
+  // each kind holds an array so several can stack concurrently (see
+  // engine/boostEngine.js). Normalizes every shape a save could have:
+  // missing entirely, null, a lone ActiveBoost object, or already an array.
+  if (!state.boosts || typeof state.boosts !== 'object') state.boosts = {}
+  for (const key of ['processing', 'upgrade', 'money']) {
+    const value = state.boosts[key]
+    if (Array.isArray(value)) continue
+    state.boosts[key] = value ? [value] : []
   }
 
   // Coins are a separate currency added later (see engine/coinDeliveryEngine.js)

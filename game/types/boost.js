@@ -11,8 +11,12 @@
  * items / engine/boostEngine.js) - 'processing' speeds up pipeline batches
  * that start while active, 'upgrade' speeds up building upgrades that
  * start while active, 'money' multiplies cigar sale price while active.
- * null means no boost of that kind is currently running.
- * @typedef {{ processing: ActiveBoost|null, upgrade: ActiveBoost|null, money: ActiveBoost|null }} BoostState
+ * Each array holds every currently-running boost of that kind - buying a
+ * second Fertilizer while one is already active pushes a second,
+ * independently-expiring entry rather than replacing the first, and their
+ * effects stack additively (see boostEngine.js getBoostMultipliers). Empty
+ * array (not null) when nothing of that kind is running.
+ * @typedef {{ processing: ActiveBoost[], upgrade: ActiveBoost[], money: ActiveBoost[] }} BoostState
  */
 
 export {}

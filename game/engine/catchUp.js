@@ -3,7 +3,7 @@ import { resolveCompletedUpgrades } from './upgradeEngine.js'
 import { getMultipliers } from './labEngine.js'
 import { getEpicMultipliers } from './epicResearchEngine.js'
 import { getTotalPrestigeMultiplier } from './prestigeEngine.js'
-import { getBoostMultipliers } from './boostEngine.js'
+import { getBoostMultipliers, pruneExpiredBoosts } from './boostEngine.js'
 import { updateCoinDelivery } from './coinDeliveryEngine.js'
 import { exportCigars } from './economy.js'
 import { PIPELINE_STAGES } from '../config/pipeline.config.js'
@@ -68,5 +68,6 @@ export function runOfflineCatchUp(state, elapsedSeconds) {
   const multipliers = getCombinedMultipliers(state, atTime)
   fastForwardAutomation(state, elapsedSeconds, multipliers)
   updateCoinDelivery(state, atTime)
+  pruneExpiredBoosts(state.boosts, atTime)
   return exportCigars(state, elapsedSeconds, multipliers)
 }

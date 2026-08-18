@@ -72,15 +72,16 @@ export function createInitialState() {
     distribution: {
       fleet: [{ vehicleTierId: 'truck', count: 1 }]
     },
-    // Timed store-item buffs (see store.config.js speed_boost_* items) -
-    // null until the player buys one (see engine/boostEngine.js).
+    // Timed store-item buffs (see store.config.js speed_boost_*/money_boost
+    // items) - each array holds every currently-running boost of that
+    // kind, stacking additively while active (see engine/boostEngine.js).
     boosts: {
-      processing: null,
-      upgrade: null,
-      money: null
+      processing: [],
+      upgrade: [],
+      money: []
     },
-    // Separate currency earmarked for power-ups (not yet spendable
-    // anywhere). Lives outside `resources` (which resetBoard wipes on
+    // Separate currency spent on power-ups in the Store. Lives outside
+    // `resources` (which resetBoard wipes on
     // prestige) and is never touched by resetBoard itself, so it survives
     // prestige like the rest of the prestige-adjacent meta-progression.
     coins: 0,

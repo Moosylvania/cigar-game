@@ -43,7 +43,7 @@ import {
   getCigarStorageCapacity
 } from '#game/engine/distributionEngine.js'
 import { canBuyStoreItem as engineCanBuyStoreItem, buyStoreItem as engineBuyStoreItem, getSeedsPerBatch } from '#game/engine/storeEngine.js'
-import { getBoostMultipliers } from '#game/engine/boostEngine.js'
+import { getBoostMultipliers, pruneExpiredBoosts } from '#game/engine/boostEngine.js'
 import { updateCoinDelivery, collectCoinDelivery as engineCollectCoinDelivery } from '#game/engine/coinDeliveryEngine.js'
 import {
   canPrestige as engineCanPrestige,
@@ -488,6 +488,7 @@ export const useGameStore = defineStore('game', {
       runAutomation(this.game, this.combinedMultipliers)
       exportCigars(this.game, 1, this.combinedMultipliers)
       updateCoinDelivery(this.game, atTime)
+      pruneExpiredBoosts(this.game.boosts, atTime)
     },
 
     /**

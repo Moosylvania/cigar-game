@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { useTweenedNumber } from '~/composables/useTweenedNumber.js'
 import { useClock } from '~/composables/useClock.js'
-import { getStoreItem } from '#game/config/store.config.js'
+import { getActiveBoosts, getBoostMultipliers } from '#game/engine/boostEngine.js'
 import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 import { formatDuration } from '#game/util/time.js'
 
@@ -38,20 +38,33 @@ function collectAll() {
   store.collectAllReady()
 }
 
-// A cigar-themed pill per active timed buff (see boostEngine.js) - the
-// icon is a lit cigar regardless of which item is active, distinct from
-// each Store item's own icon, so "a boost is running" reads at a glance
-// without needing to name the specific item.
+// A cigar-themed pill per kind of active timed buff (see boostEngine.js) -
+// the icon is a lit cigar regardless of which item is active, distinct
+// from each Store item's own icon, so "a boost is running" reads at a
+// glance without needing to name the specific item. Several of the same
+// (or, for money, different-tier) boosts can stack concurrently now, so
+// each pill shows the combined effect and a ×N count, counting down to
+// whichever one expires soonest - once it drops off, the combined effect
+// shown here drops too, even though others may still be running.
+const BOOST_LABELS = { processing: 'Fertilizer', upgrade: 'Rush Delivery', money: 'Money Rush' }
+
 const activeBoosts = computed(() => {
   const boosts = []
+  const multipliers = getBoostMultipliers(store.boosts, nowMs.value)
   for (const key of ['processing', 'upgrade', 'money']) {
-    const boost = store.boosts[key]
-    if (!boost || boost.expiresAt <= nowMs.value) continue
-    const item = getStoreItem(boost.itemId)
+    const active = getActiveBoosts(store.boosts, key, nowMs.value)
+    if (active.length === 0) continue
+    const soonestExpiresAt = Math.min(...active.map((boost) => boost.expiresAt))
+    const effectText =
+      key === 'money'
+        ? formatMultiplier(multipliers.salePriceMultiplier) + ' money'
+        : Math.round((1 - multipliers[`${key}SpeedMultiplier`]) * 100) + '% faster'
     boosts.push({
       key,
-      name: item?.name ?? 'Boost',
-      remaining: formatDuration((boost.expiresAt - nowMs.value) / 1000)
+      name: BOOST_LABELS[key],
+      count: active.length,
+      effectText,
+      remaining: formatDuration((soonestExpiresAt - nowMs.value) / 1000)
     })
   }
   return boosts
@@ -62,7 +75,7 @@ const activeBoosts = computed(() => {
   <div class="resource-bar">
     <div v-for="boost in activeBoosts" :key="boost.key" class="boost-badge">
       <Icon name="mdi:cigar" class="ember" />
-      {{ boost.name }} — {{ boost.remaining }}
+      {{ boost.name }}{{ boost.count > 1 ? ` ×${boost.count}` : '' }} ({{ boost.effectText }}) — {{ boost.remaining }}
     </div>
     <div v-if="readyCount > 0" class="ready-banner">
       <span class="dot" />
