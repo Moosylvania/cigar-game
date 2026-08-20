@@ -5,6 +5,7 @@
 .nitro
 .cache
 dist
+.github/workflows/deploy.yml
 
 # Node dependencies
 node_modules
