@@ -249,7 +249,8 @@ function render() {
     const isDragging = props.editMode && building.id === draggingId
     if (isDragging) ctx.globalAlpha = 0.7
     const popScale = buildingAnimations.getPopTransform(building.id)?.scale ?? 1
-    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale)
+    const collectBlocked = building.slot?.status === 'ready' && store.isCollectBlocked(building.id)
+    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked)
     if (isDragging) {
       ctx.globalAlpha = 1
       ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
@@ -374,7 +375,7 @@ function findIndicatorHitAt(screenPos) {
 function handleIndicatorClick(building) {
   if (building.slot.status === 'idle') {
     store.startBatch(building.id)
-  } else if (building.slot.status === 'ready') {
+  } else if (building.slot.status === 'ready' && !store.isCollectBlocked(building.id)) {
     store.collectBatch(building.id)
   }
 }

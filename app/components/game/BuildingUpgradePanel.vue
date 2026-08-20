@@ -190,7 +190,11 @@ const inputAvailable = computed(() => {
 
 const automation = computed(() => (building.value ? getAutomationTier(building.value.level) : { autoCollect: false, autoStart: false }))
 
-const collectFeedback = ref(null)
+// True when this batch is 'ready' but collecting it would overflow the
+// Depot (Rolling House only - see batchEngine.js
+// isCollectBlockedByOutputCap). Disables the Collect button and shows a
+// warning instead, rather than letting the player lose the excess.
+const collectBlocked = computed(() => building.value?.slot?.status === 'ready' && store.isCollectBlocked(props.buildingId))
 
 function doUpgrade() {
   if (!upgradePlan.value) return
@@ -202,14 +206,7 @@ function doStartBatch() {
 }
 
 function doCollectBatch() {
-  const result = store.collectBatch(props.buildingId)
-  if (result.overflowed > 0) {
-    const message = `${formatCompactNumber(result.overflowed)} cigars overflowed the Depot and were lost!`
-    collectFeedback.value = message
-    setTimeout(() => {
-      if (collectFeedback.value === message) collectFeedback.value = null
-    }, 3000)
-  }
+  store.collectBatch(props.buildingId)
 }
 </script>
 
@@ -254,12 +251,12 @@ function doCollectBatch() {
             <span class="ready">
               ● Ready to collect: {{ Math.floor(building.slot.batchSize) }} {{ RESOURCE_LABELS[stage.outputKey] ?? 'units' }}
             </span>
-            <span v-if="automation.autoCollect" class="note">Auto-collecting…</span>
-            <button v-else @click="doCollectBatch">Collect</button>
+            <span v-if="automation.autoCollect && !collectBlocked" class="note">Auto-collecting…</span>
+            <button v-else-if="!automation.autoCollect" :disabled="collectBlocked" @click="doCollectBatch">Collect</button>
           </template>
         </div>
-        <p v-if="collectFeedback" class="note warn">
-          <Icon name="mdi:alert-outline" /> {{ collectFeedback }}
+        <p v-if="collectBlocked" class="note warn">
+          <Icon name="mdi:alert-outline" /> Depot is full — make room before collecting
         </p>
         <p class="automation-hint">
           <span :class="{ unlocked: automation.autoCollect }">

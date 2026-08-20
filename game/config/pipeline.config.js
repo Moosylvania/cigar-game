@@ -4,10 +4,11 @@
  * Nursery's input is 'seeds' - a resource you buy from the Store (see
  * store.config.js), not one any building produces. Rolling's output
  * (cigars) is cappedOutput: unlike every other stage's storage, it's
- * bounded by the Distribution Depot's cigarStorageCapacity - collecting
- * past that cap overflows and loses the excess (see batchEngine.js). The
- * Depot then exports/sells from that capped pool over time at a
- * throughput-limited rate instead of an instant sell (see economy.js).
+ * bounded by the Distribution Depot's cigarStorageCapacity - a collect
+ * that would exceed that cap is refused instead of overflowing and losing
+ * the excess (see batchEngine.js). The Depot then exports/sells from that
+ * capped pool over time at a throughput-limited rate instead of an instant
+ * sell (see economy.js).
  * @type {{ type: import('../types/building.js').BuildingType, inputKey: string|null, outputKey: string|null, cappedOutput?: boolean }[]}
  */
 export const PIPELINE_STAGES = [

@@ -84,6 +84,12 @@ const SLOT_COLORS = {
   ready: '#7bc96f'
 }
 
+// Matches $color-danger in app/assets/scss/_variables.scss - the same
+// warning color the inventory bar uses for its near-full alert icon (see
+// InventoryBar.vue), reused here so a Rolling House whose collect is
+// blocked reads as the same kind of warning.
+const WARNING_COLOR = '#d16a5a'
+
 // Shared by every on-tile chip (name, level, countdown) so they read as one
 // consistent type scale instead of each picking its own multiplier and
 // drifting apart at different zoom levels. Keeps growing well past the old
@@ -230,11 +236,16 @@ export function getStatusIndicatorHitbox(building, rect, tilePx) {
  *   transform overhead). <1 mid pop-in/level-up bounce - see
  *   useBuildingAnimations.js. Only the sprite/fallback-shape block is
  *   scaled, not the label chips/status indicator, so those stay legible.
+ * @param {boolean} [collectBlocked] - true when this building is 'ready'
+ *   but its batch can't be collected because the Depot has no room for it
+ *   (Rolling House only - see batchEngine.js isCollectBlockedByOutputCap).
+ *   Swaps the usual green "tap to collect" glow/badge for a warning-colored
+ *   one instead, since tapping it won't do anything right now.
  */
-export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1) {
+export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1, collectBlocked = false) {
   const isReady = building.slot?.status === 'ready'
 
-  if (isReady) drawReadyGlow(ctx, rect)
+  if (isReady) drawReadyGlow(ctx, rect, collectBlocked ? WARNING_COLOR : '#7bc96f')
 
   ctx.save()
   if (popScale !== 1) {
@@ -288,16 +299,21 @@ export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScal
     drawUpgradeOverlay(ctx, building.upgrade, rect, nowMs)
   }
 
-  if (isReady) drawReadyBadge(ctx, building, rect, tilePx)
+  if (isReady) {
+    if (collectBlocked) drawOutputFullBadge(ctx, building, rect, tilePx)
+    else drawReadyBadge(ctx, building, rect, tilePx)
+  }
 }
 
 /** Pulsing bright border around the whole tile so a finished batch is
- * obvious at a glance across the map, not just up close. */
-function drawReadyGlow(ctx, rect) {
+ * obvious at a glance across the map, not just up close. `color` switches
+ * to the warning color (see WARNING_COLOR) when the batch is ready but
+ * can't actually be collected yet. */
+function drawReadyGlow(ctx, rect, color) {
   const pulse = (Math.sin(Date.now() / 220) + 1) / 2 // 0..1
   const pad = 3 + pulse * 3
   ctx.save()
-  ctx.strokeStyle = `rgba(123, 201, 111, ${0.55 + pulse * 0.45})`
+  ctx.strokeStyle = withAlpha(color, 0.55 + pulse * 0.45)
   ctx.lineWidth = 3
   ctx.strokeRect(rect.x - pad, rect.y - pad, rect.width + pad * 2, rect.height + pad * 2)
   ctx.restore()
@@ -381,6 +397,45 @@ function drawReadyBadge(ctx, building, rect, tilePx) {
   ctx.lineTo(x - size * 0.05, y + size * 0.2)
   ctx.lineTo(x + size * 0.25, y - size * 0.22)
   ctx.stroke()
+  ctx.restore()
+}
+
+/** Blocked-collect button: same circle as drawReadyBadge, but warning-
+ * colored with an exclamation mark instead of a checkmark - shown when a
+ * building is 'ready' yet collecting would overflow the Depot (see
+ * batchEngine.js isCollectBlockedByOutputCap and drawBuilding's
+ * collectBlocked param). Mirrors the inventory bar's own near-full alert
+ * icon/color (see InventoryBar.vue) so the same warning reads consistently
+ * in both places. */
+function drawOutputFullBadge(ctx, building, rect, tilePx) {
+  const hit = getStatusIndicatorHitbox(building, rect, tilePx)
+  if (!hit) return
+  const { cx: x, cy: y, radius } = hit
+  const size = radius * 2
+
+  ctx.save()
+  ctx.fillStyle = WARNING_COLOR
+  ctx.beginPath()
+  ctx.arc(x, y, radius, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)'
+  ctx.lineWidth = 1
+  ctx.stroke()
+
+  ctx.strokeStyle = '#3a1410'
+  ctx.lineWidth = Math.max(1.5, size * 0.14)
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(x, y - size * 0.24)
+  ctx.lineTo(x, y + size * 0.06)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(x, y + size * 0.26, Math.max(1, size * 0.05), 0, Math.PI * 2)
+  ctx.fillStyle = '#3a1410'
+  ctx.fill()
   ctx.restore()
 }
 

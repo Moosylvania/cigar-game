@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
 import { createInitialState } from '#game/state/createInitialState.js'
-import { startBatch as engineStartBatch, collectBatch as engineCollectBatch, resolveOfflineSlots, runAutomation } from '#game/engine/batchEngine.js'
+import {
+  startBatch as engineStartBatch,
+  collectBatch as engineCollectBatch,
+  isCollectBlockedByOutputCap as engineIsCollectBlockedByOutputCap,
+  resolveOfflineSlots,
+  runAutomation
+} from '#game/engine/batchEngine.js'
 import { startUpgradeToLevel as engineStartUpgradeToLevel, getUpgradePlan, getAffordableUpgradeTarget, resolveCompletedUpgrades, getMaxAllowedLevel } from '#game/engine/upgradeEngine.js'
 import {
   getMultipliers,
@@ -317,17 +323,28 @@ export const useGameStore = defineStore('game', {
     /**
      * Collects every building currently sitting in 'ready' status in one
      * click - each collect still goes through the normal engine path
-     * (moving output to storage, capped and possibly overflowing for
-     * Rolling's cigars - see batchEngine.js collectBatch).
+     * (moving output to storage). A Rolling House whose batch would
+     * overflow the Depot is skipped, same as a manual collect would be
+     * blocked (see batchEngine.js collectBatch's cappedOutput refusal).
      */
     collectAllReady() {
       const readyBuildings = this.game.buildings.filter((b) => b.slot?.status === 'ready')
-      let overflowed = 0
+      let count = 0
       for (const building of readyBuildings) {
         const result = engineCollectBatch(building, this.game, this.combinedMultipliers)
-        overflowed += result.overflowed ?? 0
+        if (result.ok) count += 1
       }
-      return { count: readyBuildings.length, overflowed }
+      return { count }
+    },
+
+    /** Whether this building's finished batch can't be collected right now
+     * because the Depot has no room for it (Rolling House only - see
+     * batchEngine.js isCollectBlockedByOutputCap). Drives the warning badge
+     * on the building tile and blocks the tap-to-collect indicator. */
+    isCollectBlocked(buildingId) {
+      const building = this.findBuilding(buildingId)
+      if (!building) return false
+      return engineIsCollectBlockedByOutputCap(building, this.game, this.combinedMultipliers)
     },
 
     /**

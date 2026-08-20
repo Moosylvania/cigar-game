@@ -67,14 +67,15 @@ export function startBatch(building, state, labMultipliers, maxAmount = Infinity
  * Moves a finished batch's output into this building's output storage,
  * making it available as the next stage's input. Rolling's output
  * (cigars) is cappedOutput - bounded by the Distribution Depot's storage
- * capacity - so collecting past that cap overflows and loses the excess
- * instead of piling up unbounded; every other stage's storage is
- * unlimited. Selling cigars happens separately and continuously in
- * economy.js's exportCigars, not here.
+ * capacity - so a collect that would exceed the Depot's remaining room is
+ * refused outright (the batch stays 'ready' for the player to collect once
+ * there's room) rather than partially collecting and losing the excess;
+ * every other stage's storage is unlimited. Selling cigars happens
+ * separately and continuously in economy.js's exportCigars, not here.
  * @param {import('../types/building.js').PlacedBuilding} building
  * @param {import('../types/state.js').GameState} state
  * @param {Object} [labMultipliers]
- * @returns {StartBatchResult & { overflowed?: number }}
+ * @returns {StartBatchResult}
  */
 export function collectBatch(building, state, labMultipliers) {
   const stage = getPipelineStage(building.type)
@@ -82,19 +83,34 @@ export function collectBatch(building, state, labMultipliers) {
   if (!building.slot) return { ok: false, reason: 'no_slot' }
   if (building.slot.status !== 'ready') return { ok: false, reason: 'slot_not_ready' }
 
-  let overflowed = 0
   if (stage.cappedOutput) {
     const capacity = getCigarStorageCapacity(state, labMultipliers)
     const available = Math.max(0, capacity - state.resources.storage[stage.outputKey])
-    const stored = Math.min(building.slot.batchSize, available)
-    state.resources.storage[stage.outputKey] += stored
-    overflowed = building.slot.batchSize - stored
-  } else {
-    state.resources.storage[stage.outputKey] += building.slot.batchSize
+    if (building.slot.batchSize > available) return { ok: false, reason: 'output_full' }
   }
+  state.resources.storage[stage.outputKey] += building.slot.batchSize
   building.slot = { status: 'idle', batchSize: 0 }
 
-  return { ok: true, overflowed }
+  return { ok: true }
+}
+
+/**
+ * True when this building's finished batch can't be collected right now
+ * because the Depot doesn't have room for it (see collectBatch's
+ * cappedOutput refusal) - drives the UI warning badge (matches the
+ * inventory bar's near-full alert icon) that tells the player to wait
+ * before tapping collect on a Rolling House.
+ * @param {import('../types/building.js').PlacedBuilding} building
+ * @param {import('../types/state.js').GameState} state
+ * @param {Object} [labMultipliers]
+ * @returns {boolean}
+ */
+export function isCollectBlockedByOutputCap(building, state, labMultipliers) {
+  const stage = getPipelineStage(building.type)
+  if (!stage?.cappedOutput || building.slot?.status !== 'ready') return false
+  const capacity = getCigarStorageCapacity(state, labMultipliers)
+  const available = Math.max(0, capacity - state.resources.storage[stage.outputKey])
+  return building.slot.batchSize > available
 }
 
 /**
@@ -162,8 +178,9 @@ function computeFairShares(availableInput, buildings, labMultipliers) {
  * this same tick regardless of type ordering. Starts are grouped by
  * building type so duplicate buildings of the same type share input
  * fairly (see computeFairShares) rather than first-come-first-served. An
- * automated Rolling House auto-collecting into a full Depot just overflows
- * silently each tick, same as a manual collect would.
+ * automated Rolling House just leaves its batch 'ready' and skips the
+ * collect each tick while the Depot is too full for it (see collectBatch's
+ * cappedOutput refusal), same as a manual collect would be blocked.
  * @param {import('../types/state.js').GameState} state
  * @param {{ speedMultipliers: Object<string, number>, batchSizeMultipliers: Object<string, number> }} labMultipliers
  */
