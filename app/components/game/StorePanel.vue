@@ -6,6 +6,7 @@ import { STORE_ITEMS } from '#game/config/store.config.js'
 import { DECORATIONS } from '#game/config/decorations.config.js'
 import { formatCompactNumber } from '#game/util/format.js'
 import { formatDuration } from '#game/util/time.js'
+import { publicAsset } from '~/utils/publicAsset.js'
 
 const emit = defineEmits(['close', 'place-decoration'])
 const store = useGameStore()
@@ -116,7 +117,7 @@ function placeDecoration(decoration) {
 
       <div v-else class="item-list">
         <div v-for="row in decorationRows" :key="row.decoration.id" class="item-row">
-          <img class="deco-thumb" :src="`/images/cigar_sprite_pack_topdown/sprites/decorations/${row.decoration.spriteFile}.png`" :alt="row.decoration.name" />
+          <img class="deco-thumb" :src="publicAsset(`images/cigar_sprite_pack_topdown/sprites/decorations/${row.decoration.spriteFile}.png`)" :alt="row.decoration.name" />
           <div class="info">
             <span class="name">{{ row.decoration.name }}</span>
             <span class="detail">{{ row.decoration.description }}</span>

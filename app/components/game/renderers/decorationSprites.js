@@ -1,4 +1,6 @@
-const SPRITE_BASE = '/images/cigar_sprite_pack_topdown/sprites/decorations/'
+import { publicAsset } from '~/utils/publicAsset.js'
+
+const SPRITE_BASE = publicAsset('images/cigar_sprite_pack_topdown/sprites/decorations/')
 
 const imageCache = new Map()
 

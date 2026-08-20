@@ -1,11 +1,12 @@
 import { formatDuration } from '#game/util/time.js'
+import { publicAsset } from '~/utils/publicAsset.js'
 import { getBuildingSpriteImage, getBuildingSpriteCrop } from './buildingSprites.js'
 
 // Real building icons, downloaded as local static SVGs (see public/icons/buildings)
 // so they render fully offline with no runtime fetch. Loaded lazily and
 // cached per type; the hand-drawn vector glyphs below serve as an instant
 // fallback for the brief window before an icon image finishes loading.
-const ICON_BASE_PATH = '/icons/buildings/'
+const ICON_BASE_PATH = publicAsset('icons/buildings/')
 const iconImageCache = new Map()
 
 function getIconImage(type) {

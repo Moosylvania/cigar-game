@@ -1,4 +1,5 @@
 import { getVehicleSpriteDirPath } from '#game/config/vehicles.config.js'
+import { publicAsset } from '~/utils/publicAsset.js'
 
 const imageCache = new Map()
 
@@ -33,10 +34,10 @@ const SOUTH_FILE_IS_DOWN = {
 
 function getSourceForDirection(tierId, direction) {
   if (direction === 'e' || direction === 'w') {
-    return { src: getVehicleSpriteDirPath(tierId, 'e'), flip: direction === 'e' ? 'h' : null }
+    return { src: publicAsset(getVehicleSpriteDirPath(tierId, 'e')), flip: direction === 'e' ? 'h' : null }
   }
   const nativeDirection = (SOUTH_FILE_IS_DOWN[tierId] ?? true) ? 's' : 'n'
-  return { src: getVehicleSpriteDirPath(tierId, nativeDirection), flip: direction === nativeDirection ? null : 'v' }
+  return { src: publicAsset(getVehicleSpriteDirPath(tierId, nativeDirection)), flip: direction === nativeDirection ? null : 'v' }
 }
 
 /**

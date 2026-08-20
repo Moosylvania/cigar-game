@@ -1,6 +1,7 @@
 import { BUILDING_SPRITE_CROP } from '#game/config/buildingSpriteCrop.config.js'
+import { publicAsset } from '~/utils/publicAsset.js'
 
-const SPRITE_BASE = '/images/cigar_sprite_pack_topdown/sprites/buildings/'
+const SPRITE_BASE = publicAsset('images/cigar_sprite_pack_topdown/sprites/buildings/')
 
 /** @type {Object<import('#game/types/building.js').BuildingType, string>} */
 const FOLDER_BY_TYPE = {
