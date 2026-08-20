@@ -80,9 +80,18 @@ async function applyImport(rawText) {
 
   importBusy.value = true
   await adapter.save(migrated)
-  // A full reload (rather than hot-swapping store.game) reuses the normal
-  // boot path in game-init.client.js as-is - offline catch-up, autosave
-  // wiring, the game loop - instead of a second copy of that setup logic.
+  // Also hydrate the live store, not just localStorage - otherwise the
+  // running game loop is still mutating the OLD (pre-import) state, and
+  // the autosave plugin's beforeunload handler (see game-init.client.js)
+  // persists that stale state right as reload() triggers the unload,
+  // clobbering the import a split second after we just wrote it. Hydrating
+  // here means any autosave that fires during teardown just re-saves the
+  // (now-current) imported state instead of overwriting it.
+  store.hydrate(migrated.state)
+  // A full reload (rather than relying on the hydrate above alone) reuses
+  // the normal boot path in game-init.client.js as-is - offline catch-up,
+  // autosave wiring, the game loop - instead of a second copy of that
+  // setup logic.
   window.location.reload()
 }
 
