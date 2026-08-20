@@ -33,6 +33,7 @@ const ICON_NAMES = [
   'mdi:check',
   'mdi:close',
   'mdi:tray-arrow-down',
+  'mdi:content-copy',
   'mdi:arrow-up-bold-circle-outline',
   'mdi:plus',
   'mdi:minus',

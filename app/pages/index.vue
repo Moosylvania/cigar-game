@@ -8,6 +8,7 @@ import BuildingUpgradePanel from '~/components/game/BuildingUpgradePanel.vue'
 import LabPanel from '~/components/game/LabPanel.vue'
 import StorePanel from '~/components/game/StorePanel.vue'
 import PrestigePanel from '~/components/game/PrestigePanel.vue'
+import SaveTransferPanel from '~/components/game/SaveTransferPanel.vue'
 import DecorationPanel from '~/components/game/DecorationPanel.vue'
 import TutorialCard from '~/components/game/TutorialCard.vue'
 import OfflineEarningsModal from '~/components/game/OfflineEarningsModal.vue'
@@ -24,6 +25,7 @@ const selectedDecorationInstanceId = ref(null)
 const showLab = ref(false)
 const showStore = ref(false)
 const showPrestige = ref(false)
+const showSaveTransfer = ref(false)
 const layoutEditMode = ref(false)
 const expandMode = ref(false)
 const gameCanvasRef = ref(null)
@@ -175,6 +177,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
         </button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showPrestige = true"><Icon name="mdi:crown" /> Prestige</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startRearrange"><Icon name="mdi:cursor-move" /> Rearrange Buildings</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showSaveTransfer = true"><Icon name="mdi:tray-arrow-down" /> Export/Import</button>
         <button v-if="isDev" class="dev" :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="store.skipAllTimers()"><Icon name="mdi:fast-forward" /> Skip Timers (dev)</button>
         <button class="help" title="Replay tutorial" @click="store.reopenTutorial()"><Icon name="mdi:help-circle-outline" /></button>
       </template>
@@ -214,6 +217,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
     <LabPanel v-if="showLab" @close="showLab = false" />
     <StorePanel v-if="showStore" @close="showStore = false" @place-decoration="startPlacingDecoration" />
     <PrestigePanel v-if="showPrestige" @close="showPrestige = false" />
+    <SaveTransferPanel v-if="showSaveTransfer" @close="showSaveTransfer = false" />
     <DecorationPanel
       v-if="selectedDecorationInstanceId"
       :instance-id="selectedDecorationInstanceId"
