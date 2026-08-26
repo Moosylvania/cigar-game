@@ -117,6 +117,7 @@ function repairState(state) {
   if (!state.prestige || typeof state.prestige !== 'object') {
     state.prestige = {
       unlockedCount: 1,
+      activeTierIndex: 0,
       totalPrestigeCount: 0,
       lifetimeMoneyEarnedAllTime: 0,
       epicResearchLevels: {},
@@ -140,6 +141,17 @@ function repairState(state) {
     if (!state.prestige.epicResearchLevels || typeof state.prestige.epicResearchLevels !== 'object') state.prestige.epicResearchLevels = {}
     if (!Array.isArray(state.prestige.unlockedTrophyIds)) state.prestige.unlockedTrophyIds = []
     delete state.prestige.varietyPoints
+
+    // activeTierIndex (free selection among already-unlocked tiers - see
+    // prestigeEngine.js setActiveTier) added after some saves already had
+    // several tiers unlocked - default an existing save to whatever tier
+    // was implicitly "active" before this existed (the highest unlocked
+    // one), and clamp in case unlockedCount shrank above (it can't, but a
+    // hand-edited save could have an out-of-range value).
+    if (typeof state.prestige.activeTierIndex !== 'number') {
+      state.prestige.activeTierIndex = state.prestige.unlockedCount - 1
+    }
+    state.prestige.activeTierIndex = Math.max(0, Math.min(state.prestige.activeTierIndex, state.prestige.unlockedCount - 1))
   }
 }
 

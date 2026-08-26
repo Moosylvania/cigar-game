@@ -6,28 +6,38 @@ import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 const emit = defineEmits(['close'])
 const store = useGameStore()
 
-// null = no pending confirmation; 'prestige' = plain reset+bank; 'advance'
-// = reset+bank AND move up into the next eligible tier. Two distinct
-// actions rather than one, so earning enough for the next tier never
-// silently moves the player into it - they have to choose to.
+// null = no pending confirmation; { type: 'prestige' } = plain reset+bank;
+// { type: 'advance', targetIndex } = reset+bank AND move to the chosen
+// tier - forward into brand new territory, or back to one already
+// unlocked before (see the tier list's movable rows, clicked directly to
+// request a move rather than via a separate button per tier). Every move
+// costs the same full reset as a plain prestige, in either direction -
+// it's never a free look-around, and going back to an old tier always
+// starts it fresh rather than resuming whatever was built there last time.
 const pendingAction = ref(null)
 const feedback = ref(null)
 
 const dollarsPreview = computed(() => store.lifetimeMoneyEarnedThisRun)
 const canPrestigeResult = computed(() => store.canPrestige)
-const canAdvanceResult = computed(() => store.canAdvanceTier)
-const nextEligibleTier = computed(() => store.prestigeTiers.find((row) => row.eligible)?.tier ?? null)
+const pendingTargetTier = computed(() => {
+  if (pendingAction.value?.type !== 'advance') return null
+  return store.prestigeTiers[pendingAction.value.targetIndex]?.tier ?? null
+})
+const pendingTargetIsReturn = computed(() => {
+  if (pendingAction.value?.type !== 'advance') return false
+  return !!store.prestigeTiers[pendingAction.value.targetIndex]?.unlocked
+})
 
 const totalMultiplierLabel = computed(() => formatMultiplier(store.totalPrestigeMultiplier))
 
 function requestPrestige() {
   if (!canPrestigeResult.value.ok) return
-  pendingAction.value = 'prestige'
+  pendingAction.value = { type: 'prestige' }
 }
 
-function requestAdvance() {
-  if (!canAdvanceResult.value.ok) return
-  pendingAction.value = 'advance'
+function requestAdvance(targetIndex) {
+  if (!store.prestigeTiers[targetIndex]?.movable) return
+  pendingAction.value = { type: 'advance', targetIndex }
 }
 
 function cancelAction() {
@@ -42,11 +52,12 @@ function showFeedback(message) {
 }
 
 function confirmAction() {
-  if (pendingAction.value === 'advance') {
-    const result = store.advanceTier()
+  if (pendingAction.value?.type === 'advance') {
+    const wasReturn = pendingTargetIsReturn.value
+    const result = store.advanceTier(pendingAction.value.targetIndex)
     pendingAction.value = null
     if (!result.ok) return
-    showFeedback(`Advanced to ${result.newTierName}! Your farm has reset.`)
+    showFeedback(wasReturn ? `Back to ${result.newTierName}! Your farm has reset.` : `Advanced to ${result.newTierName}! Your farm has reset.`)
   } else {
     const result = store.doPrestige()
     pendingAction.value = null
@@ -98,23 +109,10 @@ function confirmAction() {
             <Icon name="mdi:crown" />
             {{ canPrestigeResult.ok ? `Prestige Now (+$${formatCompactNumber(dollarsPreview)})` : 'Not enough progress yet' }}
           </button>
-          <button v-if="nextEligibleTier" class="advance-btn" @click="requestAdvance">
-            <Icon name="mdi:arrow-up-bold-circle-outline" />
-            Advance to {{ nextEligibleTier.name }} (resets your farm)
-          </button>
         </template>
-        <template v-else-if="pendingAction === 'prestige'">
+        <template v-else-if="pendingAction.type === 'prestige'">
           <div class="confirm-row">
             <span>Reset your farm, adding +${{ formatCompactNumber(dollarsPreview) }} to your all-time total?</span>
-            <div class="confirm-buttons">
-              <button class="confirm" @click="confirmAction">Confirm</button>
-              <button class="cancel" @click="cancelAction">Cancel</button>
-            </div>
-          </div>
-        </template>
-        <template v-else>
-          <div class="confirm-row">
-            <span>Reset your farm and move up to {{ nextEligibleTier?.name }}? Every tier below stays locked in at its current bonus.</span>
             <div class="confirm-buttons">
               <button class="confirm" @click="confirmAction">Confirm</button>
               <button class="cancel" @click="cancelAction">Cancel</button>
@@ -130,7 +128,8 @@ function confirmAction() {
             v-for="row in store.prestigeTiers"
             :key="row.tier.id"
             class="variety-row"
-            :class="{ locked: !row.unlocked, active: row.active, eligible: row.eligible }"
+            :class="{ locked: !row.unlocked, active: row.active, eligible: row.eligible, clickable: row.movable }"
+            @click="requestAdvance(row.index)"
           >
             <span class="variety-icon" :style="{ background: row.unlocked ? `${row.tier.color}33` : undefined, color: row.unlocked ? row.tier.color : undefined }">
               <Icon :name="row.unlocked ? row.tier.icon : row.eligible ? 'mdi:arrow-up-bold-circle-outline' : 'mdi:lock-outline'" />
@@ -138,6 +137,7 @@ function confirmAction() {
             <div class="info">
               <div class="title-line">
                 <span class="name">{{ row.tier.name }}</span>
+                <span v-if="row.active" class="active-label">Active</span>
                 <span v-if="row.unlocked" class="multiplier">{{ formatMultiplier(row.multiplier) }}</span>
                 <span v-else-if="row.eligible" class="multiplier eligible-label">Ready!</span>
               </div>
@@ -160,6 +160,21 @@ function confirmAction() {
             <Icon :name="row.unlocked ? row.trophy.icon : 'mdi:trophy-outline'" />
             <span class="trophy-name">{{ row.trophy.name }}</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="pendingAction?.type === 'advance'" class="advance-confirm-backdrop" @click.self="cancelAction">
+      <div class="advance-confirm-box">
+        <p v-if="pendingTargetIsReturn">
+          Reset your farm and go back to {{ pendingTargetTier?.name }}, starting that tier fresh from the beginning?
+        </p>
+        <p v-else>
+          Reset your farm and move up to {{ pendingTargetTier?.name }}? Every tier below stays locked in at its current bonus.
+        </p>
+        <div class="confirm-buttons">
+          <button class="confirm" @click="confirmAction">Confirm</button>
+          <button class="cancel" @click="cancelAction">Cancel</button>
         </div>
       </div>
     </div>
@@ -202,6 +217,39 @@ function confirmAction() {
     max-height: 92dvh;
     border-radius: $radius-md $radius-md 0 0;
     padding: $spacing-sm;
+  }
+}
+
+// Shown over everything (including the panel itself, wherever it's
+// scrolled to) when a tier row is clicked - see .variety-row.clickable.
+// Fixed/centered rather than inline so it's always visible regardless of
+// how far down the tier list the player scrolled to click a row.
+.advance-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  padding: $spacing-md;
+}
+
+.advance-confirm-box {
+  width: 360px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-md;
+  border-radius: $radius-md;
+  border: 1px dashed $color-danger;
+  background: $color-panel;
+  font-size: 0.85rem;
+  text-align: center;
+
+  p {
+    margin: 0;
   }
 }
 
@@ -315,27 +363,6 @@ function confirmAction() {
   }
 }
 
-.advance-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: $spacing-sm;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: $spacing-sm;
-  border-radius: $radius-sm;
-  border: 1px solid $color-money;
-  background: rgba(123, 201, 111, 0.18);
-  color: $color-money;
-  cursor: pointer;
-
-  &:hover {
-    background: rgba(123, 201, 111, 0.28);
-  }
-}
-
 .confirm-row {
   display: flex;
   flex-direction: column;
@@ -419,6 +446,18 @@ function confirmAction() {
     border-color: $color-money;
     border-style: dashed;
   }
+
+  // Any tier the player can move to right now (see store's prestigeTiers
+  // movable flag) - clicking the row itself requests the move, rather
+  // than a separate button per tier.
+  &.clickable {
+    cursor: pointer;
+
+    &:hover {
+      border-color: $color-money;
+      background: rgba(123, 201, 111, 0.08);
+    }
+  }
 }
 
 .variety-icon {
@@ -455,6 +494,17 @@ function confirmAction() {
     font-size: 0.78rem;
     font-weight: 600;
     color: $color-money;
+  }
+
+  .active-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $color-accent;
+    padding: 1px 6px;
+    border: 1px solid $color-accent;
+    border-radius: 999px;
   }
 }
 

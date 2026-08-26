@@ -1,4 +1,4 @@
-import { PRESTIGE_TIERS, MAX_TIER_MULTIPLIER, CURVE_HALF_FRACTION } from '../config/prestige.config.js'
+import { PRESTIGE_TIERS, MAX_TIER_MULTIPLIER, CURVE_HALF_FRACTION, ACTIVE_TIER_PRICE_GROWTH } from '../config/prestige.config.js'
 import { createInitialState } from '../state/createInitialState.js'
 import { TROPHIES } from '../config/trophies.config.js'
 
@@ -45,9 +45,26 @@ export function getVarietyMultiplier(tierIndex, allTimeEarned) {
 }
 
 /**
- * Product of every *selected* tier's own multiplier (see advanceTier - a
- * tier earning enough to qualify isn't enough on its own, the player has
- * to explicitly move up into it), times any epic research
+ * Flat bonus for whichever tier is currently *active* (prestige.
+ * activeTierIndex - see advanceTier), separate from and multiplicative
+ * with getVarietyMultiplier's cumulative band-progress product below.
+ * Rewards actually playing at a tier's scale, not just having earned past
+ * it once - moving back to an earlier tier's look (a full reset, same as
+ * any other tier move) drops this back down to that tier's own bonus,
+ * even though the cumulative multiplier stays at its full locked-in value
+ * regardless of which tier is active.
+ * @param {number} activeTierIndex
+ * @returns {number}
+ */
+export function getActiveTierMultiplier(activeTierIndex) {
+  return ACTIVE_TIER_PRICE_GROWTH ** Math.max(0, activeTierIndex)
+}
+
+/**
+ * Product of every *selected* tier's own cumulative multiplier (see
+ * advanceTier - a tier earning enough to qualify isn't enough on its own,
+ * the player has to explicitly move into it) times the active tier's flat
+ * bonus (see getActiveTierMultiplier) times any epic research
  * prestigeMultiplierBoost - this is the number that ultimately reaches
  * economy.js's getEffectiveSalePrice.
  * @param {import('../types/prestige.js').PrestigeState} prestigeState
@@ -60,6 +77,8 @@ export function getTotalPrestigeMultiplier(prestigeState, prestigeMultiplierBoos
   for (let i = 0; i < prestigeState.unlockedCount; i++) {
     total *= getVarietyMultiplier(i, allTimeEarned)
   }
+  const activeTierIndex = prestigeState.activeTierIndex ?? prestigeState.unlockedCount - 1
+  total *= getActiveTierMultiplier(activeTierIndex)
   return total * prestigeMultiplierBoost
 }
 
@@ -127,38 +146,64 @@ export function doPrestige(state) {
 }
 
 /**
+ * A target tier is reachable one of two ways: it's brand new (index >=
+ * unlockedCount) and its own threshold is met, or it's a tier the player
+ * has already unlocked before (index < unlockedCount, including ones
+ * behind their current active tier) - those need no threshold check since
+ * they were already earned once. Either way advancing there always costs
+ * the same full reset (see advanceTier) - going back to an old tier starts
+ * it fresh from the beginning, it doesn't resume whatever was built there
+ * last time.
  * @param {import('../types/state.js').GameState} state
- * @returns {{ ok: boolean, reason?: string, projectedTotal?: number }}
+ * @param {number} [targetIndex] - tier index to move to; defaults to the
+ *   very next tier (unlockedCount) for backward-compat callers.
+ * @returns {{ ok: boolean, reason?: string, projectedTotal?: number, targetIndex?: number }}
  */
-export function canAdvanceTier(state) {
+export function canAdvanceTier(state, targetIndex) {
   const prestige = state.prestige
-  if (prestige.unlockedCount >= PRESTIGE_TIERS.length) return { ok: false, reason: 'max_tier' }
+  const resolvedTarget = targetIndex ?? prestige.unlockedCount
+  if (resolvedTarget < 0 || resolvedTarget >= PRESTIGE_TIERS.length) return { ok: false, reason: 'invalid_tier' }
+
+  const activeIndex = prestige.activeTierIndex ?? prestige.unlockedCount - 1
+  if (resolvedTarget === activeIndex) return { ok: false, reason: 'already_active' }
 
   const projectedTotal = (prestige.lifetimeMoneyEarnedAllTime ?? 0) + (state.meta.lifetimeMoneyEarned ?? 0)
-  const threshold = PRESTIGE_TIERS[prestige.unlockedCount - 1].unlockThreshold
+
+  // Already unlocked (forward or back) - no threshold to clear again.
+  if (resolvedTarget < prestige.unlockedCount) return { ok: true, projectedTotal, targetIndex: resolvedTarget }
+
+  const threshold = PRESTIGE_TIERS[resolvedTarget - 1].unlockThreshold
   if (projectedTotal < threshold) return { ok: false, reason: 'insufficient_progress' }
 
-  return { ok: true, projectedTotal }
+  return { ok: true, projectedTotal, targetIndex: resolvedTarget }
 }
 
 /**
- * Moves up to the next tier, one tier at a time, only once the player
- * explicitly chooses to (see PrestigePanel.vue) - reaching the dollar
- * threshold only makes this *available*, it never happens on its own.
- * Also resets the run (banking any of this run's earnings first, same as
- * doPrestige), since advancing is itself a prestige-equivalent milestone.
+ * Moves to a chosen tier, only once the player explicitly chooses to (see
+ * PrestigePanel.vue) - reaching a tier's dollar threshold only makes it
+ * *available*, it never happens on its own. The player can jump straight
+ * to any tier whose threshold they've already earned past, not just the
+ * next one in line, and can just as freely move back to any tier they'd
+ * already reached before (unlockedCount only ever grows, so once a tier's
+ * been reached it stays pickable forever). Every move - forward to new
+ * territory or back to familiar territory - resets the run (banking any of
+ * this run's earnings first, same as doPrestige) and starts the target
+ * tier fresh from the beginning: moving between tiers always costs the
+ * current run's progress, the same as prestiging does.
  * @param {import('../types/state.js').GameState} state
+ * @param {number} [targetIndex] - see canAdvanceTier
  * @returns {{ ok: boolean, reason?: string, dollarsEarned?: number, newTierName?: string, newTrophyIds?: string[] }}
  */
-export function advanceTier(state) {
-  const result = canAdvanceTier(state)
+export function advanceTier(state, targetIndex) {
+  const result = canAdvanceTier(state, targetIndex)
   if (!result.ok) return result
 
   const dollarsEarned = state.meta.lifetimeMoneyEarned ?? 0
   const prestige = state.prestige
   prestige.lifetimeMoneyEarnedAllTime = result.projectedTotal
-  const newTier = PRESTIGE_TIERS[prestige.unlockedCount]
-  prestige.unlockedCount += 1
+  const newTier = PRESTIGE_TIERS[result.targetIndex]
+  prestige.unlockedCount = Math.max(prestige.unlockedCount, result.targetIndex + 1)
+  prestige.activeTierIndex = result.targetIndex
   prestige.totalPrestigeCount += 1
 
   const newTrophyIds = checkTrophies(prestige)

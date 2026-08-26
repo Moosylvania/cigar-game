@@ -250,7 +250,7 @@ function render() {
     if (isDragging) ctx.globalAlpha = 0.7
     const popScale = buildingAnimations.getPopTransform(building.id)?.scale ?? 1
     const collectBlocked = building.slot?.status === 'ready' && store.isCollectBlocked(building.id)
-    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked)
+    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked, store.activeThemeId)
     if (isDragging) {
       ctx.globalAlpha = 1
       ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
@@ -313,7 +313,7 @@ function render() {
       const config = store.getBuildingConfig(target.type)
       const rect = getBuildingRect(target, camera)
       const popScale = buildingAnimations.getPopTransform(target.id)?.scale ?? 1
-      drawBuilding(ctx, target, config, rect, tilePx, nowMs.value, popScale)
+      drawBuilding(ctx, target, config, rect, tilePx, nowMs.value, popScale, false, store.activeThemeId)
       drawTutorialRing(ctx, rect)
     }
   }

@@ -192,9 +192,10 @@ export const useGameStore = defineStore('game', {
       // progress bar (and "eligible to advance" state) updates live as you
       // play, not only right after a prestige.
       const allTimeEarned = (prestige.lifetimeMoneyEarnedAllTime ?? 0) + this.lifetimeMoneyEarnedThisRun
+      const activeTierIndex = prestige.activeTierIndex ?? prestige.unlockedCount - 1
       return PRESTIGE_TIERS.map((tier, index) => {
         const unlocked = index < prestige.unlockedCount
-        const active = index === prestige.unlockedCount - 1
+        const active = index === activeTierIndex
         const bandStart = index === 0 ? 0 : PRESTIGE_TIERS[index - 1].unlockThreshold
         const bandEnd = tier.unlockThreshold
         const bandWidth = Number.isFinite(bandEnd) ? bandEnd - bandStart : null
@@ -209,13 +210,35 @@ export const useGameStore = defineStore('game', {
           // multiplier - reaching the threshold alone isn't enough (see
           // prestigeEngine.js advanceTier).
           multiplier: unlocked ? getVarietyMultiplier(index, prestige.lifetimeMoneyEarnedAllTime ?? 0) : 1,
-          eligible: !unlocked && index === prestige.unlockedCount && progress >= 1,
+          // A locked tier whose own threshold is already met - a brand new
+          // tier, never reached before. Not just the very next one; a big
+          // run can vault past several thresholds at once, and advanceTier
+          // lets the player jump straight to whichever of them they choose.
+          eligible: !unlocked && progress >= 1,
+          // Any tier other than the active one that advanceTier can move
+          // to right now - either a new eligible tier above, or one the
+          // player already reached before (unlockedCount only grows, so
+          // once visited a tier stays movable-to forever, in either
+          // direction). Moving always costs the same full reset as
+          // prestiging (see prestigeEngine.js advanceTier) - it's not a
+          // free look-around toggle.
+          movable: !active && (unlocked || progress >= 1),
           unlockAt: bandStart,
           earnedInBand,
           bandWidth,
           progress
         }
       })
+    },
+    // The prestige tier whose sprite theme should currently render on the
+    // board - wherever advanceTier last moved the player to, which isn't
+    // necessarily the highest tier ever unlocked (see prestigeTiers'
+    // movable rows above - moving is always a full reset, forward or
+    // back). 'backyard' (index 0) has no separate theme pack of its own -
+    // it IS the default sprite pack - see renderers/buildingSprites.js.
+    activeThemeId() {
+      const index = this.prestige.activeTierIndex ?? Math.max(0, this.prestige.unlockedCount - 1)
+      return PRESTIGE_TIERS[index]?.id ?? 'backyard'
     },
     trophyRows() {
       const unlockedIds = this.prestige.unlockedTrophyIds
@@ -455,8 +478,8 @@ export const useGameStore = defineStore('game', {
       return engineDoPrestige(this.game)
     },
 
-    advanceTier() {
-      return engineAdvanceTier(this.game)
+    advanceTier(targetIndex) {
+      return engineAdvanceTier(this.game, targetIndex)
     },
 
     nextTutorialStep() {

@@ -1,7 +1,7 @@
 import { BUILDING_SPRITE_CROP } from '#game/config/buildingSpriteCrop.config.js'
 import { publicAsset } from '~/utils/publicAsset.js'
 
-const SPRITE_BASE = publicAsset('images/cigar_sprite_pack_topdown/sprites/buildings/')
+const DEFAULT_SPRITE_BASE = publicAsset('images/cigar_sprite_pack_topdown/sprites/buildings/')
 
 /** @type {Object<import('#game/types/building.js').BuildingType, string>} */
 const FOLDER_BY_TYPE = {
@@ -15,27 +15,43 @@ const FOLDER_BY_TYPE = {
   distribution: 'distribution_depot'
 }
 
+// 'backyard' (the starting tier) has no sprite pack of its own - it IS the
+// default pack. Every other prestige tier id names a matching folder under
+// public/images/prestige_themes/<id>/sprites/ (see PROMPTS.md there) -
+// full replacements for the same buildings/decorations/rails/terrain/
+// vehicles structure, generated to the same ten-level footprint
+// progression as the default pack.
+function spriteBaseFor(themeId) {
+  if (!themeId || themeId === 'backyard') return DEFAULT_SPRITE_BASE
+  return publicAsset(`images/prestige_themes/${themeId}/sprites/buildings/`)
+}
+
 const imageCache = new Map()
 
 /**
- * Lazy-loaded, cached per type+level - each of the 8 building types has 10
- * pre-rendered level sprites in the pack, so leveling up a building swaps
- * the whole image rather than drawing a level indicator on top of one.
+ * Lazy-loaded, cached per theme+type+level - each of the 8 building types
+ * has 10 pre-rendered level sprites in the pack, so leveling up a building
+ * swaps the whole image rather than drawing a level indicator on top of
+ * one. Switching prestige theme (see stores/game.js's activeThemeId) swaps
+ * every building's sprite the same way, keyed separately per theme so
+ * moving tiers doesn't reuse another theme's cached image.
  * @param {import('#game/types/building.js').BuildingType} type
  * @param {number} level
+ * @param {string} [themeId] - active prestige tier id; defaults to the base pack
  * @returns {HTMLImageElement|null} null for a type with no sprite folder
  */
-export function getBuildingSpriteImage(type, level) {
+export function getBuildingSpriteImage(type, level, themeId) {
   const folder = FOLDER_BY_TYPE[type]
   if (!folder) return null
 
   const clampedLevel = Math.max(1, Math.min(10, level))
-  const key = `${folder}_${clampedLevel}`
+  const resolvedTheme = themeId || 'backyard'
+  const key = `${resolvedTheme}_${folder}_${clampedLevel}`
   let img = imageCache.get(key)
   if (!img) {
     const levelStr = String(clampedLevel).padStart(2, '0')
     img = new Image()
-    img.src = `${SPRITE_BASE}${folder}/${folder}_level_${levelStr}.png`
+    img.src = `${spriteBaseFor(resolvedTheme)}${folder}/${folder}_level_${levelStr}.webp`
     imageCache.set(key, img)
   }
   return img

@@ -1,4 +1,4 @@
-// Precomputed via: magick <sprite>.png -trim info: for all 80 building sprites
+// Precomputed via: magick <sprite>.webp -trim info: for all 80 building sprites
 // (8 types x levels 1-10). Each sprite's actual content occupies only a small,
 // level-dependent fraction of its 512x512 canvas (e.g. level 1 farm_field is ~33%,
 // level 10 main_factory is ~64%), and is often not square (a tall building on a

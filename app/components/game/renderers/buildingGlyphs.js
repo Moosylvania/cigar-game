@@ -242,8 +242,10 @@ export function getStatusIndicatorHitbox(building, rect, tilePx) {
  *   (Rolling House only - see batchEngine.js isCollectBlockedByOutputCap).
  *   Swaps the usual green "tap to collect" glow/badge for a warning-colored
  *   one instead, since tapping it won't do anything right now.
+ * @param {string} [themeId] - active prestige tier id (store's
+ *   activeThemeId) - see buildingSprites.js's getBuildingSpriteImage.
  */
-export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1, collectBlocked = false) {
+export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1, collectBlocked = false, themeId) {
   const isReady = building.slot?.status === 'ready'
 
   if (isReady) drawReadyGlow(ctx, rect, collectBlocked ? WARNING_COLOR : '#7bc96f')
@@ -257,7 +259,7 @@ export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScal
     ctx.translate(-cx, -cy)
   }
 
-  const spriteImg = getBuildingSpriteImage(building.type, building.level)
+  const spriteImg = getBuildingSpriteImage(building.type, building.level, themeId)
   const spriteReady = spriteImg && spriteImg.complete && spriteImg.naturalWidth > 0
 
   if (spriteReady) {

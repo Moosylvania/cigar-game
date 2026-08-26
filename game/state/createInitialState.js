@@ -112,6 +112,7 @@ export function createInitialState() {
     // every other top-level field above, which goes back to fresh.
     prestige: {
       unlockedCount: 1,
+      activeTierIndex: 0,
       totalPrestigeCount: 0,
       lifetimeMoneyEarnedAllTime: 0,
       epicResearchLevels: {},

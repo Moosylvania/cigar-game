@@ -8,7 +8,7 @@ function getImage(name) {
   let img = imageCache.get(name)
   if (!img) {
     img = new Image()
-    img.src = `${SPRITE_BASE}${name}.png`
+    img.src = `${SPRITE_BASE}${name}.webp`
     imageCache.set(name, img)
   }
   return img

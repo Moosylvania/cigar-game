@@ -41,3 +41,16 @@ export const PRESTIGE_TIERS = [
 // around 1e30.
 export const MAX_TIER_MULTIPLIER = 3
 export const CURVE_HALF_FRACTION = 0.15
+
+// Separate from the cumulative multiplier above, and multiplicative with
+// it: rewards actually playing at a tier, not just having once earned past
+// it. Doubles the sale price of every cigar sold per step of
+// prestige.activeTierIndex (see prestigeEngine.js getActiveTierMultiplier)
+// - moving back to an earlier tier's look (see advanceTier) drops this
+// back down to that tier's own bonus, even though the cumulative
+// multiplier above stays at its full locked-in value regardless. Kept to
+// a doubling (not the cumulative multiplier's already-large per-tier
+// factor) since this one applies once per tier rather than compounding
+// band-progress within each - backyard is 1x (no bonus), cosmic_ascendant
+// (the 10th tier, index 9) is 2^9 = 512x.
+export const ACTIVE_TIER_PRICE_GROWTH = 2

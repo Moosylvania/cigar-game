@@ -12,7 +12,7 @@ export function getDecorationSpriteImage(spriteFile) {
   let img = imageCache.get(spriteFile)
   if (!img) {
     img = new Image()
-    img.src = `${SPRITE_BASE}${spriteFile}.png`
+    img.src = `${SPRITE_BASE}${spriteFile}.webp`
     imageCache.set(spriteFile, img)
   }
   return img

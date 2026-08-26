@@ -117,7 +117,7 @@ function placeDecoration(decoration) {
 
       <div v-else class="item-list">
         <div v-for="row in decorationRows" :key="row.decoration.id" class="item-row">
-          <img class="deco-thumb" :src="publicAsset(`images/cigar_sprite_pack_topdown/sprites/decorations/${row.decoration.spriteFile}.png`)" :alt="row.decoration.name" />
+          <img class="deco-thumb" :src="publicAsset(`images/cigar_sprite_pack_topdown/sprites/decorations/${row.decoration.spriteFile}.webp`)" :alt="row.decoration.name" />
           <div class="info">
             <span class="name">{{ row.decoration.name }}</span>
             <span class="detail">{{ row.decoration.description }}</span>
