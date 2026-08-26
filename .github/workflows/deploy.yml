@@ -30,6 +30,7 @@ jobs:
           # and route link needs that prefix baked in at build time. Set
           # only here (not in nuxt.config.js) so local dev and any other
           # deploy target that serves from the root are unaffected.
+          #
           NUXT_APP_BASE_URL: /cigar-game/
       - uses: actions/upload-pages-artifact@v3
         with:
