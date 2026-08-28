@@ -223,7 +223,7 @@ export const useGameStore = defineStore('game', {
           // prestiging (see prestigeEngine.js advanceTier) - it's not a
           // free look-around toggle.
           movable: !active && (unlocked || progress >= 1),
-          unlockAt: bandStart,
+          unlockAt: bandEnd,
           earnedInBand,
           bandWidth,
           progress
