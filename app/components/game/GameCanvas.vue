@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { useClock } from '~/composables/useClock.js'
-import { drawGrid, screenToGrid } from './renderers/drawGrid.js'
+import { drawGrid, screenToGrid, gridToScreen } from './renderers/drawGrid.js'
 import { drawBuilding, getStatusIndicatorHitbox } from './renderers/buildingGlyphs.js'
 import { drawDecoration } from './renderers/decorationSprites.js'
 import { drawVehicleSprite } from './renderers/vehicleSprites.js'
@@ -18,11 +18,13 @@ const props = defineProps({
   placingDecorationId: { type: String, default: null },
   editMode: { type: Boolean, default: false },
   expandMode: { type: Boolean, default: false },
+  selectMode: { type: Boolean, default: false },
+  selectedBuildingIds: { type: Array, default: () => [] },
   tutorialHighlightType: { type: String, default: null },
   tutorialDim: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['building-selected', 'decoration-selected', 'placed', 'place-failed'])
+const emit = defineEmits(['building-selected', 'decoration-selected', 'placed', 'place-failed', 'expand-result', 'selection-changed'])
 
 const store = useGameStore()
 const { nowMs } = useClock()
@@ -92,6 +94,15 @@ let workingPositions = new Map()
 let draggingId = null
 let dragOffset = { x: 0, y: 0 }
 let dragValid = true
+
+// Drag-select boxes for expand mode (buy every purchasable tile in the
+// box) and select mode (select every building the box touches). Grid
+// coordinates, not screen - a tap with no real movement still produces a
+// valid 1-tile box, so pointerup can treat a tap and a drag identically.
+let expandDragStart = null
+let expandDragCurrent = null
+let selectDragStart = null
+let selectDragCurrent = null
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max)
@@ -240,6 +251,13 @@ function render() {
     ctx.fillRect(px, py, size, size)
   }
 
+  if (props.expandMode && expandDragStart && expandDragCurrent) {
+    drawSelectionBox(camera, normalizedGridRect(expandDragStart, expandDragCurrent), 'rgba(212, 169, 74, 0.22)', 'rgba(212, 169, 74, 0.9)')
+  }
+  if (props.selectMode && selectDragStart && selectDragCurrent) {
+    drawSelectionBox(camera, normalizedGridRect(selectDragStart, selectDragCurrent), 'rgba(123, 201, 111, 0.18)', 'rgba(123, 201, 111, 0.9)')
+  }
+
   const tilePx = TILE_SIZE * camera.scale
   buildingAnimations.sync(store.allBuildings)
   for (const building of store.allBuildings) {
@@ -256,6 +274,20 @@ function render() {
       ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
       ctx.lineWidth = 3
       ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
+    }
+  }
+
+  if (props.selectedBuildingIds.length) {
+    const selectedIdSet = new Set(props.selectedBuildingIds)
+    for (const building of store.allBuildings) {
+      if (!selectedIdSet.has(building.id)) continue
+      const rect = getBuildingRect(building, camera)
+      ctx.save()
+      ctx.strokeStyle = 'rgba(123, 201, 111, 0.95)'
+      ctx.lineWidth = 3
+      ctx.setLineDash([6, 4])
+      ctx.strokeRect(rect.x - 3, rect.y - 3, rect.width + 6, rect.height + 6)
+      ctx.restore()
     }
   }
 
@@ -353,6 +385,40 @@ function findDecorationAt(gridPos) {
   return store.decorations.find((deco) => deco.position.x === gridPos.x && deco.position.y === gridPos.y) ?? null
 }
 
+/** Normalizes two arbitrary grid points (drag start/end, in either order) into an inclusive x0..x1/y0..y1 box. */
+function normalizedGridRect(a, b) {
+  return {
+    x0: Math.min(a.x, b.x),
+    y0: Math.min(a.y, b.y),
+    x1: Math.max(a.x, b.x),
+    y1: Math.max(a.y, b.y)
+  }
+}
+
+/** Every building whose footprint overlaps the given grid-space box, for the select-mode drag box. */
+function buildingsInRect(rect) {
+  return store.allBuildings.filter((building) => {
+    const config = store.getBuildingConfig(building.type)
+    const position = positionFor(building)
+    const bx1 = position.x + config.footprint.width - 1
+    const by1 = position.y + config.footprint.height - 1
+    return position.x <= rect.x1 && bx1 >= rect.x0 && position.y <= rect.y1 && by1 >= rect.y0
+  })
+}
+
+/** Draws a translucent drag-select box (grid-space rect) in screen space. */
+function drawSelectionBox(camera, rect, fillStyle, strokeStyle) {
+  const topLeft = gridToScreen({ x: rect.x0, y: rect.y0 }, { tileSize: TILE_SIZE, camera })
+  const bottomRight = gridToScreen({ x: rect.x1 + 1, y: rect.y1 + 1 }, { tileSize: TILE_SIZE, camera })
+  ctx.save()
+  ctx.fillStyle = fillStyle
+  ctx.fillRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y)
+  ctx.strokeStyle = strokeStyle
+  ctx.lineWidth = 2
+  ctx.strokeRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y)
+  ctx.restore()
+}
+
 /** Hit-tests a screen point against every building's status-indicator
  * circle (the start/collect button), with a slightly generous tap radius
  * beyond the visual circle for easier tapping. */
@@ -441,6 +507,10 @@ function handlePointerDown(event) {
     cancelBuildingDrag()
     isPanning = false
     singlePointerId = null
+    expandDragStart = null
+    expandDragCurrent = null
+    selectDragStart = null
+    selectDragCurrent = null
     pinchStartDistance = pinchDistance()
     pinchStartZoom = zoomLevel
     return
@@ -462,6 +532,12 @@ function handlePointerDown(event) {
       dragOffset = { x: gridPos.x - position.x, y: gridPos.y - position.y }
       dragValid = true
     }
+  } else if (props.expandMode) {
+    expandDragStart = gridPosFromScreen(screenPos)
+    expandDragCurrent = expandDragStart
+  } else if (props.selectMode) {
+    selectDragStart = gridPosFromScreen(screenPos)
+    selectDragCurrent = selectDragStart
   }
 }
 
@@ -486,6 +562,20 @@ function handlePointerMove(event) {
     const gridPos = gridPosFromScreen(screenPos)
     workingPositions.set(draggingId, { x: gridPos.x - dragOffset.x, y: gridPos.y - dragOffset.y })
     dragValid = store.canRelocateBuildings(currentWorkingMoves()).ok
+    return
+  }
+
+  // Expand/select mode take over the single-pointer drag entirely for
+  // box-selection instead of panning - see handlePointerUp for the buy/
+  // select action this drives. Panning during these modes is still
+  // possible via pinch-zoom/scroll; trading it off for drag-select here
+  // matches how edit mode already trades panning for building drag.
+  if (props.expandMode) {
+    if (expandDragStart) expandDragCurrent = gridPosFromScreen(screenPos)
+    return
+  }
+  if (props.selectMode) {
+    if (selectDragStart) selectDragCurrent = gridPosFromScreen(screenPos)
     return
   }
 
@@ -536,6 +626,39 @@ function handlePointerUp(event) {
     return
   }
 
+  if (props.expandMode) {
+    // A tap with no real movement is just a 1-tile box, so this covers
+    // both "buy this one tile" and "buy every purchasable tile in the
+    // box I dragged" through the same bulk path - see
+    // landEngine.js buyTilesInRect. Buying an already-owned tile inside
+    // the box is a harmless no-op (it's skipped, not rejected).
+    const start = expandDragStart ?? gridPosFromScreen(pointerDownPos)
+    const end = expandDragCurrent ?? start
+    const rect = normalizedGridRect(start, end)
+    const result = store.buyLandTiles(rect.x0, rect.y0, rect.x1, rect.y1)
+    emit('expand-result', result)
+    expandDragStart = null
+    expandDragCurrent = null
+    isPanning = false
+    singlePointerId = null
+    pointerDownPos = null
+    return
+  }
+
+  if (props.selectMode) {
+    const start = selectDragStart ?? gridPosFromScreen(pointerDownPos)
+    const end = selectDragCurrent ?? start
+    const rect = normalizedGridRect(start, end)
+    const ids = buildingsInRect(rect).map((b) => b.id)
+    emit('selection-changed', ids)
+    selectDragStart = null
+    selectDragCurrent = null
+    isPanning = false
+    singlePointerId = null
+    pointerDownPos = null
+    return
+  }
+
   const wasClick = !isPanning
   const clickScreenPos = pointerDownPos
   const clickGridPos = wasClick && clickScreenPos ? gridPosFromScreen(clickScreenPos) : null
@@ -561,18 +684,6 @@ function handlePointerUp(event) {
       emit('placed', result.decoration)
     } else {
       emit('place-failed', result.reason)
-    }
-    return
-  }
-
-  if (props.expandMode) {
-    // Only the Expand Territory toggle makes locked tiles buyable - a
-    // normal tap elsewhere in the game never spends money on land by
-    // accident. Tapping an already-owned tile while in this mode is a
-    // harmless no-op (buyLandTile rejects it as already_owned).
-    if (!store.isTileOwned(clickGridPos.x, clickGridPos.y)) {
-      const result = store.buyLandTile(clickGridPos.x, clickGridPos.y)
-      if (!result.ok) emit('place-failed', result.reason)
     }
     return
   }
@@ -668,6 +779,26 @@ watch(
   }
 )
 
+watch(
+  () => props.expandMode,
+  (value) => {
+    if (!value) {
+      expandDragStart = null
+      expandDragCurrent = null
+    }
+  }
+)
+
+watch(
+  () => props.selectMode,
+  (value) => {
+    if (!value) {
+      selectDragStart = null
+      selectDragCurrent = null
+    }
+  }
+)
+
 function commitLayout() {
   const result = store.relocateBuildings(currentWorkingMoves())
   workingPositions = new Map()
@@ -688,7 +819,7 @@ defineExpose({ commitLayout, cancelLayout })
     <canvas
       ref="canvasRef"
       class="game-canvas"
-      :class="{ 'is-placing': placingType, 'is-editing': editMode }"
+      :class="{ 'is-placing': placingType, 'is-editing': editMode, 'is-selecting': expandMode || selectMode }"
       @pointerdown="handlePointerDown"
       @pointermove="handlePointerMove"
       @pointerup="handlePointerUp"
@@ -728,6 +859,10 @@ defineExpose({ commitLayout, cancelLayout })
 
   &.is-editing {
     cursor: grab;
+  }
+
+  &.is-selecting {
+    cursor: crosshair;
   }
 }
 

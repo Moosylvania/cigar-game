@@ -5,6 +5,7 @@ import InventoryBar from '~/components/game/InventoryBar.vue'
 import BuildMenu from '~/components/game/BuildMenu.vue'
 import GameCanvas from '~/components/game/GameCanvas.vue'
 import BuildingUpgradePanel from '~/components/game/BuildingUpgradePanel.vue'
+import BulkActionPanel from '~/components/game/BulkActionPanel.vue'
 import LabPanel from '~/components/game/LabPanel.vue'
 import StorePanel from '~/components/game/StorePanel.vue'
 import PrestigePanel from '~/components/game/PrestigePanel.vue'
@@ -14,6 +15,7 @@ import TutorialCard from '~/components/game/TutorialCard.vue'
 import OfflineEarningsModal from '~/components/game/OfflineEarningsModal.vue'
 import { useGameStore } from '~/stores/game.js'
 import { getDecorationDefinition } from '#game/config/decorations.config.js'
+import { formatCompactNumber } from '#game/util/format.js'
 
 const store = useGameStore()
 const isDev = import.meta.dev
@@ -28,7 +30,11 @@ const showPrestige = ref(false)
 const showSaveTransfer = ref(false)
 const layoutEditMode = ref(false)
 const expandMode = ref(false)
+const expandFeedback = ref(null)
+const selectMode = ref(false)
+const selectedBuildingIds = ref([])
 const gameCanvasRef = ref(null)
+let expandFeedbackTimer = null
 
 const placingDecorationName = computed(() => {
   if (!placingDecorationId.value) return null
@@ -74,6 +80,8 @@ function startRearrange() {
   placingType.value = null
   selectedBuildingId.value = null
   expandMode.value = false
+  selectMode.value = false
+  selectedBuildingIds.value = []
   layoutEditMode.value = true
 }
 
@@ -91,11 +99,44 @@ function startExpand() {
   placingType.value = null
   selectedBuildingId.value = null
   layoutEditMode.value = false
+  selectMode.value = false
+  selectedBuildingIds.value = []
+  expandFeedback.value = null
   expandMode.value = true
 }
 
 function stopExpand() {
   expandMode.value = false
+  expandFeedback.value = null
+  if (expandFeedbackTimer) clearTimeout(expandFeedbackTimer)
+}
+
+function onExpandResult(result) {
+  if (expandFeedbackTimer) clearTimeout(expandFeedbackTimer)
+  expandFeedback.value = result.count > 0
+    ? `Bought ${result.count} tile${result.count === 1 ? '' : 's'} for $${formatCompactNumber(result.spent)}`
+    : 'No purchasable tiles there'
+  expandFeedbackTimer = setTimeout(() => {
+    expandFeedback.value = null
+  }, 2500)
+}
+
+function startSelect() {
+  placingType.value = null
+  selectedBuildingId.value = null
+  layoutEditMode.value = false
+  expandMode.value = false
+  selectedBuildingIds.value = []
+  selectMode.value = true
+}
+
+function stopSelect() {
+  selectMode.value = false
+  selectedBuildingIds.value = []
+}
+
+function onSelectionChanged(ids) {
+  selectedBuildingIds.value = ids
 }
 
 // Keyboard shortcuts: 1-6 start a batch on every idle building of one
@@ -138,6 +179,8 @@ function handleKeydown(event) {
 
   if (event.key === 'Escape') {
     if (isModalOpen.value) closeAnyOpenModal()
+    else if (expandMode.value) stopExpand()
+    else if (selectMode.value) stopSelect()
     return
   }
   if (isModalOpen.value) return
@@ -152,7 +195,10 @@ function handleKeydown(event) {
 }
 
 onMounted(() => window.addEventListener('keydown', handleKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  if (expandFeedbackTimer) clearTimeout(expandFeedbackTimer)
+})
 </script>
 
 <template>
@@ -166,11 +212,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
         <button class="cancel" @click="cancelPlacingDecoration"><Icon name="mdi:close" /> Cancel</button>
       </template>
       <template v-else-if="expandMode">
-        <span class="rearrange-hint">Tap a highlighted tile to buy it</span>
+        <span class="rearrange-hint">{{ expandFeedback || 'Tap a tile to buy it, or drag to buy many at once' }}</span>
         <button class="confirm" @click="stopExpand"><Icon name="mdi:check" /> Done</button>
+      </template>
+      <template v-else-if="selectMode">
+        <span class="rearrange-hint">Drag over buildings to select them, then pick a bulk action below</span>
+        <button class="confirm" @click="stopSelect"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else-if="!layoutEditMode">
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startExpand"><Icon name="mdi:map-plus" /> Expand Territory</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startSelect"><Icon name="mdi:selection-drag" /> Select Buildings</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLab = true"><Icon name="mdi:flask-outline" /> Research Lab</button>
         <button class="store-btn" :class="{ 'tutorial-glow': storeButtonHighlighted, 'tutorial-dim': store.isTutorialVisible && !storeButtonHighlighted }" @click="showStore = true">
           <Icon name="mdi:storefront-outline" /> Store
@@ -191,7 +242,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
     <div class="main-area">
       <BuildMenu
         :active-type="placingType"
-        :class="{ disabled: layoutEditMode || placingDecorationId || expandMode, 'tutorial-dim': store.isTutorialVisible }"
+        :class="{ disabled: layoutEditMode || placingDecorationId || expandMode || selectMode, 'tutorial-dim': store.isTutorialVisible }"
         @select="(type) => (placingType = type)"
       />
       <GameCanvas
@@ -200,11 +251,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
         :placing-decoration-id="placingDecorationId"
         :edit-mode="layoutEditMode"
         :expand-mode="expandMode"
+        :select-mode="selectMode"
+        :selected-building-ids="selectedBuildingIds"
         :tutorial-highlight-type="tutorialHighlightBuildingType"
         :tutorial-dim="store.isTutorialVisible"
         @building-selected="onBuildingSelected"
         @decoration-selected="onDecorationSelected"
         @placed="onPlaced"
+        @expand-result="onExpandResult"
+        @selection-changed="onSelectionChanged"
+      />
+      <BulkActionPanel
+        v-if="selectedBuildingIds.length"
+        :building-ids="selectedBuildingIds"
+        @clear="selectedBuildingIds = []"
       />
       <TutorialCard />
     </div>

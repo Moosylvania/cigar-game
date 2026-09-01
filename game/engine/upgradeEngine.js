@@ -119,6 +119,65 @@ export function startUpgrade(building, state) {
 }
 
 /**
+ * Read-only plan for the "Upgrade All" bulk action on a drag-selected group
+ * of buildings: greedily upgrades each as far as currently affordable, same
+ * as getAffordableUpgradeTarget, but spends from one shared running budget
+ * across the whole selection (cheapest buildings first) instead of letting
+ * each building check the *full* current money independently - otherwise a
+ * naive per-building check would let every building "afford" the same
+ * dollars at once. Doesn't touch state - see commitSelectionUpgrade for the
+ * version that actually spends and starts the upgrades.
+ * @param {import('../types/building.js').PlacedBuilding[]} buildings
+ * @param {import('../types/state.js').GameState} state
+ * @returns {{ count: number, cost: number, results: { building: import('../types/building.js').PlacedBuilding, targetLevel: number, cost: number }[] }}
+ */
+export function planSelectionUpgrade(buildings, state) {
+  const candidates = buildings.filter((b) => !b.upgrade).sort((a, b) => a.level - b.level)
+  let budget = state.resources.money
+  const results = []
+
+  for (const building of candidates) {
+    const maxAllowed = getMaxAllowedLevel(building, state)
+    if (building.level >= maxAllowed) continue
+
+    let targetLevel = building.level
+    let spent = 0
+    for (let level = building.level + 1; level <= maxAllowed; level++) {
+      const cost = getLevelStats(building.type, level).upgradeCost
+      if (spent + cost > budget) break
+      spent += cost
+      targetLevel = level
+    }
+    if (targetLevel <= building.level) continue
+
+    budget -= spent
+    results.push({ building, targetLevel, cost: spent })
+  }
+
+  return { count: results.length, cost: results.reduce((sum, r) => sum + r.cost, 0), results }
+}
+
+/**
+ * Applies planSelectionUpgrade's plan for real - starts each upgrade
+ * through the normal startUpgradeToLevel path (so cost/duration/slot
+ * clearing all stay in one place) in the same cheapest-first order the
+ * plan was computed in, so the actual spend matches the preview exactly.
+ * @param {import('../types/building.js').PlacedBuilding[]} buildings
+ * @param {import('../types/state.js').GameState} state
+ * @param {number} [speedMultiplier]
+ * @returns {{ count: number, cost: number }}
+ */
+export function commitSelectionUpgrade(buildings, state, speedMultiplier = 1) {
+  const plan = planSelectionUpgrade(buildings, state)
+  let count = 0
+  for (const { building, targetLevel } of plan.results) {
+    const result = startUpgradeToLevel(building, state, targetLevel, speedMultiplier)
+    if (result.ok) count += 1
+  }
+  return { count, cost: plan.cost }
+}
+
+/**
  * @param {import('../types/state.js').GameState} state
  * @param {number} atTime
  */

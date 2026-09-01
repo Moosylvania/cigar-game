@@ -7,7 +7,15 @@ import {
   resolveOfflineSlots,
   runAutomation
 } from '#game/engine/batchEngine.js'
-import { startUpgradeToLevel as engineStartUpgradeToLevel, getUpgradePlan, getAffordableUpgradeTarget, resolveCompletedUpgrades, getMaxAllowedLevel } from '#game/engine/upgradeEngine.js'
+import {
+  startUpgradeToLevel as engineStartUpgradeToLevel,
+  getUpgradePlan,
+  getAffordableUpgradeTarget,
+  resolveCompletedUpgrades,
+  getMaxAllowedLevel,
+  planSelectionUpgrade,
+  commitSelectionUpgrade
+} from '#game/engine/upgradeEngine.js'
 import {
   getMultipliers,
   getResearchLevel as engineGetResearchLevel,
@@ -37,7 +45,8 @@ import {
   isTilePurchasable as engineIsTilePurchasable,
   getTileCost as engineGetTileCost,
   canBuyTile as engineCanBuyTile,
-  buyTile as engineBuyTile
+  buyTile as engineBuyTile,
+  buyTilesInRect as engineBuyTilesInRect
 } from '#game/engine/landEngine.js'
 import {
   canBuyVehicle as engineCanBuyVehicle,
@@ -419,6 +428,54 @@ export const useGameStore = defineStore('game', {
       return { count }
     },
 
+    /** Read-only preview of what "Upgrade All" would do for a drag-selected
+     * group of buildings - see upgradeEngine.js planSelectionUpgrade. */
+    previewSelectionUpgrade(buildingIds) {
+      const idSet = new Set(buildingIds)
+      const buildings = this.allBuildings.filter((b) => idSet.has(b.id))
+      return planSelectionUpgrade(buildings, this.game)
+    },
+
+    /** Bulk "Upgrade All" for a drag-selected group of buildings - each is
+     * pushed as far as it can currently afford, cheapest first, sharing one
+     * money pool across the whole selection (see upgradeEngine.js
+     * commitSelectionUpgrade). */
+    upgradeSelection(buildingIds) {
+      const idSet = new Set(buildingIds)
+      const buildings = this.allBuildings.filter((b) => idSet.has(b.id))
+      return commitSelectionUpgrade(buildings, this.game, this.combinedMultipliers.upgradeSpeedMultiplier)
+    },
+
+    /** Bulk "Start batch" restricted to a drag-selected group - same
+     * per-building logic as startAllIdleOfType, just filtered to the
+     * selection instead of a whole pipeline type. */
+    startBatchForSelection(buildingIds) {
+      const idSet = new Set(buildingIds)
+      const idleBuildings = this.allBuildings
+        .filter((b) => idSet.has(b.id) && b.slot?.status === 'idle')
+        .sort((a, b) => b.level - a.level)
+      let started = 0
+      for (const building of idleBuildings) {
+        const result = engineStartBatch(building, this.game, this.combinedMultipliers)
+        if (result.ok) started += 1
+      }
+      return { count: started }
+    },
+
+    /** Bulk "Collect" restricted to a drag-selected group - same
+     * per-building logic as collectAllReady, just filtered to the
+     * selection. */
+    collectReadyForSelection(buildingIds) {
+      const idSet = new Set(buildingIds)
+      const readyBuildings = this.allBuildings.filter((b) => idSet.has(b.id) && b.slot?.status === 'ready')
+      let count = 0
+      for (const building of readyBuildings) {
+        const result = engineCollectBatch(building, this.game, this.combinedMultipliers)
+        if (result.ok) count += 1
+      }
+      return { count }
+    },
+
     /** Whether this building's finished batch can't be collected right now
      * because the Depot has no room for it (Rolling House only - see
      * batchEngine.js isCollectBlockedByOutputCap). Drives the warning badge
@@ -475,6 +532,11 @@ export const useGameStore = defineStore('game', {
 
     buyLandTile(x, y) {
       return engineBuyTile(this.game, x, y)
+    },
+
+    /** Bulk "buy" for the expand-mode drag-select box - see landEngine.js buyTilesInRect. */
+    buyLandTiles(x0, y0, x1, y1) {
+      return engineBuyTilesInRect(this.game, x0, y0, x1, y1)
     },
 
     getResearchLevel(researchId) {

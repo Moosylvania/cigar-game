@@ -181,3 +181,53 @@ export function buyTile(state, x, y) {
   state.land.purchasedTiles.push({ x, y })
   return { ok: true, cost: result.cost }
 }
+
+/**
+ * Buys every purchasable/affordable tile inside a rectangular selection in
+ * one action (the drag-select "bulk buy" gesture in expand mode). Runs
+ * repeated passes over the rectangle because buying a tile can make its
+ * neighbors newly adjacent-purchasable within the same rectangle (see
+ * isTilePurchasable) - a single pass would miss a tile whose only owned
+ * neighbor is one just bought earlier in this same drag. Stops once a pass
+ * buys nothing new, or money runs out. Silently skips tiles that are
+ * already owned, out of reach, or unaffordable rather than failing the
+ * whole selection - that mirrors how a single buyTile click already
+ * behaves for one tile, just applied per-tile across the box.
+ * @param {import('../types/state.js').GameState} state
+ * @param {number} x0
+ * @param {number} y0
+ * @param {number} x1
+ * @param {number} y1
+ * @returns {{ ok: boolean, count: number, spent: number }}
+ */
+export function buyTilesInRect(state, x0, y0, x1, y1) {
+  const loX = Math.min(x0, x1)
+  const hiX = Math.max(x0, x1)
+  const loY = Math.min(y0, y1)
+  const hiY = Math.max(y0, y1)
+
+  const ownedSet = getOwnedTileSet(state)
+  let count = 0
+  let spent = 0
+  let progress = true
+
+  while (progress) {
+    progress = false
+    const maxPurchasableRing = getMaxPurchasableRing(ownedSet)
+    for (let x = loX; x <= hiX; x++) {
+      for (let y = loY; y <= hiY; y++) {
+        if (!isTilePurchasable(ownedSet, x, y, maxPurchasableRing)) continue
+        const cost = getTileCost(x, y)
+        if (state.resources.money < cost) continue
+        state.resources.money -= cost
+        state.land.purchasedTiles.push({ x, y })
+        ownedSet.add(tileKey(x, y))
+        count += 1
+        spent += cost
+        progress = true
+      }
+    }
+  }
+
+  return { ok: count > 0, count, spent }
+}
