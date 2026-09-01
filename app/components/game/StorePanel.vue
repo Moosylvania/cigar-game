@@ -4,7 +4,8 @@ import { useGameStore } from '~/stores/game.js'
 import { useClock } from '~/composables/useClock.js'
 import { STORE_ITEMS } from '#game/config/store.config.js'
 import { DECORATIONS } from '#game/config/decorations.config.js'
-import { formatCompactNumber } from '#game/util/format.js'
+import { LEAF_BOOST_COOLDOWN_MS, LEAF_BOOST_BONUS_PER_LEVEL } from '#game/config/prestige.config.js'
+import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 import { formatDuration } from '#game/util/time.js'
 import { publicAsset } from '~/utils/publicAsset.js'
 
@@ -78,6 +79,28 @@ function placeDecoration(decoration) {
   emit('place-decoration', decoration.id)
   emit('close')
 }
+
+// Leaf Tonic: a permanent Legacy Leaf multiplier upgrade, gated by a
+// real-world cooldown rather than a max level (see prestigeEngine.js
+// buyLeafBoost) - computed here off the live clock (same nowMs pattern as
+// activeInstancesFor above) so the countdown actually ticks down instead
+// of freezing at whatever it read on the last unrelated state change.
+const leafBoostCooldownRemainingMs = computed(() => {
+  const last = store.prestige.lastLeafBoostPurchaseAt
+  if (!last) return 0
+  return Math.max(0, last + LEAF_BOOST_COOLDOWN_MS - nowMs.value)
+})
+const leafBoostOnCooldown = computed(() => leafBoostCooldownRemainingMs.value > 0)
+const leafBoostCanBuy = computed(() => !leafBoostOnCooldown.value && store.money >= store.leafBoostCost)
+
+function buyLeafBoost() {
+  const result = store.buyLeafBoost()
+  const message = result.ok ? 'Bought Leaf Tonic' : result.reason === 'on_cooldown' ? 'Leaf Tonic is on cooldown' : 'Not enough money'
+  feedback.value = message
+  setTimeout(() => {
+    if (feedback.value === message) feedback.value = null
+  }, 1800)
+}
 </script>
 
 <template>
@@ -94,6 +117,7 @@ function placeDecoration(decoration) {
       <div class="tabs">
         <button class="tab" :class="{ active: activeTab === 'items' }" @click="activeTab = 'items'">Items</button>
         <button class="tab" :class="{ active: activeTab === 'decorations' }" @click="activeTab = 'decorations'">Decorations</button>
+        <button class="tab" :class="{ active: activeTab === 'legacy' }" @click="activeTab = 'legacy'">Legacy</button>
       </div>
 
       <div v-if="activeTab === 'items'" class="item-list">
@@ -115,7 +139,7 @@ function placeDecoration(decoration) {
         </div>
       </div>
 
-      <div v-else class="item-list">
+      <div v-else-if="activeTab === 'decorations'" class="item-list">
         <div v-for="row in decorationRows" :key="row.decoration.id" class="item-row">
           <img class="deco-thumb" :src="publicAsset(`images/cigar_sprite_pack_topdown/sprites/decorations/${row.decoration.spriteFile}.webp`)" :alt="row.decoration.name" />
           <div class="info">
@@ -124,6 +148,30 @@ function placeDecoration(decoration) {
           </div>
           <button :disabled="!row.canAfford" @click="placeDecoration(row.decoration)">
             ${{ formatCompactNumber(row.decoration.cost) }}
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="item-list">
+        <div class="item-row" :class="{ active: !leafBoostOnCooldown }">
+          <span class="item-icon"><Icon name="mdi:leaf-circle-outline" /></span>
+          <div class="info">
+            <span class="name">Leaf Tonic (Level {{ store.prestige.leafBoostLevel }})</span>
+            <span class="detail">
+              Permanently raises the money multiplier bonus each Legacy Leaf is worth. Limited to
+              one dose every {{ formatDuration(LEAF_BOOST_COOLDOWN_MS / 1000) }}.
+            </span>
+            <span class="current-effect">
+              {{ formatMultiplier(1 + store.leafBonusPerLeaf) }} per leaf
+              → {{ formatMultiplier(1 + store.leafBonusPerLeaf + LEAF_BOOST_BONUS_PER_LEVEL) }} per leaf
+            </span>
+            <span v-if="leafBoostOnCooldown" class="current-effect active-boost">
+              <Icon name="mdi:clock-outline" /> Next dose in {{ formatDuration(leafBoostCooldownRemainingMs / 1000) }}
+            </span>
+            <span v-else-if="!leafBoostCanBuy" class="warn">Not enough money</span>
+          </div>
+          <button :disabled="!leafBoostCanBuy" @click="buyLeafBoost" class="buy-btn">
+            ${{ formatCompactNumber(store.leafBoostCost) }}
           </button>
         </div>
       </div>

@@ -23,24 +23,34 @@ export const PRESTIGE_TIERS = [
   { id: 'cosmic_ascendant', name: 'Cosmic Ascendant', description: "You've transcended farming. You ARE the harvest.", icon: 'mdi:star-four-points-outline', color: '#9a4ad4', unlockThreshold: Infinity }
 ]
 
-// Each tier's own multiplier grows from the fraction of its own dollar
-// "band" (from the previous tier's threshold up to its own) that your
-// all-time earnings have filled: multiplier(bandProgress) = 1 +
-// (MAX_TIER_MULTIPLIER - 1) * bandProgress / (bandProgress + halfPoint),
-// where halfPoint is CURVE_HALF_FRACTION of that band's width (or of the
-// tier's own starting threshold, for the last tier, which has no finite
-// band). Approaches MAX_TIER_MULTIPLIER asymptotically, never quite
-// reaching it. Once your earnings cross into the *next* tier's band, this
-// tier's own progress is capped at 100% (its multiplier freezes) - moving
-// on locks in what you'd built up, same as the tiers before it.
-// Kept deliberately modest (3x, not 10x) per tier - these multiply
-// together across up to 10 tiers, so even 3x each still compounds to
-// 3^10 (~59,000x) at full completion. 10x each was compounding to 10^10
-// (10 billion) at full completion, which read as absurd rather than
-// rewarding; 1000x each (an even earlier pass) was worse still, landing
-// around 1e30.
-export const MAX_TIER_MULTIPLIER = 3
-export const CURVE_HALF_FRACTION = 0.15
+// Legacy Leaves: the permanent prestige currency (see prestigeEngine.js
+// getLeavesEarned). Earned once per prestige/advance, straight off that
+// run's lifetime earnings on a sub-1 exponent curve - a bigger run always
+// earns more leaves, just not proportionally more. Unlike the old
+// per-tier band curve this replaces, leaves are never capped or frozen:
+// every prestige banks more of them, so the money multiplier below always
+// ticks up by at least a little, no matter how much you've already
+// earned all-time.
+export const LEAF_DOLLARS_PER_UNIT = 1000000
+export const LEAF_EARN_EXPONENT = 0.5
+
+// Each Legacy Leaf you've ever earned adds this fraction to the money
+// multiplier, permanently and without limit (see prestigeEngine.js
+// getLeafMultiplier: multiplier = 1 + leafBonusPerLeaf * legacyLeaves).
+// Raised further, one level at a time, by the Leaf Tonic store upgrade
+// below.
+export const BASE_LEAF_BONUS_PER_LEAF = 0.01
+
+// Leaf Tonic (see Store panel / prestigeEngine.js buyLeafBoost): a
+// permanent upgrade that raises the per-leaf bonus above by
+// LEAF_BOOST_BONUS_PER_LEVEL every level. Deliberately uncapped - no max
+// level like Epic Research - but rate-limited by a real-world cooldown
+// (LEAF_BOOST_COOLDOWN_MS) instead, so it rewards checking back in over
+// time rather than dumping one big prestige's money into it all at once.
+export const LEAF_BOOST_BONUS_PER_LEVEL = 0.002
+export const LEAF_BOOST_BASE_COST = 1000000
+export const LEAF_BOOST_COST_GROWTH = 1.2
+export const LEAF_BOOST_COOLDOWN_MS = 6 * 60 * 60 * 1000
 
 // Separate from the cumulative multiplier above, and multiplicative with
 // it: rewards actually playing at a tier, not just having once earned past

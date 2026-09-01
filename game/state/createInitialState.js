@@ -115,6 +115,9 @@ export function createInitialState() {
       activeTierIndex: 0,
       totalPrestigeCount: 0,
       lifetimeMoneyEarnedAllTime: 0,
+      legacyLeaves: 0,
+      leafBoostLevel: 0,
+      lastLeafBoostPurchaseAt: null,
       epicResearchLevels: {},
       unlockedTrophyIds: []
     }

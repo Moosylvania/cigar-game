@@ -53,8 +53,15 @@ import { getBoostMultipliers, pruneExpiredBoosts } from '#game/engine/boostEngin
 import { updateCoinDelivery, collectCoinDelivery as engineCollectCoinDelivery } from '#game/engine/coinDeliveryEngine.js'
 import {
   canPrestige as engineCanPrestige,
-  getVarietyMultiplier,
+  getActiveTierMultiplier,
   getTotalPrestigeMultiplier,
+  getLeavesEarned,
+  getLeafMultiplier,
+  getLeafBonusPerLeaf,
+  getLeafBoostCost,
+  getLeafBoostCooldownRemainingMs,
+  canBuyLeafBoost as engineCanBuyLeafBoost,
+  buyLeafBoost as engineBuyLeafBoost,
   doPrestige as engineDoPrestige,
   canAdvanceTier as engineCanAdvanceTier,
   advanceTier as engineAdvanceTier
@@ -186,6 +193,57 @@ export const useGameStore = defineStore('game', {
     canAdvanceTier(state) {
       return engineCanAdvanceTier(state.game)
     },
+    legacyLeaves(state) {
+      return state.game.prestige.legacyLeaves ?? 0
+    },
+    // How many Legacy Leaves this run's not-yet-banked earnings would add
+    // on top of legacyLeaves if the player prestiged (or advanced) right
+    // now - shown as a preview next to the Prestige button.
+    projectedLeavesEarned() {
+      return getLeavesEarned(this.lifetimeMoneyEarnedThisRun)
+    },
+    leafBonusPerLeaf() {
+      return getLeafBonusPerLeaf(this.prestige)
+    },
+    leafMultiplier() {
+      return getLeafMultiplier(this.prestige)
+    },
+    leafBoostCost() {
+      return getLeafBoostCost(this.prestige.leafBoostLevel ?? 0)
+    },
+    leafBoostCooldownRemainingMs() {
+      return getLeafBoostCooldownRemainingMs(this.prestige)
+    },
+    canBuyLeafBoost(state) {
+      return engineCanBuyLeafBoost(state.game)
+    },
+    /**
+     * Function-valued getter: what totalPrestigeMultiplier would become if
+     * the player prestiged (or advanced to targetIndex) right now, banking
+     * this run's not-yet-banked earnings (both into lifetimeMoneyEarnedAllTime,
+     * for tier-unlock thresholds, and into legacyLeaves, which is what
+     * actually drives the multiplier). Lets the UI show a before/after
+     * preview.
+     * @returns {(targetIndex?: number) => number}
+     */
+    projectedPrestigeMultiplier() {
+      const prestige = this.prestige
+      const dollarsThisRun = this.lifetimeMoneyEarnedThisRun
+      const projectedAllTime = (prestige.lifetimeMoneyEarnedAllTime ?? 0) + dollarsThisRun
+      const projectedLeaves = (prestige.legacyLeaves ?? 0) + getLeavesEarned(dollarsThisRun)
+      const boost = this.epicMultipliers.prestigeMultiplierBoost
+      return (targetIndex) => {
+        const resolvedTarget = targetIndex ?? (prestige.activeTierIndex ?? prestige.unlockedCount - 1)
+        const projectedPrestige = {
+          ...prestige,
+          lifetimeMoneyEarnedAllTime: projectedAllTime,
+          legacyLeaves: projectedLeaves,
+          unlockedCount: Math.max(prestige.unlockedCount, resolvedTarget + 1),
+          activeTierIndex: resolvedTarget
+        }
+        return getTotalPrestigeMultiplier(projectedPrestige, boost)
+      }
+    },
     prestigeTiers() {
       const prestige = this.prestige
       // Includes this run's not-yet-banked earnings, so a locked tier's
@@ -206,10 +264,11 @@ export const useGameStore = defineStore('game', {
           index,
           unlocked,
           active,
-          // Only a tier the player has actually moved into contributes a
-          // multiplier - reaching the threshold alone isn't enough (see
-          // prestigeEngine.js advanceTier).
-          multiplier: unlocked ? getVarietyMultiplier(index, prestige.lifetimeMoneyEarnedAllTime ?? 0) : 1,
+          // The flat bonus this tier gives while it's the active one (see
+          // prestigeEngine.js getActiveTierMultiplier) - a fixed function
+          // of tier index, so it's shown the same whether or not the tier
+          // is unlocked yet, as a preview of what moving up is worth.
+          multiplier: getActiveTierMultiplier(index),
           // A locked tier whose own threshold is already met - a brand new
           // tier, never reached before. Not just the very next one; a big
           // run can vault past several thresholds at once, and advanceTier
@@ -480,6 +539,10 @@ export const useGameStore = defineStore('game', {
 
     advanceTier(targetIndex) {
       return engineAdvanceTier(this.game, targetIndex)
+    },
+
+    buyLeafBoost() {
+      return engineBuyLeafBoost(this.game)
     },
 
     nextTutorialStep() {

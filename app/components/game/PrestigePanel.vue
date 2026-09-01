@@ -18,6 +18,7 @@ const pendingAction = ref(null)
 const feedback = ref(null)
 
 const dollarsPreview = computed(() => store.lifetimeMoneyEarnedThisRun)
+const leavesPreview = computed(() => store.projectedLeavesEarned)
 const canPrestigeResult = computed(() => store.canPrestige)
 const pendingTargetTier = computed(() => {
   if (pendingAction.value?.type !== 'advance') return null
@@ -29,6 +30,18 @@ const pendingTargetIsReturn = computed(() => {
 })
 
 const totalMultiplierLabel = computed(() => formatMultiplier(store.totalPrestigeMultiplier))
+// What the total multiplier would become from a plain prestige right now
+// (active tier unchanged) - shown next to the current value so the payoff
+// of prestiging now is visible before committing to the reset.
+const projectedMultiplierLabel = computed(() => formatMultiplier(store.projectedPrestigeMultiplier()))
+const showMultiplierPreview = computed(() => dollarsPreview.value > 0)
+// Same preview, but for whichever tier the player is about to advance to -
+// advancing changes the active tier itself, so this can move a lot more
+// than the plain-prestige preview above.
+const projectedAdvanceMultiplierLabel = computed(() => {
+  if (pendingAction.value?.type !== 'advance') return null
+  return formatMultiplier(store.projectedPrestigeMultiplier(pendingAction.value.targetIndex))
+})
 
 function requestPrestige() {
   if (!canPrestigeResult.value.ok) return
@@ -62,7 +75,7 @@ function confirmAction() {
     const result = store.doPrestige()
     pendingAction.value = null
     if (!result.ok) return
-    showFeedback(`Prestiged! +$${formatCompactNumber(result.dollarsEarned)} added to your all-time total.`)
+    showFeedback(`Prestiged! +$${formatCompactNumber(result.dollarsEarned)} and +${formatCompactNumber(result.leavesEarned)} Legacy Leaves banked.`)
   }
 }
 </script>
@@ -81,7 +94,12 @@ function confirmAction() {
       <div class="overview">
         <div class="overview-row">
           <span class="overview-label">Total money multiplier</span>
-          <span class="overview-value">{{ totalMultiplierLabel }}</span>
+          <span class="overview-value">
+            {{ totalMultiplierLabel }}
+            <template v-if="showMultiplierPreview">
+              <span class="preview-arrow" :class="{ unchanged: projectedMultiplierLabel === totalMultiplierLabel }">→ {{ projectedMultiplierLabel }}</span>
+            </template>
+          </span>
         </div>
         <div class="overview-row">
           <span class="overview-label">This run's lifetime earnings</span>
@@ -92,27 +110,40 @@ function confirmAction() {
           <span class="overview-value highlight">${{ formatCompactNumber(store.prestige.lifetimeMoneyEarnedAllTime) }}</span>
         </div>
         <div class="overview-row">
+          <span class="overview-label">Legacy Leaves</span>
+          <span class="overview-value highlight">
+            {{ formatCompactNumber(store.legacyLeaves) }}
+            <template v-if="leavesPreview > 0"><span class="preview-arrow">+{{ formatCompactNumber(leavesPreview) }}</span></template>
+            <span class="sub-value">({{ formatMultiplier(1 + store.leafBonusPerLeaf) }} per leaf)</span>
+          </span>
+        </div>
+        <div class="overview-row">
           <span class="overview-label">Times prestiged</span>
           <span class="overview-value">{{ store.prestige.totalPrestigeCount }}</span>
         </div>
 
         <p class="explainer">
           Prestiging resets your farm - buildings, money, land, and Lab research all go back to
-          the start - in exchange for adding this run's earnings to your all-time total, which
-          multiplies all future money earned forever. Your tier never changes just from earning
+          the start - in exchange for turning this run's earnings into Legacy Leaves, a
+          permanent currency that raises your money multiplier a little more with every
+          prestige, no matter how far along you are. Your tier never changes just from earning
           enough - once a tier's threshold is reached it becomes available below, but moving up
-          into it (and resetting again) is your call.
+          into it (and resetting again) is your call, and gives its own flat bonus on top.
         </p>
 
         <template v-if="!pendingAction">
           <button class="prestige-btn" :disabled="!canPrestigeResult.ok" @click="requestPrestige">
             <Icon name="mdi:crown" />
-            {{ canPrestigeResult.ok ? `Prestige Now (+$${formatCompactNumber(dollarsPreview)})` : 'Not enough progress yet' }}
+            {{ canPrestigeResult.ok ? `Prestige Now (+$${formatCompactNumber(dollarsPreview)}, +${formatCompactNumber(leavesPreview)} Leaves)` : 'Not enough progress yet' }}
           </button>
         </template>
         <template v-else-if="pendingAction.type === 'prestige'">
           <div class="confirm-row">
-            <span>Reset your farm, adding +${{ formatCompactNumber(dollarsPreview) }} to your all-time total?</span>
+            <span>Reset your farm, adding +${{ formatCompactNumber(dollarsPreview) }} and +{{ formatCompactNumber(leavesPreview) }} Legacy Leaves to your all-time total?</span>
+            <span class="multiplier-preview" :class="{ unchanged: projectedMultiplierLabel === totalMultiplierLabel }">
+              Total multiplier: {{ totalMultiplierLabel }} → {{ projectedMultiplierLabel }}
+              <template v-if="projectedMultiplierLabel === totalMultiplierLabel"> (too little earned this run to gain a whole Leaf yet)</template>
+            </span>
             <div class="confirm-buttons">
               <button class="confirm" @click="confirmAction">Confirm</button>
               <button class="cancel" @click="cancelAction">Cancel</button>
@@ -172,6 +203,9 @@ function confirmAction() {
         <p v-else>
           Reset your farm and move up to {{ pendingTargetTier?.name }}? Every tier below stays locked in at its current bonus.
         </p>
+        <span class="multiplier-preview">
+          Total multiplier: {{ totalMultiplierLabel }} → {{ projectedAdvanceMultiplierLabel }}
+        </span>
         <div class="confirm-buttons">
           <button class="confirm" @click="confirmAction">Confirm</button>
           <button class="cancel" @click="cancelAction">Cancel</button>
@@ -331,6 +365,35 @@ function confirmAction() {
 
   &.highlight {
     color: $color-money;
+  }
+}
+
+.preview-arrow {
+  margin-left: 4px;
+  font-weight: 600;
+  color: $color-money;
+
+  &.unchanged {
+    color: $color-text-muted;
+  }
+}
+
+.sub-value {
+  margin-left: 4px;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: $color-text-muted;
+}
+
+.multiplier-preview {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: $color-money;
+
+  &.unchanged {
+    color: $color-text-muted;
+    font-weight: 400;
+    font-style: italic;
   }
 }
 

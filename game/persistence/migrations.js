@@ -2,6 +2,7 @@ import { PRESTIGE_TIERS } from '../config/prestige.config.js'
 import { STARTING_REGION } from '../config/land.config.js'
 import { COIN_DELIVERY_INTERVAL_SECONDS } from '../config/economy.config.js'
 import { now } from '../util/time.js'
+import { getLeavesEarned } from '../engine/prestigeEngine.js'
 
 // Land expansion used to unlock in whole rectangular "tiers" (index ->
 // region) instead of individual tiles - kept here, and only here, purely so
@@ -120,6 +121,9 @@ function repairState(state) {
       activeTierIndex: 0,
       totalPrestigeCount: 0,
       lifetimeMoneyEarnedAllTime: 0,
+      legacyLeaves: 0,
+      leafBoostLevel: 0,
+      lastLeafBoostPurchaseAt: null,
       epicResearchLevels: {},
       unlockedTrophyIds: []
     }
@@ -141,6 +145,18 @@ function repairState(state) {
     if (!state.prestige.epicResearchLevels || typeof state.prestige.epicResearchLevels !== 'object') state.prestige.epicResearchLevels = {}
     if (!Array.isArray(state.prestige.unlockedTrophyIds)) state.prestige.unlockedTrophyIds = []
     delete state.prestige.varietyPoints
+
+    // Legacy Leaves replaced the old per-tier band curve as the thing
+    // that drives the money multiplier - a save from before that change
+    // has no leaves yet. Backfill a one-time lump sum off its existing
+    // all-time earnings (same curve a real prestige would have banked
+    // incrementally) so an existing player's multiplier carries forward
+    // instead of collapsing to 1x the moment they load in.
+    if (typeof state.prestige.legacyLeaves !== 'number') {
+      state.prestige.legacyLeaves = getLeavesEarned(state.prestige.lifetimeMoneyEarnedAllTime ?? 0)
+    }
+    if (typeof state.prestige.leafBoostLevel !== 'number') state.prestige.leafBoostLevel = 0
+    if (typeof state.prestige.lastLeafBoostPurchaseAt !== 'number') state.prestige.lastLeafBoostPurchaseAt = null
 
     // activeTierIndex (free selection among already-unlocked tiers - see
     // prestigeEngine.js setActiveTier) added after some saves already had
