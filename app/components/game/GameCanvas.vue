@@ -104,6 +104,17 @@ let expandDragCurrent = null
 let selectDragStart = null
 let selectDragCurrent = null
 
+// Group move: dragging one member of a multi-building selection (select
+// mode, 2+ selected) drags the whole group together, preserving relative
+// offsets. groupWorkingPositions mirrors workingPositions' staging pattern
+// but commits immediately on release instead of waiting for a "Save
+// Layout" step, matching the rest of select mode's bulk actions.
+let groupDragIds = null
+let groupDragStartGrid = null
+let groupDragOriginalPositions = null
+let groupWorkingPositions = new Map()
+let groupDragValid = true
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max)
 }
@@ -202,6 +213,9 @@ function positionFor(building) {
   if (props.editMode) {
     return workingPositions.get(building.id) ?? building.position
   }
+  if (groupWorkingPositions.has(building.id)) {
+    return groupWorkingPositions.get(building.id)
+  }
   return building.position
 }
 
@@ -265,13 +279,19 @@ function render() {
     const rect = getBuildingRect(building, camera)
 
     const isDragging = props.editMode && building.id === draggingId
-    if (isDragging) ctx.globalAlpha = 0.7
+    const isGroupDragging = groupDragIds != null && groupDragIds.includes(building.id)
+    if (isDragging || isGroupDragging) ctx.globalAlpha = 0.7
     const popScale = buildingAnimations.getPopTransform(building.id)?.scale ?? 1
     const collectBlocked = building.slot?.status === 'ready' && store.isCollectBlocked(building.id)
     drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked, store.activeThemeId)
     if (isDragging) {
       ctx.globalAlpha = 1
       ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
+      ctx.lineWidth = 3
+      ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
+    } else if (isGroupDragging) {
+      ctx.globalAlpha = 1
+      ctx.strokeStyle = groupDragValid ? '#7bc96f' : '#d16a5a'
       ctx.lineWidth = 3
       ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
     }
@@ -281,6 +301,10 @@ function render() {
     const selectedIdSet = new Set(props.selectedBuildingIds)
     for (const building of store.allBuildings) {
       if (!selectedIdSet.has(building.id)) continue
+      // Buildings actively being group-dragged already get a solid
+      // validity-colored outline above - skip the dashed "selected" ring
+      // for them so the two don't visually stack.
+      if (groupDragIds != null && groupDragIds.includes(building.id)) continue
       const rect = getBuildingRect(building, camera)
       ctx.save()
       ctx.strokeStyle = 'rgba(123, 201, 111, 0.95)'
@@ -511,6 +535,15 @@ function handlePointerDown(event) {
     expandDragCurrent = null
     selectDragStart = null
     selectDragCurrent = null
+    // A second finger landing mid group-drag discards the in-progress
+    // move rather than committing it - same "don't guess" treatment as
+    // the select-box drag above, since a pinch here almost certainly
+    // means the player meant to zoom, not drop the group where it sits.
+    groupDragIds = null
+    groupDragStartGrid = null
+    groupDragOriginalPositions = null
+    groupWorkingPositions = new Map()
+    groupDragValid = true
     pinchStartDistance = pinchDistance()
     pinchStartZoom = zoomLevel
     return
@@ -536,8 +569,22 @@ function handlePointerDown(event) {
     expandDragStart = gridPosFromScreen(screenPos)
     expandDragCurrent = expandDragStart
   } else if (props.selectMode) {
-    selectDragStart = gridPosFromScreen(screenPos)
-    selectDragCurrent = selectDragStart
+    const gridPos = gridPosFromScreen(screenPos)
+    const hitBuilding = props.selectedBuildingIds.length >= 2 ? findBuildingAt(gridPos) : null
+    if (hitBuilding && props.selectedBuildingIds.includes(hitBuilding.id)) {
+      groupDragIds = [...props.selectedBuildingIds]
+      groupDragStartGrid = gridPos
+      groupDragOriginalPositions = new Map(
+        store.allBuildings
+          .filter((b) => groupDragIds.includes(b.id))
+          .map((b) => [b.id, { ...b.position }])
+      )
+      groupWorkingPositions = new Map(groupDragOriginalPositions)
+      groupDragValid = true
+    } else {
+      selectDragStart = gridPos
+      selectDragCurrent = selectDragStart
+    }
   }
 }
 
@@ -575,6 +622,17 @@ function handlePointerMove(event) {
     return
   }
   if (props.selectMode) {
+    if (groupDragIds) {
+      const gridPos = gridPosFromScreen(screenPos)
+      const dx = gridPos.x - groupDragStartGrid.x
+      const dy = gridPos.y - groupDragStartGrid.y
+      for (const [id, orig] of groupDragOriginalPositions) {
+        groupWorkingPositions.set(id, { x: orig.x + dx, y: orig.y + dy })
+      }
+      const moves = Array.from(groupWorkingPositions.entries()).map(([id, position]) => ({ id, position }))
+      groupDragValid = store.canRelocateBuildings(moves).ok
+      return
+    }
     if (selectDragStart) selectDragCurrent = gridPosFromScreen(screenPos)
     return
   }
@@ -646,6 +704,22 @@ function handlePointerUp(event) {
   }
 
   if (props.selectMode) {
+    if (groupDragIds) {
+      if (groupDragValid) {
+        const moves = Array.from(groupWorkingPositions.entries()).map(([id, position]) => ({ id, position }))
+        store.relocateBuildings(moves)
+      }
+      groupDragIds = null
+      groupDragStartGrid = null
+      groupDragOriginalPositions = null
+      groupWorkingPositions = new Map()
+      groupDragValid = true
+      isPanning = false
+      singlePointerId = null
+      pointerDownPos = null
+      return
+    }
+
     const start = selectDragStart ?? gridPosFromScreen(pointerDownPos)
     const end = selectDragCurrent ?? start
     const rect = normalizedGridRect(start, end)
@@ -795,6 +869,11 @@ watch(
     if (!value) {
       selectDragStart = null
       selectDragCurrent = null
+      groupDragIds = null
+      groupDragStartGrid = null
+      groupDragOriginalPositions = null
+      groupWorkingPositions = new Map()
+      groupDragValid = true
     }
   }
 )

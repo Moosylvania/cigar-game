@@ -55,7 +55,12 @@ import {
   replaceVehicle as engineReplaceVehicle,
   getMaxSlots as engineGetMaxFleetSlots,
   getTotalFleetCount as engineGetTotalFleetCount,
-  getCigarStorageCapacity
+  getCigarStorageCapacity,
+  isTrainSlotPurchaseUnlocked as engineIsTrainSlotPurchaseUnlocked,
+  getPurchasedTrainSlots as engineGetPurchasedTrainSlots,
+  getNextTrainSlotCost as engineGetNextTrainSlotCost,
+  canBuyTrainSlot as engineCanBuyTrainSlot,
+  buyTrainSlot as engineBuyTrainSlot
 } from '#game/engine/distributionEngine.js'
 import { canBuyStoreItem as engineCanBuyStoreItem, buyStoreItem as engineBuyStoreItem, getSeedsPerBatch } from '#game/engine/storeEngine.js'
 import { getBoostMultipliers, pruneExpiredBoosts } from '#game/engine/boostEngine.js'
@@ -180,6 +185,15 @@ export const useGameStore = defineStore('game', {
     },
     fleetSlotsUsed(state) {
       return engineGetTotalFleetCount(state.game)
+    },
+    trainSlotPurchaseUnlocked(state) {
+      return engineIsTrainSlotPurchaseUnlocked(state.game)
+    },
+    purchasedTrainSlots(state) {
+      return engineGetPurchasedTrainSlots(state.game)
+    },
+    nextTrainSlotCost(state) {
+      return engineGetNextTrainSlotCost(state.game)
     },
     seedsPerBatch(state) {
       return getSeedsPerBatch(state.game, this.combinedMultipliers)
@@ -569,6 +583,14 @@ export const useGameStore = defineStore('game', {
 
     replaceVehicle(fromVehicleTierId, toVehicleTierId) {
       return engineReplaceVehicle(this.game, fromVehicleTierId, toVehicleTierId)
+    },
+
+    canBuyTrainSlot() {
+      return engineCanBuyTrainSlot(this.game)
+    },
+
+    buyTrainSlot() {
+      return engineBuyTrainSlot(this.game)
     },
 
     canBuyStoreItem(itemId) {

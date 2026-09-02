@@ -1,5 +1,6 @@
 import { getVehicleTier } from '../config/vehicles.config.js'
 import { getLevelStats } from '../config/buildings/index.js'
+import { TRAIN_SLOT_CONFIG } from '../config/trainSlots.config.js'
 
 function getDistributionBuilding(state) {
   return state.buildings.find((b) => b.type === 'distribution') ?? null
@@ -8,7 +9,8 @@ function getDistributionBuilding(state) {
 function getMaxSlots(state) {
   const depot = getDistributionBuilding(state)
   if (!depot) return 0
-  return getLevelStats('distribution', depot.level).maxVehicleSlots
+  const levelSlots = getLevelStats('distribution', depot.level).maxVehicleSlots
+  return levelSlots + getPurchasedTrainSlots(state)
 }
 
 /**
@@ -139,6 +141,66 @@ export function replaceVehicle(state, fromVehicleTierId, toVehicleTierId) {
   state.resources.money -= toTier.cost
   removeOneFromFleet(state, fromVehicleTierId)
   addOneToFleet(state, toVehicleTierId)
+
+  return { ok: true }
+}
+
+/**
+ * Extra fleet slots (see trainSlots.config.js) unlock once the Depot
+ * reaches its own max level - at which point it already grants its full
+ * level-based slot count for free, so this only ever adds slots on top.
+ * @param {import('../types/state.js').GameState} state
+ * @returns {boolean}
+ */
+export function isTrainSlotPurchaseUnlocked(state) {
+  const depot = getDistributionBuilding(state)
+  return !!depot && depot.level >= TRAIN_SLOT_CONFIG.unlockDepotLevel
+}
+
+/**
+ * @param {import('../types/state.js').GameState} state
+ * @returns {number} how many of the purchasable train slots have been bought (0..maxPurchasable)
+ */
+export function getPurchasedTrainSlots(state) {
+  return state.distribution.purchasedTrainSlots ?? 0
+}
+
+/**
+ * @param {import('../types/state.js').GameState} state
+ * @returns {number | null} cost of the next purchasable train slot, or null once every slot is bought
+ */
+export function getNextTrainSlotCost(state) {
+  const { baseCost, topCost, maxPurchasable } = TRAIN_SLOT_CONFIG
+  const purchased = getPurchasedTrainSlots(state)
+  if (purchased >= maxPurchasable) return null
+  const exponent = purchased / (maxPurchasable - 1)
+  return Math.round(baseCost * (topCost / baseCost) ** exponent)
+}
+
+/**
+ * @param {import('../types/state.js').GameState} state
+ * @returns {{ ok: boolean, reason?: string, cost?: number }}
+ */
+export function canBuyTrainSlot(state) {
+  if (!isTrainSlotPurchaseUnlocked(state)) return { ok: false, reason: 'depot_level_too_low' }
+
+  const cost = getNextTrainSlotCost(state)
+  if (cost === null) return { ok: false, reason: 'max_purchased' }
+  if (state.resources.money < cost) return { ok: false, reason: 'insufficient_funds' }
+
+  return { ok: true, cost }
+}
+
+/**
+ * @param {import('../types/state.js').GameState} state
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function buyTrainSlot(state) {
+  const result = canBuyTrainSlot(state)
+  if (!result.ok) return result
+
+  state.resources.money -= result.cost
+  state.distribution.purchasedTrainSlots = getPurchasedTrainSlots(state) + 1
 
   return { ok: true }
 }

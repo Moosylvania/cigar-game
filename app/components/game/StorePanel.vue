@@ -117,7 +117,6 @@ function buyLeafBoost() {
       <div class="tabs">
         <button class="tab" :class="{ active: activeTab === 'items' }" @click="activeTab = 'items'">Items</button>
         <button class="tab" :class="{ active: activeTab === 'decorations' }" @click="activeTab = 'decorations'">Decorations</button>
-        <button class="tab" :class="{ active: activeTab === 'legacy' }" @click="activeTab = 'legacy'">Legacy</button>
       </div>
 
       <div v-if="activeTab === 'items'" class="item-list">
@@ -137,22 +136,7 @@ function buyLeafBoost() {
             <template v-else>$</template>{{ formatCompactNumber(row.item.cost) }}
           </button>
         </div>
-      </div>
 
-      <div v-else-if="activeTab === 'decorations'" class="item-list">
-        <div v-for="row in decorationRows" :key="row.decoration.id" class="item-row">
-          <img class="deco-thumb" :src="publicAsset(`images/cigar_sprite_pack_topdown/sprites/decorations/${row.decoration.spriteFile}.webp`)" :alt="row.decoration.name" />
-          <div class="info">
-            <span class="name">{{ row.decoration.name }}</span>
-            <span class="detail">{{ row.decoration.description }}</span>
-          </div>
-          <button :disabled="!row.canAfford" @click="placeDecoration(row.decoration)">
-            ${{ formatCompactNumber(row.decoration.cost) }}
-          </button>
-        </div>
-      </div>
-
-      <div v-else class="item-list">
         <div class="item-row" :class="{ active: !leafBoostOnCooldown }">
           <span class="item-icon"><Icon name="mdi:leaf-circle-outline" /></span>
           <div class="info">
@@ -172,6 +156,19 @@ function buyLeafBoost() {
           </div>
           <button :disabled="!leafBoostCanBuy" @click="buyLeafBoost" class="buy-btn">
             ${{ formatCompactNumber(store.leafBoostCost) }}
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="item-list">
+        <div v-for="row in decorationRows" :key="row.decoration.id" class="item-row">
+          <img class="deco-thumb" :src="publicAsset(`images/cigar_sprite_pack_topdown/sprites/decorations/${row.decoration.spriteFile}.webp`)" :alt="row.decoration.name" />
+          <div class="info">
+            <span class="name">{{ row.decoration.name }}</span>
+            <span class="detail">{{ row.decoration.description }}</span>
+          </div>
+          <button :disabled="!row.canAfford" @click="placeDecoration(row.decoration)">
+            ${{ formatCompactNumber(row.decoration.cost) }}
           </button>
         </div>
       </div>

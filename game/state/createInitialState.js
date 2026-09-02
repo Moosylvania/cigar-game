@@ -70,7 +70,8 @@ export function createInitialState() {
       researchLevels: {}
     },
     distribution: {
-      fleet: [{ vehicleTierId: 'truck', count: 1 }]
+      fleet: [{ vehicleTierId: 'truck', count: 1 }],
+      purchasedTrainSlots: 0
     },
     // Timed store-item buffs (see store.config.js speed_boost_*/money_boost
     // items) - each array holds every currently-running boost of that

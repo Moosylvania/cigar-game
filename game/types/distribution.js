@@ -13,6 +13,12 @@
  * @typedef {{ vehicleTierId: string, count: number }} FleetEntry
  */
 
-/** @typedef {{ fleet: FleetEntry[] }} DistributionState */
+/**
+ * purchasedTrainSlots is the count of additional fleet slots bought with
+ * money on top of the Depot's normal level-based slots (see
+ * trainSlots.config.js) - 0 until unlocked/bought, capped at
+ * TRAIN_SLOT_CONFIG.maxPurchasable.
+ * @typedef {{ fleet: FleetEntry[], purchasedTrainSlots: number }} DistributionState
+ */
 
 export {}

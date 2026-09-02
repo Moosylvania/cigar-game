@@ -35,6 +35,15 @@ function openReplaceSlot(tierId) {
   showPicker.value = true
 }
 
+// Only the next unbought train slot is ever shown (not all 10 remaining
+// at once) - each purchase reveals the next one, up to
+// TRAIN_SLOT_CONFIG.maxPurchasable (see distributionEngine.js).
+const canAffordNextTrainSlot = computed(() => store.nextTrainSlotCost != null && store.money >= store.nextTrainSlotCost)
+
+function buyTrainSlot() {
+  store.buyTrainSlot()
+}
+
 const cigarsStored = computed(() => Math.floor(store.storage.cigars))
 const cigarCapacity = computed(() => Math.floor(store.cigarStorageCapacity))
 const isNearFull = computed(() => cigarCapacity.value > 0 && cigarsStored.value / cigarCapacity.value >= 0.85)
@@ -75,6 +84,23 @@ const isNearFull = computed(() => cigarCapacity.value > 0 && cigarsStored.value 
           </template>
         </div>
       </button>
+    </div>
+
+    <div class="train-slot-section">
+      <button
+        v-if="store.trainSlotPurchaseUnlocked && store.purchasedTrainSlots < 10"
+        class="vehicle-row train-slot-row"
+        :disabled="!canAffordNextTrainSlot"
+        @click="buyTrainSlot"
+      >
+        <span class="vehicle-icon add-icon"><Icon name="mdi:train-variant" /></span>
+        <div class="vehicle-info">
+          <span class="name">Train Slot {{ store.purchasedTrainSlots + 1 }} / 10</span>
+          <span class="detail">${{ formatCompactNumber(store.nextTrainSlotCost) }} &middot; +1 fleet slot</span>
+        </div>
+      </button>
+      <p v-else-if="store.purchasedTrainSlots >= 10" class="train-slot-hint">All 10 train slots purchased</p>
+      <p v-else class="train-slot-hint">Reach Depot level 10 to unlock up to 10 purchasable train slots</p>
     </div>
 
     <VehiclePickerModal
@@ -149,6 +175,38 @@ const isNearFull = computed(() => cigarCapacity.value > 0 && cigarsStored.value 
       background: rgba(212, 169, 74, 0.08);
     }
   }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+
+    &:hover {
+      border-color: $color-panel-border;
+      background: rgba(255, 255, 255, 0.03);
+    }
+  }
+}
+
+.train-slot-section {
+  border-top: 1px solid $color-panel-border;
+  padding-top: $spacing-xs;
+}
+
+.train-slot-row {
+  border-style: dashed;
+  background: transparent;
+
+  &:hover:not(:disabled) {
+    background: rgba(212, 169, 74, 0.08);
+  }
+}
+
+.train-slot-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: $color-text-muted;
+  text-align: center;
+  padding: $spacing-xs;
 }
 
 .vehicle-icon {

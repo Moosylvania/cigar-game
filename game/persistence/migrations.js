@@ -78,6 +78,13 @@ function repairState(state) {
     state.distribution.fleet = [state.distribution.fleet]
   }
 
+  // Purchasable train slots (see trainSlots.config.js) - a save from
+  // before this feature existed has no count yet.
+  if (typeof state.distribution?.purchasedTrainSlots !== 'number') {
+    if (!state.distribution) state.distribution = { fleet: [] }
+    state.distribution.purchasedTrainSlots = 0
+  }
+
   if (!Array.isArray(state.decorations)) {
     state.decorations = []
   }

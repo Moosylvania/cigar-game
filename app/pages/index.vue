@@ -216,7 +216,7 @@ onBeforeUnmount(() => {
         <button class="confirm" @click="stopExpand"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else-if="selectMode">
-        <span class="rearrange-hint">Drag over buildings to select them, then pick a bulk action below</span>
+        <span class="rearrange-hint">Drag over buildings to select them. With 2+ selected, drag one to move the group</span>
         <button class="confirm" @click="stopSelect"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else-if="!layoutEditMode">
