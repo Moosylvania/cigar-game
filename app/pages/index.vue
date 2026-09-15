@@ -220,14 +220,14 @@ onBeforeUnmount(() => {
         <button class="confirm" @click="stopSelect"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else-if="!layoutEditMode">
-        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startExpand"><Icon name="mdi:map-plus" /> Expand Territory</button>
-        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startSelect"><Icon name="mdi:selection-drag" /> Select Buildings</button>
-        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLab = true"><Icon name="mdi:flask-outline" /> Research Lab</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Expand territory" @click="startExpand"><Icon name="mdi:map-plus" /> Expand</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Select buildings" @click="startSelect"><Icon name="mdi:selection-drag" /> Select</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLab = true"><Icon name="mdi:flask-outline" /> Research</button>
         <button class="store-btn" :class="{ 'tutorial-glow': storeButtonHighlighted, 'tutorial-dim': store.isTutorialVisible && !storeButtonHighlighted }" @click="showStore = true">
           <Icon name="mdi:storefront-outline" /> Store
         </button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showPrestige = true"><Icon name="mdi:crown" /> Prestige</button>
-        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startRearrange"><Icon name="mdi:cursor-move" /> Rearrange Buildings</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startRearrange"><Icon name="mdi:cursor-move" /> Rearrange</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showSaveTransfer = true"><Icon name="mdi:tray-arrow-down" /> Export/Import</button>
         <button v-if="isDev" class="dev" :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="store.skipAllTimers()"><Icon name="mdi:fast-forward" /> Skip Timers (dev)</button>
         <button class="help" title="Replay tutorial" @click="store.reopenTutorial()"><Icon name="mdi:help-circle-outline" /></button>
@@ -304,6 +304,7 @@ onBeforeUnmount(() => {
   padding: $spacing-sm $spacing-md;
   background: $color-panel;
   border-bottom: 1px solid $color-panel-border;
+  flex-wrap: wrap;
 
   // Only a handful of buttons live here - wrapping to a second row reads
   // better on narrow screens than a scroll strip that cuts a button off
@@ -323,7 +324,7 @@ onBeforeUnmount(() => {
     padding: $spacing-xs $spacing-md;
     border-radius: $radius-sm;
     border: 1px solid $color-panel-border;
-    background: rgba(212, 169, 74, 0.12);
+    background: #eef3ed;
     color: $color-text;
     cursor: pointer;
     white-space: nowrap;
@@ -403,7 +404,7 @@ onBeforeUnmount(() => {
 }
 
 .build-menu {
-  width: 220px;
+  width: 230px;
   flex-shrink: 0;
 
   &.disabled {
@@ -413,7 +414,7 @@ onBeforeUnmount(() => {
 
   @include mobile {
     width: 100%;
-    height: 92px;
+    height: 104px;
   }
 }
 </style>

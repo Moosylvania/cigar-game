@@ -1,6 +1,7 @@
 import { formatDuration } from '#game/util/time.js'
 import { publicAsset } from '~/utils/publicAsset.js'
-import { getBuildingSpriteImage, getBuildingSpriteCrop } from './buildingSprites.js'
+import { drawIllustratedBuilding } from './illustratedBuildings.js'
+import { drawConstruction } from './worldEffects.js'
 
 // Real building icons, downloaded as local static SVGs (see public/icons/buildings)
 // so they render fully offline with no runtime fetch. Loaded lazily and
@@ -168,11 +169,14 @@ function drawLabelChip(ctx, text, anchorX, anchorY, fontSize, corner = 'top-left
   const x = corner.includes('center') ? anchorX - width / 2 : corner.includes('left') ? anchorX : anchorX - width
   const y = corner.includes('top') ? anchorY : anchorY - height
 
-  ctx.fillStyle = 'rgba(12, 16, 10, 0.8)'
-  roundRectPath(ctx, x, y, width, height, height / 2)
+  ctx.fillStyle = '#fcfff3'
+  roundRectPath(ctx, x, y, width, height, Math.min(4, height / 2))
   ctx.fill()
+  ctx.strokeStyle = '#517064'
+  ctx.lineWidth = 1
+  ctx.stroke()
 
-  ctx.fillStyle = '#f5f3ea'
+  ctx.fillStyle = '#294844'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
   ctx.fillText(displayText, x + paddingX, y + height / 2)
@@ -245,10 +249,10 @@ export function getStatusIndicatorHitbox(building, rect, tilePx) {
  * @param {string} [themeId] - active prestige tier id (store's
  *   activeThemeId) - see buildingSprites.js's getBuildingSpriteImage.
  */
-export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1, collectBlocked = false, themeId) {
+export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1, collectBlocked = false, themeId, motionTime = nowMs) {
   const isReady = building.slot?.status === 'ready'
 
-  if (isReady) drawReadyGlow(ctx, rect, collectBlocked ? WARNING_COLOR : '#7bc96f')
+  if (isReady) drawReadyGlow(ctx, rect, collectBlocked ? WARNING_COLOR : '#398553', motionTime)
 
   ctx.save()
   if (popScale !== 1) {
@@ -259,32 +263,8 @@ export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScal
     ctx.translate(-cx, -cy)
   }
 
-  const spriteImg = getBuildingSpriteImage(building.type, building.level, themeId)
-  const spriteReady = spriteImg && spriteImg.complete && spriteImg.naturalWidth > 0
-
-  if (spriteReady) {
-    ctx.drawImage(spriteImg, rect.x, rect.y, rect.width, rect.height)
-  } else {
-    ctx.fillStyle = config.color
-    ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
-    ctx.strokeStyle = 'rgba(0,0,0,0.4)'
-    ctx.lineWidth = 2
-    ctx.strokeRect(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2)
-
-    const cx = rect.x + rect.width / 2
-    const cy = rect.y + rect.height / 2
-    const r = Math.min(rect.width, rect.height) * 0.22
-
-    const iconImg = getIconImage(building.type)
-    if (iconImg.complete && iconImg.naturalWidth > 0) {
-      const size = r * 2.3
-      ctx.drawImage(iconImg, cx - size / 2, cy - size / 2, size, size)
-    } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.9)'
-      const glyph = GLYPHS[building.type] ?? blob
-      glyph(ctx, cx, cy, r)
-    }
-  }
+  drawIllustratedBuilding(ctx, building, rect, motionTime, themeId)
+  if (building.upgrade) drawConstruction(ctx, rect, motionTime)
   ctx.restore()
 
   const bottomRow = computeBottomRowLayout(ctx, building, rect, tilePx)
@@ -293,9 +273,6 @@ export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScal
 
   if (building.slot) {
     drawSlotIndicator(ctx, building, rect, tilePx, nowMs, bottomRow)
-    if (building.slot.status === 'processing') {
-      drawProcessingPuff(ctx, building, rect, tilePx, nowMs, config.color)
-    }
   }
 
   if (building.upgrade) {
@@ -312,8 +289,8 @@ export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScal
  * obvious at a glance across the map, not just up close. `color` switches
  * to the warning color (see WARNING_COLOR) when the batch is ready but
  * can't actually be collected yet. */
-function drawReadyGlow(ctx, rect, color) {
-  const pulse = (Math.sin(Date.now() / 220) + 1) / 2 // 0..1
+function drawReadyGlow(ctx, rect, color, motionTime) {
+  const pulse = (Math.sin(motionTime / 400) + 1) / 2
   const pad = 3 + pulse * 3
   ctx.save()
   ctx.strokeStyle = withAlpha(color, 0.55 + pulse * 0.45)
@@ -552,10 +529,18 @@ function drawSlotIndicator(ctx, building, rect, tilePx, nowMs, bottomRow) {
     ctx.moveTo(cx, cy - armLen)
     ctx.lineTo(cx, cy + armLen)
     ctx.stroke()
+  } else if (slot.status === 'processing') {
+    const duration = Math.max(1, (slot.completesAt ?? nowMs) - (slot.startedAt ?? nowMs))
+    const progress = Math.min(1, Math.max(0, (nowMs - (slot.startedAt ?? nowMs)) / duration))
+    ctx.strokeStyle = '#294844'
+    ctx.lineWidth = Math.max(1.5, radius * 0.25)
+    ctx.beginPath()
+    ctx.arc(cx, cy, radius * 0.65, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2)
+    ctx.stroke()
   }
   ctx.restore()
 
-  if (slot.status === 'processing' && slot.completesAt && rect.width > 40) {
+  if (slot.status === 'processing' && slot.completesAt && bottomRow.timerZoneWidth >= 48) {
     // formatDuration already clamps to 0 rather than going negative, so
     // this keeps showing "0:00 left" instead of the chip vanishing for the
     // (up to ~1s) gap between the countdown reaching zero and tick()
@@ -586,18 +571,10 @@ function drawSlotIndicator(ctx, building, rect, tilePx, nowMs, bottomRow) {
 }
 
 function drawUpgradeOverlay(ctx, upgrade, rect, nowMs) {
-  ctx.fillStyle = 'rgba(0,0,0,0.45)'
-  ctx.fillRect(rect.x, rect.y, rect.width, rect.height * 0.3)
-
   if (rect.width > 40) {
     const remaining = (upgrade.completesAt - nowMs) / 1000
-    ctx.fillStyle = '#fff'
-    ctx.font = `${Math.min(16, Math.max(9, rect.width * 0.1))}px sans-serif`
-    ctx.textAlign = 'center'
-    ctx.fillText(
-      remaining > 0 ? formatDuration(remaining) : '...',
-      rect.x + rect.width / 2,
-      rect.y + rect.height * 0.2
-    )
+    drawLabelChip(ctx, remaining > 0 ? formatDuration(remaining) : '...',
+      rect.x + rect.width / 2, rect.y + rect.height * 0.33,
+      Math.min(14, Math.max(9, rect.width * 0.09)), 'top-center', rect.width * 0.72)
   }
 }

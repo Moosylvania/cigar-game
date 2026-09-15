@@ -7,7 +7,7 @@ import { DECORATIONS } from '#game/config/decorations.config.js'
 import { LEAF_BOOST_COOLDOWN_MS, LEAF_BOOST_BONUS_PER_LEVEL } from '#game/config/prestige.config.js'
 import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 import { formatDuration } from '#game/util/time.js'
-import { publicAsset } from '~/utils/publicAsset.js'
+import AnimatedGameArt from './AnimatedGameArt.vue'
 
 const emit = defineEmits(['close', 'place-decoration'])
 const store = useGameStore()
@@ -162,7 +162,7 @@ function buyLeafBoost() {
 
       <div v-else class="item-list">
         <div v-for="row in decorationRows" :key="row.decoration.id" class="item-row">
-          <img class="deco-thumb" :src="publicAsset(`images/cigar_sprite_pack_topdown/sprites/decorations/${row.decoration.spriteFile}.webp`)" :alt="row.decoration.name" />
+          <AnimatedGameArt class="deco-thumb" kind="decoration" :type="row.decoration.spriteFile" />
           <div class="info">
             <span class="name">{{ row.decoration.name }}</span>
             <span class="detail">{{ row.decoration.description }}</span>

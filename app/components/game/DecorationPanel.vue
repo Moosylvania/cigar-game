@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { getDecorationDefinition } from '#game/config/decorations.config.js'
+import AnimatedGameArt from './AnimatedGameArt.vue'
 
 const props = defineProps({
   instanceId: { type: String, required: true }
@@ -23,6 +24,7 @@ function remove() {
   <div v-if="definition" class="panel-backdrop" @click.self="emit('close')">
     <div class="panel">
       <div class="panel-header">
+        <AnimatedGameArt class="decoration-portrait" kind="decoration" :type="definition.spriteFile" />
         <h3>{{ definition.name }}</h3>
         <button class="close" @click="emit('close')"><Icon name="mdi:close" /></button>
       </div>
@@ -68,6 +70,8 @@ function remove() {
     flex: 1;
   }
 }
+
+.decoration-portrait { width: 72px; height: 72px; }
 
 .close {
   display: flex;

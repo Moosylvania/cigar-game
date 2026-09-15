@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 2,
+  "title": "Design System: Cigar Country",
+  "extensions": {
+    "motion": [
+      { "name": "control", "value": "140ms ease", "purpose": "Button state changes." },
+      { "name": "panel", "value": "200ms ease-out", "purpose": "Dialog entrance." }
+    ],
+    "breakpoints": [{ "name": "mobile", "value": "700px" }]
+  },
+  "components": [{
+    "name": "Map Control",
+    "kind": "button",
+    "description": "Fixed camera and motion control.",
+    "html": "<button title=\"Zoom in\" aria-label=\"Zoom in\">+</button>",
+    "css": "button { width:40px; height:40px; color:#294844; background:#fcfdf8; border:1px solid #b4c8be; border-radius:4px; font-size:20px; }"
+  }],
+  "narrative": {
+    "northStar": "The Illustrated Production Town",
+    "overview": "The playable map leads. Buildings use crisp Canvas 2D silhouettes, dark outlines, pale walls, and distinct coral, teal, blue, yellow, and mauve roofs.",
+    "keyCharacteristics": ["Outlined 2D artwork", "Compact controls", "Production-specific motion"],
+    "rules": [],
+    "dos": ["Do preserve gameplay, save compatibility, and recognizable building roles."],
+    "donts": ["Don't move click targets with animation."]
+  }
+}

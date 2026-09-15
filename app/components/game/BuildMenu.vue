@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import AnimatedGameArt from './AnimatedGameArt.vue'
 import { useGameStore } from '~/stores/game.js'
 import { BUILDING_CONFIGS } from '#game/config/buildings/index.js'
 import { formatCompactNumber } from '#game/util/format.js'
@@ -32,16 +33,18 @@ function toggle(type) {
 
 <template>
   <div class="build-menu">
+    <h2 class="build-heading"><Icon name="mdi:shovel" /> Build</h2>
     <button
       v-for="item in items"
       :key="item.type"
       class="build-item"
       :class="{ active: activeType === item.type }"
       :disabled="item.disabled"
+      :aria-pressed="activeType === item.type"
       :style="{ '--swatch': item.config.color }"
       @click="toggle(item.type)"
     >
-      <span class="swatch"><Icon :name="item.config.icon" /></span>
+      <AnimatedGameArt class="building-art" :type="item.type" :theme="store.activeThemeId" />
       <span class="name">{{ item.config.displayName }}</span>
       <span class="cost">${{ formatCompactNumber(item.cost) }}</span>
     </button>
@@ -75,12 +78,29 @@ function toggle(type) {
   }
 }
 
+.build-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  margin: 0 0 10px;
+  @include mobile { display: none; }
+}
+
+.building-art {
+  width: 66px;
+  height: 66px;
+  object-fit: contain;
+  flex-shrink: 0;
+  @include mobile { width: 46px; height: 40px; }
+}
+
 .build-item {
   display: flex;
   align-items: center;
-  gap: $spacing-sm;
-  padding: $spacing-sm;
-  background: transparent;
+  gap: 4px;
+  padding: 4px;
+  background: #f4f8f0;
   border: 1px solid $color-panel-border;
   border-radius: $radius-sm;
   color: $color-text;
@@ -91,6 +111,7 @@ function toggle(type) {
 
   &:hover:not(:disabled) {
     border-color: $color-accent;
+    background: #e3efe5;
   }
 
   &.active {
@@ -99,7 +120,7 @@ function toggle(type) {
   }
 
   &:disabled {
-    opacity: 0.4;
+    opacity: 0.58;
     cursor: not-allowed;
   }
 
@@ -129,7 +150,8 @@ function toggle(type) {
 
 .name {
   flex: 1;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
 
   @include mobile {
     flex: none;

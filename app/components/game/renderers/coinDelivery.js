@@ -1,3 +1,5 @@
+import { drawParcel } from './worldEffects.js'
+
 /** Standard back-out: overshoots past 1 partway through, settles to 1 - reads as a small bounce. */
 function easeOutBack(t) {
   const c1 = 1.70158
@@ -62,7 +64,8 @@ export function drawCoinDelivery(ctx, rect, tilePx, nowMs, delivery) {
   ctx.translate(cx, cy)
   ctx.scale(popScale, popScale)
   ctx.translate(-cx, -cy)
-  drawCoinShape(ctx, cx, cy, radius)
+  drawParcel(ctx, cx, cy + radius * 0.45, radius * 2.2, nowMs - delivery.spawnedAt)
+  drawCoinShape(ctx, cx + radius * 0.5, cy - radius * 0.2, radius * 0.68)
   ctx.restore()
 
   // Rotating glint sweeping around the coin - reads as "shiny, tap me"

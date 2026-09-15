@@ -73,6 +73,7 @@ const activeBoosts = computed(() => {
 
 <template>
   <div class="resource-bar">
+    <div class="game-brand"><Icon name="mdi:sprout" /><span>Cigar<br />Country</span></div>
     <div v-for="boost in activeBoosts" :key="boost.key" class="boost-badge">
       <Icon name="mdi:cigar" class="ember" />
       {{ boost.name }}{{ boost.count > 1 ? ` ×${boost.count}` : '' }} ({{ boost.effectText }}) — {{ boost.remaining }}
@@ -129,6 +130,20 @@ const activeBoosts = computed(() => {
   }
 }
 
+.game-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 12px;
+  color: #294844;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 0.95;
+  flex-shrink: 0;
+  .iconify { color: #b45148; font-size: 36px; }
+  @include mobile { font-size: 15px; margin-right: 0; .iconify { font-size: 26px; } }
+}
+
 .resource {
   display: flex;
   flex-direction: column;
@@ -146,7 +161,7 @@ const activeBoosts = computed(() => {
     font-size: 0.7rem;
     color: $color-text-muted;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
 
   .value {
@@ -159,7 +174,7 @@ const activeBoosts = computed(() => {
   }
 
   &.coins .value {
-    color: #e0b23d;
+    color: #906613;
   }
 
   &.prestige .value {

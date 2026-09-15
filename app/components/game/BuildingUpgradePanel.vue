@@ -9,6 +9,7 @@ import { TOWN_HALL_GATING } from '#game/config/townHallGating.config.js'
 import { formatDuration } from '#game/util/time.js'
 import { formatCompactNumber } from '#game/util/format.js'
 import DistributionPanel from './DistributionPanel.vue'
+import AnimatedGameArt from './AnimatedGameArt.vue'
 
 const props = defineProps({
   buildingId: { type: String, required: true }
@@ -214,7 +215,7 @@ function doCollectBatch() {
   <div v-if="building" class="panel-backdrop" @click.self="emit('close')">
     <div class="panel">
       <div class="panel-header">
-        <span class="header-icon" :style="{ '--swatch': config.color }"><Icon :name="config.icon" /></span>
+        <AnimatedGameArt class="building-portrait" :type="building.type" :level="building.level" :status="building.slot?.status ?? 'idle'" :theme="store.activeThemeId" :upgrading="!!building.upgrade" />
         <h3>{{ config.displayName }} — Lv {{ building.level }}</h3>
         <button class="close" @click="emit('close')"><Icon name="mdi:close" /></button>
       </div>
@@ -369,6 +370,8 @@ function doCollectBatch() {
     flex: 1;
   }
 }
+
+.building-portrait { width: 78px; height: 78px; }
 
 .header-icon {
   display: flex;

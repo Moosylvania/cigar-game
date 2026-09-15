@@ -7,6 +7,7 @@ import { drawBuilding, getStatusIndicatorHitbox } from './renderers/buildingGlyp
 import { drawDecoration } from './renderers/decorationSprites.js'
 import { drawVehicleSprite } from './renderers/vehicleSprites.js'
 import { drawCoinDelivery, drawCoinCollectBurst } from './renderers/coinDelivery.js'
+import { drawBuildingCelebration } from './renderers/worldEffects.js'
 import { useFleetAnimation, getVehicleWorldPosition } from '~/composables/useFleetAnimation.js'
 import { useBuildingAnimations } from '~/composables/useBuildingAnimations.js'
 import { useCoinBurstEffects } from '~/composables/useCoinBurstEffects.js'
@@ -33,6 +34,23 @@ const buildingAnimations = useBuildingAnimations()
 const coinBurstEffects = useCoinBurstEffects()
 const canvasRef = ref(null)
 const containerRef = ref(null)
+const motionEnabled = ref(true)
+let motionPreference = null
+let lastFrameTime = 0
+let fleetFrameTime = 0
+
+function syncMotionPreference() {
+  let stored = null
+  try { stored = localStorage.getItem('cigar-country-motion') } catch {}
+  motionEnabled.value = stored ? stored === 'on' : !motionPreference?.matches
+  document.documentElement.dataset.gameMotion = motionEnabled.value ? 'on' : 'off'
+}
+
+function toggleMotion() {
+  motionEnabled.value = !motionEnabled.value
+  document.documentElement.dataset.gameMotion = motionEnabled.value ? 'on' : 'off'
+  try { localStorage.setItem('cigar-country-motion', motionEnabled.value ? 'on' : 'off') } catch {}
+}
 
 const TILE_SIZE = 48
 const maxRegion = MAX_REGION
@@ -44,7 +62,7 @@ const maxRegion = MAX_REGION
 // soon" locked/purchasable tiles around the current owned bounding box.
 // Clamped to maxRegion on every side (not just the far side) since the
 // bounding box can extend in the negative direction.
-const LOCKED_PREVIEW_PADDING = 3
+const LOCKED_PREVIEW_PADDING = 2
 
 function getVisibleRegion() {
   const owned = store.ownedBounds
@@ -204,7 +222,7 @@ function zoomOut() {
 }
 
 function resetView() {
-  zoomLevel = 1
+  zoomLevel = canvasWidth < 700 ? 1.35 : 1
   panX = 0
   panY = 0
 }
@@ -230,11 +248,17 @@ function getBuildingRect(building, camera) {
   }
 }
 
-function render() {
+function render(frameTime = 0) {
   if (!ctx) return
+  rafId = requestAnimationFrame(render)
+  if (document.hidden || frameTime - lastFrameTime < 1000 / 30) return
+  lastFrameTime = frameTime
   ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+  ctx.fillStyle = '#a3c98a'
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
   const camera = computeCamera()
+  const motionTime = motionEnabled.value ? Date.now() : 0
 
   drawGrid(ctx, {
     maxRegion: getVisibleRegion(),
@@ -242,7 +266,11 @@ function render() {
     tileSize: TILE_SIZE,
     camera,
     expandMode: props.expandMode,
-    maxPurchasableRing: store.maxPurchasableRing
+    maxPurchasableRing: store.maxPurchasableRing,
+    motionTime,
+    showGrid: !!(props.placingType || props.placingDecorationId || props.editMode || props.expandMode || props.selectMode),
+    width: canvasWidth,
+    height: canvasHeight
   })
 
   for (const decoration of store.decorations) {
@@ -254,7 +282,7 @@ function render() {
       width: TILE_SIZE * camera.scale,
       height: TILE_SIZE * camera.scale
     }
-    drawDecoration(ctx, definition.spriteFile, rect)
+    drawDecoration(ctx, definition.spriteFile, rect, motionTime)
   }
 
   if ((props.placingType || props.placingDecorationId) && hoverGrid) {
@@ -281,9 +309,11 @@ function render() {
     const isDragging = props.editMode && building.id === draggingId
     const isGroupDragging = groupDragIds != null && groupDragIds.includes(building.id)
     if (isDragging || isGroupDragging) ctx.globalAlpha = 0.7
-    const popScale = buildingAnimations.getPopTransform(building.id)?.scale ?? 1
+    const popScale = motionEnabled.value ? (buildingAnimations.getPopTransform(building.id)?.scale ?? 1) : 1
     const collectBlocked = building.slot?.status === 'ready' && store.isCollectBlocked(building.id)
-    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked, store.activeThemeId)
+    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked, store.activeThemeId, motionTime)
+    const effect = motionEnabled.value ? buildingAnimations.getEffect(building.id) : null
+    if (effect) drawBuildingCelebration(ctx, rect, effect.progress, effect.kind)
     if (isDragging) {
       ctx.globalAlpha = 1
       ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
@@ -315,9 +345,12 @@ function render() {
     }
   }
 
-  fleetAnimation.update(store)
+  if (motionEnabled.value) {
+    fleetAnimation.update(store)
+    fleetFrameTime = nowMs.value
+  }
   for (const vehicle of fleetAnimation.getActiveVehicles()) {
-    const pos = getVehicleWorldPosition(vehicle, nowMs.value)
+    const pos = getVehicleWorldPosition(vehicle, fleetFrameTime)
     const rect = {
       x: camera.offsetX + pos.x * TILE_SIZE * camera.scale,
       y: camera.offsetY + pos.y * TILE_SIZE * camera.scale,
@@ -325,7 +358,7 @@ function render() {
       height: TILE_SIZE * camera.scale * 0.9
     }
     ctx.globalAlpha = pos.alpha
-    drawVehicleSprite(ctx, vehicle.tierId, vehicle.direction, rect)
+    drawVehicleSprite(ctx, vehicle.tierId, vehicle.direction, rect, motionEnabled.value ? motionTime : fleetFrameTime)
     ctx.globalAlpha = 1
   }
 
@@ -337,11 +370,12 @@ function render() {
       width: TILE_SIZE * camera.scale,
       height: TILE_SIZE * camera.scale
     }
-    drawCoinDelivery(ctx, rect, tilePx, nowMs.value, pendingCoinDelivery)
+    drawCoinDelivery(ctx, rect, tilePx, motionEnabled.value ? nowMs.value : pendingCoinDelivery.spawnedAt + 400, pendingCoinDelivery)
   }
 
   coinBurstEffects.update()
   for (const burst of coinBurstEffects.getActiveBursts()) {
+    if (!motionEnabled.value) break
     const rect = {
       x: camera.offsetX + burst.x * TILE_SIZE * camera.scale,
       y: camera.offsetY + burst.y * TILE_SIZE * camera.scale,
@@ -368,18 +402,17 @@ function render() {
     if (target) {
       const config = store.getBuildingConfig(target.type)
       const rect = getBuildingRect(target, camera)
-      const popScale = buildingAnimations.getPopTransform(target.id)?.scale ?? 1
-      drawBuilding(ctx, target, config, rect, tilePx, nowMs.value, popScale, false, store.activeThemeId)
+      const popScale = motionEnabled.value ? (buildingAnimations.getPopTransform(target.id)?.scale ?? 1) : 1
+      drawBuilding(ctx, target, config, rect, tilePx, nowMs.value, popScale, false, store.activeThemeId, motionTime)
       drawTutorialRing(ctx, rect)
     }
   }
 
-  rafId = requestAnimationFrame(render)
 }
 
 /** Pulsing gold ring around the tutorial's current target building. */
 function drawTutorialRing(ctx, rect) {
-  const pulse = (Math.sin(Date.now() / 260) + 1) / 2 // 0..1
+  const pulse = motionEnabled.value ? (Math.sin(Date.now() / 260) + 1) / 2 : 0.5
   const pad = 5 + pulse * 4
   ctx.save()
   ctx.strokeStyle = `rgba(212, 169, 74, ${0.6 + pulse * 0.4})`
@@ -815,13 +848,19 @@ function resizeCanvas() {
 let resizeObserver = null
 
 onMounted(() => {
+  motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  syncMotionPreference()
+  motionPreference.addEventListener('change', syncMotionPreference)
   resizeCanvas()
+  resetView()
   resizeObserver = new ResizeObserver(resizeCanvas)
   resizeObserver.observe(containerRef.value)
   rafId = requestAnimationFrame(render)
 })
 
 onBeforeUnmount(() => {
+  motionPreference?.removeEventListener('change', syncMotionPreference)
+  delete document.documentElement.dataset.gameMotion
   if (rafId != null) cancelAnimationFrame(rafId)
   if (resizeObserver) resizeObserver.disconnect()
 })
@@ -898,6 +937,7 @@ defineExpose({ commitLayout, cancelLayout })
     <canvas
       ref="canvasRef"
       class="game-canvas"
+      aria-label="Cigar Country town map"
       :class="{ 'is-placing': placingType, 'is-editing': editMode, 'is-selecting': expandMode || selectMode }"
       @pointerdown="handlePointerDown"
       @pointermove="handlePointerMove"
@@ -910,6 +950,7 @@ defineExpose({ commitLayout, cancelLayout })
       <button title="Zoom in" @click="zoomIn"><Icon name="mdi:plus" /></button>
       <button title="Zoom out" @click="zoomOut"><Icon name="mdi:minus" /></button>
       <button title="Reset view" @click="resetView"><Icon name="mdi:fit-to-screen-outline" /></button>
+      <button :title="motionEnabled ? 'Pause ambient motion' : 'Resume ambient motion'" :aria-pressed="motionEnabled" @click="toggleMotion"><Icon :name="motionEnabled ? 'mdi:pause' : 'mdi:play'" /></button>
     </div>
   </div>
 </template>
@@ -922,6 +963,9 @@ defineExpose({ commitLayout, cancelLayout })
   width: 100%;
   height: 100%;
   min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .game-canvas {
@@ -952,17 +996,21 @@ defineExpose({ commitLayout, cancelLayout })
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: rgba(38, 48, 40, 0.85);
+  background: #fcfdf8;
   border: 1px solid $color-panel-border;
   border-radius: $radius-sm;
   padding: 2px;
+
+  @include mobile {
+    flex-direction: row;
+  }
 
   button {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     border: none;
     border-radius: $radius-sm;
     background: transparent;

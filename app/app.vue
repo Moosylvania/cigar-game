@@ -25,6 +25,46 @@ body {
 
 * {
   box-sizing: border-box;
+  letter-spacing: 0 !important;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+button {
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+button:hover:not(:disabled) { filter: brightness(0.96); }
+button:active:not(:disabled) { transform: translateY(1px); }
+:focus-visible { outline: 3px solid #297c99; outline-offset: 3px; }
+
+.modal, .tutorial-card, .panel-backdrop > .panel, .modal-overlay > .panel {
+  animation: panel-arrive 200ms ease-out;
+}
+
+.research-row:not(.maxed) .research-icon .iconify,
+.item-row.active .item-icon .iconify {
+  animation: workshop-pulse 3s ease-in-out infinite;
+}
+
+@keyframes workshop-pulse {
+  0%, 100% { transform: rotate(-5deg) scale(0.95); }
+  50% { transform: rotate(5deg) scale(1.06); }
+}
+
+@keyframes panel-arrive {
+  from { transform: translateY(10px); opacity: 0.7; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+html[data-game-motion='off'] {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
 // Applied to UI chrome that isn't the tutorial's current target, so the

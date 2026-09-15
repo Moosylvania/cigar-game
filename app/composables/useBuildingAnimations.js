@@ -32,12 +32,21 @@ export function useBuildingAnimations() {
       seen.add(b.id)
       let entry = animState.get(b.id)
       if (!entry) {
-        entry = { level: b.level, placedAt: nowMs.value, levelUpAt: null }
+        entry = { level: b.level, status: b.slot?.status, startedAt: b.slot?.startedAt, placedAt: nowMs.value, levelUpAt: null, effectAt: null, effectKind: null }
         animState.set(b.id, entry)
       } else if (b.level > entry.level) {
         entry.levelUpAt = nowMs.value
         entry.level = b.level
+        entry.effectAt = nowMs.value
+        entry.effectKind = 'upgrade'
       }
+      if ((entry.status === 'ready' && b.slot?.status !== 'ready') ||
+          (entry.status === 'processing' && b.slot?.status === 'processing' && entry.startedAt !== b.slot?.startedAt)) {
+        entry.effectAt = nowMs.value
+        entry.effectKind = 'collect'
+      }
+      entry.status = b.slot?.status
+      entry.startedAt = b.slot?.startedAt
     }
     for (const id of animState.keys()) {
       if (!seen.has(id)) animState.delete(id)
@@ -64,5 +73,12 @@ export function useBuildingAnimations() {
     return { scale: floor + (1 - floor) * eased }
   }
 
-  return { sync, getPopTransform }
+  function getEffect(buildingId) {
+    const entry = animState.get(buildingId)
+    if (entry?.effectAt == null) return null
+    const progress = (nowMs.value - entry.effectAt) / 1200
+    return progress >= 0 && progress < 1 ? { progress, kind: entry.effectKind } : null
+  }
+
+  return { sync, getPopTransform, getEffect }
 }

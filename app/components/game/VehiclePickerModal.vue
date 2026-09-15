@@ -1,9 +1,9 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game.js'
-import { VEHICLE_TIERS, getVehicleTier, getVehicleSpritePath } from '#game/config/vehicles.config.js'
+import { VEHICLE_TIERS, getVehicleTier } from '#game/config/vehicles.config.js'
 import { formatCompactNumber } from '#game/util/format.js'
-import { publicAsset } from '~/utils/publicAsset.js'
+import AnimatedGameArt from './AnimatedGameArt.vue'
 
 const props = defineProps({
   // null/undefined = filling an empty slot (buyVehicle); a tier id = the
@@ -86,7 +86,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 
       <div class="item-list">
         <div v-for="row in rows" :key="row.tier.id" class="item-row" :class="{ current: row.isCurrent }">
-          <span class="item-icon"><img :src="publicAsset(getVehicleSpritePath(row.tier.id))" :alt="row.tier.name" /></span>
+          <span class="item-icon"><AnimatedGameArt kind="vehicle" :type="row.tier.id" /></span>
           <div class="info">
             <span class="name">{{ row.tier.name }}</span>
             <span class="detail">{{ formatCompactNumber(row.tier.capacityPerHour) }} cigars/hr</span>

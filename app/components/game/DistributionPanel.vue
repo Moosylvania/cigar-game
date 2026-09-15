@@ -1,9 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
-import { getVehicleTier, getVehicleSpritePath } from '#game/config/vehicles.config.js'
+import { getVehicleTier } from '#game/config/vehicles.config.js'
 import { formatCompactNumber } from '#game/util/format.js'
-import { publicAsset } from '~/utils/publicAsset.js'
+import AnimatedGameArt from './AnimatedGameArt.vue'
 import VehiclePickerModal from './VehiclePickerModal.vue'
 
 const store = useGameStore()
@@ -70,7 +70,7 @@ const isNearFull = computed(() => cigarCapacity.value > 0 && cigarsStored.value 
         @click="row.occupied ? openReplaceSlot(row.tier.id) : openAddSlot()"
       >
         <span class="vehicle-icon" :class="{ 'add-icon': !row.occupied }">
-          <img v-if="row.occupied" :src="publicAsset(getVehicleSpritePath(row.tier.id))" :alt="row.tier.name" />
+          <AnimatedGameArt v-if="row.occupied" kind="vehicle" :type="row.tier.id" />
           <Icon v-else name="mdi:plus" />
         </span>
         <div class="vehicle-info">
