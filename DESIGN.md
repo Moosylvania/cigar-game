@@ -2,13 +2,13 @@
 name: Cigar Country
 description: An illustrated 2D production town
 colors:
-  ink: "#294844"
-  panel: "#fcfdf8"
-  border: "#b4c8be"
-  muted: "#566e66"
-  accent: "#b45148"
-  money: "#2e794e"
-  danger: "#b3423d"
+  ink: "#eee9dc"
+  panel: "#202c28"
+  border: "#4d6258"
+  muted: "#b0bdb4"
+  accent: "#dfb866"
+  money: "#91cf91"
+  danger: "#ed9383"
 rounded:
   sm: "4px"
   md: "8px"
@@ -30,9 +30,10 @@ optimized Higgsfield Z Image texture, generated for 0.15 credits.
 
 ## Colors
 
-Pale panels and dark green ink provide contrast against the meadow. Roof
-colors distinguish production stages. Prestige changes wall and roof colors;
-space tiers add antenna details. Money, warnings, and collectible states retain
+Charcoal-green panels, warm ivory text, and gold controls frame a dusk meadow.
+Backyard roof colors distinguish production stages. All ten prestige palettes
+coordinate walls, roofs, crops, foliage, water, and decoration materials;
+prestige changes materials without changing level geometry. Money, warnings, and collectible states retain
 their semantic meaning.
 
 ## Typography
@@ -52,7 +53,9 @@ countdowns appear only when the available label space is sufficient.
 ## Elevation & Depth
 
 Flat fills and outlines define the buildings. A small ground shadow anchors
-each one. Existing dialog backdrops separate focused actions from the map.
+each one. Existing dialog backdrops separate focused actions from the map. Buildings,
+decorations, and vehicles share ground-position depth sorting; labels and action
+indicators render in a separate foreground pass.
 
 ## Shapes
 
@@ -76,9 +79,32 @@ system reduced-motion setting supplies the default.
 
 All eight building types have idle motion and production-specific activity.
 All twenty decorations have foliage, water, cargo, light, or surface cycles.
-Fleet artwork has moving wheel treads, suspension, exhaust, and cargo.
+Fleet artwork uses six distinct transport silhouettes: open-bed pickup, enclosed
+box truck, articulated semi, steam cargo train, diesel container train, and
+streamlined electric bullet train. Coupled train cars and animated wheels
+follow route direction; artwork remains inside its fixed rendering bounds.
 Upgrades add scaffolding and a working winch; completion and collection emit
-bounded, transient spark/parcel bursts. Levels 3, 6, and 9 add building details.
+bounded, transient spark/parcel bursts. Every building has ten distinct level
+designs. Level selects roof profile, facade proportions, work bays, and
+type-specific equipment; prestige selects wall, roof, trim, glass/equipment,
+and planting colors. The Field grows from a planted patch into a covered
+growing house. Levels 5–10 progressively introduce panel seams, light strips,
+sensor arrays, corner armor, antennae, and powered supports. These details
+use prestige material colors and attach at roof edges and foundations.
+From level 6, traditional roofs become angular technology decks. Levels 7–10
+retain the full prestige wall palette without gray blending. Large,
+type-specific landmarks grow across those levels: stepped civic spires,
+ribbed conservatories, exposed turbines, graduated fermentation vessels,
+sawtooth ventilation towers, articulated robot gantries, and flight decks
+with freight control towers. Fields gain an enclosed growing canopy at level 8.
+Decorative crews work in the foreground of each building. One human starts
+at level 1; crews grow at levels 4 and 8. Robot helpers appear at level 7,
+with fully robotic crews at level 10. Tools and tasks reflect the building
+type. Human figures share a stylized golden face color. All crews alternate
+walking or rolling between nearby stations with visible tool and cargo work;
+idle crews follow a slower cycle. Workers use the existing motion clock and freeze when motion is off;
+they do not alter simulation state, placement, or interaction bounds.
+Map and preview art use the same level renderer.
 
 ## Do's and Don'ts
 

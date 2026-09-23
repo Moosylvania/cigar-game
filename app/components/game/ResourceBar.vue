@@ -135,12 +135,12 @@ const activeBoosts = computed(() => {
   align-items: center;
   gap: 8px;
   margin-right: 12px;
-  color: #294844;
+  color: $color-text;
   font-size: 20px;
   font-weight: 900;
   line-height: 0.95;
   flex-shrink: 0;
-  .iconify { color: #b45148; font-size: 36px; }
+  .iconify { color: $color-accent; font-size: 36px; }
   @include mobile { font-size: 15px; margin-right: 0; .iconify { font-size: 26px; } }
 }
 
@@ -174,7 +174,7 @@ const activeBoosts = computed(() => {
   }
 
   &.coins .value {
-    color: #906613;
+    color: #dfb866;
   }
 
   &.prestige .value {

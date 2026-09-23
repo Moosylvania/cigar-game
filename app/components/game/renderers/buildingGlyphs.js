@@ -169,14 +169,14 @@ function drawLabelChip(ctx, text, anchorX, anchorY, fontSize, corner = 'top-left
   const x = corner.includes('center') ? anchorX - width / 2 : corner.includes('left') ? anchorX : anchorX - width
   const y = corner.includes('top') ? anchorY : anchorY - height
 
-  ctx.fillStyle = '#fcfff3'
+  ctx.fillStyle = '#202c28'
   roundRectPath(ctx, x, y, width, height, Math.min(4, height / 2))
   ctx.fill()
   ctx.strokeStyle = '#517064'
   ctx.lineWidth = 1
   ctx.stroke()
 
-  ctx.fillStyle = '#294844'
+  ctx.fillStyle = '#eee9dc'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
   ctx.fillText(displayText, x + paddingX, y + height / 2)
@@ -249,7 +249,7 @@ export function getStatusIndicatorHitbox(building, rect, tilePx) {
  * @param {string} [themeId] - active prestige tier id (store's
  *   activeThemeId) - see buildingSprites.js's getBuildingSpriteImage.
  */
-export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1, collectBlocked = false, themeId, motionTime = nowMs) {
+export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScale = 1, collectBlocked = false, themeId, motionTime = nowMs, showOverlay = true) {
   const isReady = building.slot?.status === 'ready'
 
   if (isReady) drawReadyGlow(ctx, rect, collectBlocked ? WARNING_COLOR : '#398553', motionTime)
@@ -267,6 +267,11 @@ export function drawBuilding(ctx, building, config, rect, tilePx, nowMs, popScal
   if (building.upgrade) drawConstruction(ctx, rect, motionTime)
   ctx.restore()
 
+  if (showOverlay) drawBuildingOverlay(ctx, building, config, rect, tilePx, nowMs, collectBlocked)
+}
+
+export function drawBuildingOverlay(ctx, building, config, rect, tilePx, nowMs, collectBlocked = false) {
+  const isReady = building.slot?.status === 'ready'
   const bottomRow = computeBottomRowLayout(ctx, building, rect, tilePx)
   drawLevelBadge(ctx, building.level, rect, bottomRow)
   drawNameLabel(ctx, config.displayName, rect, tilePx)

@@ -28,12 +28,10 @@ const showLab = ref(false)
 const showStore = ref(false)
 const showPrestige = ref(false)
 const showSaveTransfer = ref(false)
-const layoutEditMode = ref(false)
 const expandMode = ref(false)
 const expandFeedback = ref(null)
 const selectMode = ref(false)
 const selectedBuildingIds = ref([])
-const gameCanvasRef = ref(null)
 let expandFeedbackTimer = null
 
 const placingDecorationName = computed(() => {
@@ -76,29 +74,9 @@ function onPlaced() {
   placingDecorationId.value = null
 }
 
-function startRearrange() {
-  placingType.value = null
-  selectedBuildingId.value = null
-  expandMode.value = false
-  selectMode.value = false
-  selectedBuildingIds.value = []
-  layoutEditMode.value = true
-}
-
-function saveLayout() {
-  gameCanvasRef.value?.commitLayout()
-  layoutEditMode.value = false
-}
-
-function cancelRearrange() {
-  gameCanvasRef.value?.cancelLayout()
-  layoutEditMode.value = false
-}
-
 function startExpand() {
   placingType.value = null
   selectedBuildingId.value = null
-  layoutEditMode.value = false
   selectMode.value = false
   selectedBuildingIds.value = []
   expandFeedback.value = null
@@ -124,7 +102,6 @@ function onExpandResult(result) {
 function startSelect() {
   placingType.value = null
   selectedBuildingId.value = null
-  layoutEditMode.value = false
   expandMode.value = false
   selectedBuildingIds.value = []
   selectMode.value = true
@@ -219,7 +196,7 @@ onBeforeUnmount(() => {
         <span class="rearrange-hint">Drag over buildings to select them. With 2+ selected, drag one to move the group</span>
         <button class="confirm" @click="stopSelect"><Icon name="mdi:check" /> Done</button>
       </template>
-      <template v-else-if="!layoutEditMode">
+      <template v-else>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Expand territory" @click="startExpand"><Icon name="mdi:map-plus" /> Expand</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Select buildings" @click="startSelect"><Icon name="mdi:selection-drag" /> Select</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLab = true"><Icon name="mdi:flask-outline" /> Research</button>
@@ -227,29 +204,21 @@ onBeforeUnmount(() => {
           <Icon name="mdi:storefront-outline" /> Store
         </button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showPrestige = true"><Icon name="mdi:crown" /> Prestige</button>
-        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="startRearrange"><Icon name="mdi:cursor-move" /> Rearrange</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showSaveTransfer = true"><Icon name="mdi:tray-arrow-down" /> Export/Import</button>
         <button v-if="isDev" class="dev" :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="store.skipAllTimers()"><Icon name="mdi:fast-forward" /> Skip Timers (dev)</button>
         <button class="help" title="Replay tutorial" @click="store.reopenTutorial()"><Icon name="mdi:help-circle-outline" /></button>
-      </template>
-      <template v-else>
-        <span class="rearrange-hint">Drag buildings to move them</span>
-        <button class="confirm" @click="saveLayout"><Icon name="mdi:check" /> Save Layout</button>
-        <button class="cancel" @click="cancelRearrange"><Icon name="mdi:close" /> Cancel</button>
       </template>
     </div>
 
     <div class="main-area">
       <BuildMenu
         :active-type="placingType"
-        :class="{ disabled: layoutEditMode || placingDecorationId || expandMode || selectMode, 'tutorial-dim': store.isTutorialVisible }"
+        :class="{ disabled: placingDecorationId || expandMode || selectMode, 'tutorial-dim': store.isTutorialVisible }"
         @select="(type) => (placingType = type)"
       />
       <GameCanvas
-        ref="gameCanvasRef"
         :placing-type="placingType"
         :placing-decoration-id="placingDecorationId"
-        :edit-mode="layoutEditMode"
         :expand-mode="expandMode"
         :select-mode="selectMode"
         :selected-building-ids="selectedBuildingIds"
@@ -324,7 +293,7 @@ onBeforeUnmount(() => {
     padding: $spacing-xs $spacing-md;
     border-radius: $radius-sm;
     border: 1px solid $color-panel-border;
-    background: #eef3ed;
+    background: $color-panel;
     color: $color-text;
     cursor: pointer;
     white-space: nowrap;

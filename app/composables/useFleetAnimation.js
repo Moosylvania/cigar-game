@@ -7,6 +7,15 @@ import { useClock } from './useClock.js'
 const vehicles = []
 let nextId = 1
 let nextSpawnAt = 0
+// Dev showcase only (see createShowcaseState.js): fixed lanes that each keep
+// one vehicle of their tier driving across forever, instead of the random
+// depot-based spawner.
+let showcaseLanes = null
+const SHOWCASE_TRIP_MS = 9000
+
+export function setShowcaseLanes(lanes) {
+  showcaseLanes = lanes
+}
 
 const SPAWN_INTERVAL_MS = 4500
 const SPAWN_JITTER_MS = 1500
@@ -48,6 +57,27 @@ export function useFleetAnimation() {
     const t = nowMs.value
     for (let i = vehicles.length - 1; i >= 0; i--) {
       if (t - vehicles[i].spawnedAt >= vehicles[i].durationMs) vehicles.splice(i, 1)
+    }
+
+    if (showcaseLanes) {
+      showcaseLanes.forEach((lane, i) => {
+        if (vehicles.some((v) => v.laneIndex === i)) return
+        vehicles.push({
+          id: nextId++,
+          laneIndex: i,
+          tierId: lane.tierId,
+          direction: lane.direction,
+          startX: lane.x0,
+          startY: lane.y0,
+          endX: lane.x1,
+          endY: lane.y1,
+          // Stagger lanes on first spawn so they don't move in lockstep.
+          spawnedAt: nextSpawnAt === 0 ? t - (i / showcaseLanes.length) * SHOWCASE_TRIP_MS : t,
+          durationMs: SHOWCASE_TRIP_MS
+        })
+      })
+      nextSpawnAt = t
+      return
     }
 
     const depot = store.distributionBuilding

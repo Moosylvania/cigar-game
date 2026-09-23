@@ -1,16 +1,29 @@
 import { createSaveAdapter } from '#game/persistence/index.js'
 import { migrateSave } from '#game/persistence/migrations.js'
 import { createInitialState } from '#game/state/createInitialState.js'
+import { createShowcaseState } from '#game/state/createShowcaseState.js'
 import { runOfflineCatchUp } from '#game/engine/catchUp.js'
 import { clamp, now } from '#game/util/time.js'
 import { useGameStore } from '~/stores/game.js'
 import { useGameLoop } from '~/composables/useGameLoop.js'
+import { setShowcaseLanes } from '~/composables/useFleetAnimation.js'
 
 const MAX_OFFLINE_SECONDS = 60 * 60 * 24 * 30 // cap at 30 days
 
 export default defineNuxtPlugin(async () => {
   const store = useGameStore()
   const adapter = createSaveAdapter()
+
+  // Dev-only: /?showcase lays out every building at every level (idle and
+  // under construction) plus every vehicle tier, for art review. Never
+  // persisted, so the real save is untouched.
+  if (import.meta.dev && new URLSearchParams(window.location.search).has('showcase')) {
+    const { state, vehicleLanes } = createShowcaseState()
+    store.hydrate(state)
+    setShowcaseLanes(vehicleLanes)
+    useGameLoop().start()
+    return
+  }
 
   const persist = () => {
     adapter.save({ version: 1, savedAt: now(), state: store.game })

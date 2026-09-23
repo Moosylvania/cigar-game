@@ -3,24 +3,165 @@
   "title": "Design System: Cigar Country",
   "extensions": {
     "motion": [
-      { "name": "control", "value": "140ms ease", "purpose": "Button state changes." },
-      { "name": "panel", "value": "200ms ease-out", "purpose": "Dialog entrance." }
+      {
+        "name": "control",
+        "value": "140ms ease",
+        "purpose": "Button state changes."
+      },
+      {
+        "name": "panel",
+        "value": "200ms ease-out",
+        "purpose": "Dialog entrance."
+      }
     ],
-    "breakpoints": [{ "name": "mobile", "value": "700px" }]
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "700px"
+      }
+    ],
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Warm Ivory",
+        "canonical": "#eee9dc",
+        "tonalRamp": [
+          "oklch(15.00% 0.0181 89.36)",
+          "oklch(26.43% 0.0181 89.36)",
+          "oklch(37.86% 0.0181 89.36)",
+          "oklch(49.29% 0.0181 89.36)",
+          "oklch(60.71% 0.0181 89.36)",
+          "oklch(72.14% 0.0181 89.36)",
+          "oklch(83.57% 0.0181 89.36)",
+          "oklch(95.00% 0.0181 89.36)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Charcoal Green",
+        "canonical": "#202c28",
+        "tonalRamp": [
+          "oklch(15.00% 0.0180 172.55)",
+          "oklch(26.43% 0.0180 172.55)",
+          "oklch(37.86% 0.0180 172.55)",
+          "oklch(49.29% 0.0180 172.55)",
+          "oklch(60.71% 0.0180 172.55)",
+          "oklch(72.14% 0.0180 172.55)",
+          "oklch(83.57% 0.0180 172.55)",
+          "oklch(95.00% 0.0180 172.55)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Muted Forest",
+        "canonical": "#4d6258",
+        "tonalRamp": [
+          "oklch(15.00% 0.0301 164.57)",
+          "oklch(26.43% 0.0301 164.57)",
+          "oklch(37.86% 0.0301 164.57)",
+          "oklch(49.29% 0.0301 164.57)",
+          "oklch(60.71% 0.0301 164.57)",
+          "oklch(72.14% 0.0301 164.57)",
+          "oklch(83.57% 0.0301 164.57)",
+          "oklch(95.00% 0.0301 164.57)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Sage Gray",
+        "canonical": "#b0bdb4",
+        "tonalRamp": [
+          "oklch(15.00% 0.0191 155.71)",
+          "oklch(26.43% 0.0191 155.71)",
+          "oklch(37.86% 0.0191 155.71)",
+          "oklch(49.29% 0.0191 155.71)",
+          "oklch(60.71% 0.0191 155.71)",
+          "oklch(72.14% 0.0191 155.71)",
+          "oklch(83.57% 0.0191 155.71)",
+          "oklch(95.00% 0.0191 155.71)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Warm Gold",
+        "canonical": "#dfb866",
+        "tonalRamp": [
+          "oklch(15.00% 0.1105 84.42)",
+          "oklch(26.43% 0.1105 84.42)",
+          "oklch(37.86% 0.1105 84.42)",
+          "oklch(49.29% 0.1105 84.42)",
+          "oklch(60.71% 0.1105 84.42)",
+          "oklch(72.14% 0.1105 84.42)",
+          "oklch(83.57% 0.1105 84.42)",
+          "oklch(95.00% 0.1105 84.42)"
+        ]
+      },
+      "money": {
+        "role": "semantic",
+        "displayName": "Leaf Green",
+        "canonical": "#91cf91",
+        "tonalRamp": [
+          "oklch(15.00% 0.1072 144.49)",
+          "oklch(26.43% 0.1072 144.49)",
+          "oklch(37.86% 0.1072 144.49)",
+          "oklch(49.29% 0.1072 144.49)",
+          "oklch(60.71% 0.1072 144.49)",
+          "oklch(72.14% 0.1072 144.49)",
+          "oklch(83.57% 0.1072 144.49)",
+          "oklch(95.00% 0.1072 144.49)"
+        ]
+      },
+      "danger": {
+        "role": "semantic",
+        "displayName": "Soft Coral",
+        "canonical": "#ed9383",
+        "tonalRamp": [
+          "oklch(15.00% 0.1122 30.76)",
+          "oklch(26.43% 0.1122 30.76)",
+          "oklch(37.86% 0.1122 30.76)",
+          "oklch(49.29% 0.1122 30.76)",
+          "oklch(60.71% 0.1122 30.76)",
+          "oklch(72.14% 0.1122 30.76)",
+          "oklch(83.57% 0.1122 30.76)",
+          "oklch(95.00% 0.1122 30.76)"
+        ]
+      }
+    }
   },
-  "components": [{
-    "name": "Map Control",
-    "kind": "button",
-    "description": "Fixed camera and motion control.",
-    "html": "<button title=\"Zoom in\" aria-label=\"Zoom in\">+</button>",
-    "css": "button { width:40px; height:40px; color:#294844; background:#fcfdf8; border:1px solid #b4c8be; border-radius:4px; font-size:20px; }"
-  }],
+  "components": [
+    {
+      "name": "Map Control",
+      "kind": "button",
+      "description": "Fixed camera and motion control.",
+      "html": "<div class=\"ds-map-controls\"><button class=\"ds-map-button\" title=\"Zoom in\" aria-label=\"Zoom in\">+</button></div>",
+      "css": ".ds-map-controls { display:inline-flex; padding:2px; background:#202c28; border:1px solid #4d6258; border-radius:4px; } .ds-map-button { display:flex; align-items:center; justify-content:center; width:40px; height:40px; border:0; border-radius:4px; background:transparent; color:#eee9dc; font-family:\"Trebuchet MS\",sans-serif; font-size:1.1rem; cursor:pointer; transition:background-color 140ms ease,border-color 140ms ease,transform 140ms ease; } .ds-map-button:hover { background:rgba(212,169,74,.18); filter:brightness(.96); } .ds-map-button:focus-visible { outline:3px solid #dfb866; outline-offset:3px; } .ds-map-button:active { transform:translateY(1px); } @media (prefers-reduced-motion:reduce) { .ds-map-button { transition:none; } }"
+    }
+  ],
   "narrative": {
     "northStar": "The Illustrated Production Town",
-    "overview": "The playable map leads. Buildings use crisp Canvas 2D silhouettes, dark outlines, pale walls, and distinct coral, teal, blue, yellow, and mauve roofs.",
-    "keyCharacteristics": ["Outlined 2D artwork", "Compact controls", "Production-specific motion"],
-    "rules": [],
-    "dos": ["Do preserve gameplay, save compatibility, and recognizable building roles."],
-    "donts": ["Don't move click targets with animation."]
-  }
+    "overview": "The playable map leads. Buildings use crisp Canvas 2D silhouettes, dark\noutlines, pale walls, and distinct coral, teal, blue, yellow, and mauve roofs.\nBuilding and object art is authored in Canvas 2D. The meadow uses a local,\noptimized Higgsfield Z Image texture, generated for 0.15 credits.",
+    "keyCharacteristics": [],
+    "rules": [
+      {
+        "name": "The Shared Artwork Rule.",
+        "body": "The build menu, upgrade panels, fleet picker, and\ndecoration store use animated Canvas previews from the same renderers as the\nmap. Visible previews share one 20fps clock and skip offscreen/hidden painting.",
+        "section": "components"
+      },
+      {
+        "name": "The Fixed Footprint Rule.",
+        "body": "Motion affects artwork, never placement bounds,\nlabels, or status hit targets. Real production time remains independent of\nambient motion.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do preserve gameplay, save compatibility, and recognizable building roles.",
+      "Do use existing MDI icons for controls and descriptive button titles.",
+      "Do keep production and upgrade counters active when ambient motion is off."
+    ],
+    "donts": [
+      "Don't move click targets with animation.",
+      "Don't spend generation credits without checking the user's budget."
+    ]
+  },
+  "generatedAt": "2026-09-23T22:04:20.175Z"
 }

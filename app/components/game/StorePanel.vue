@@ -162,7 +162,7 @@ function buyLeafBoost() {
 
       <div v-else class="item-list">
         <div v-for="row in decorationRows" :key="row.decoration.id" class="item-row">
-          <AnimatedGameArt class="deco-thumb" kind="decoration" :type="row.decoration.spriteFile" />
+          <AnimatedGameArt class="deco-thumb" kind="decoration" :theme="store.activeThemeId" :type="row.decoration.spriteFile" />
           <div class="info">
             <span class="name">{{ row.decoration.name }}</span>
             <span class="detail">{{ row.decoration.description }}</span>

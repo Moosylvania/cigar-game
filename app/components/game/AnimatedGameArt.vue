@@ -25,7 +25,7 @@ onMounted(() => {
     if (!visible) return
     ctx.clearRect(0, 0, 160, 160)
     if (props.kind === 'vehicle') drawVehicleSprite(ctx, props.type, 'e', rect, time)
-    else if (props.kind === 'decoration') drawDecoration(ctx, props.type, rect, time)
+    else if (props.kind === 'decoration') drawDecoration(ctx, props.type, rect, time, props.theme)
     else if (props.kind === 'parcel') drawParcel(ctx, 80, 90, 82, time)
     else {
       drawIllustratedBuilding(ctx, { type: props.type, level: props.level, slot: { status: props.status }, upgrade: props.upgrading }, rect, time, props.theme)

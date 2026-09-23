@@ -24,7 +24,7 @@ function remove() {
   <div v-if="definition" class="panel-backdrop" @click.self="emit('close')">
     <div class="panel">
       <div class="panel-header">
-        <AnimatedGameArt class="decoration-portrait" kind="decoration" :type="definition.spriteFile" />
+        <AnimatedGameArt class="decoration-portrait" kind="decoration" :theme="store.activeThemeId" :type="definition.spriteFile" />
         <h3>{{ definition.name }}</h3>
         <button class="close" @click="emit('close')"><Icon name="mdi:close" /></button>
       </div>

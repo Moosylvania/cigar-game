@@ -10,6 +10,7 @@
 
 html,
 body {
+  color-scheme: dark;
   margin: 0;
   padding: 0;
   background: $color-bg;
@@ -38,7 +39,7 @@ button {
 
 button:hover:not(:disabled) { filter: brightness(0.96); }
 button:active:not(:disabled) { transform: translateY(1px); }
-:focus-visible { outline: 3px solid #297c99; outline-offset: 3px; }
+:focus-visible { outline: 3px solid #dfb866; outline-offset: 3px; }
 
 .modal, .tutorial-card, .panel-backdrop > .panel, .modal-overlay > .panel {
   animation: panel-arrive 200ms ease-out;

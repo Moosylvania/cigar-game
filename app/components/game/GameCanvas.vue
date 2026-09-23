@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { useClock } from '~/composables/useClock.js'
 import { drawGrid, screenToGrid, gridToScreen } from './renderers/drawGrid.js'
-import { drawBuilding, getStatusIndicatorHitbox } from './renderers/buildingGlyphs.js'
+import { drawBuilding, drawBuildingOverlay, getStatusIndicatorHitbox } from './renderers/buildingGlyphs.js'
 import { drawDecoration } from './renderers/decorationSprites.js'
 import { drawVehicleSprite } from './renderers/vehicleSprites.js'
 import { drawCoinDelivery, drawCoinCollectBurst } from './renderers/coinDelivery.js'
@@ -17,7 +17,6 @@ import { getDecorationDefinition } from '#game/config/decorations.config.js'
 const props = defineProps({
   placingType: { type: String, default: null },
   placingDecorationId: { type: String, default: null },
-  editMode: { type: Boolean, default: false },
   expandMode: { type: Boolean, default: false },
   selectMode: { type: Boolean, default: false },
   selectedBuildingIds: { type: Array, default: () => [] },
@@ -105,11 +104,15 @@ let lastPanPos = null
 let isPanning = false
 const CLICK_THRESHOLD = 6
 
-// Rearrange mode: positions are staged here (not written to the store)
-// until the parent calls commitLayout(). Includes Town Hall - it can be
-// dragged like any other building, subject to the same overlap/bounds checks.
-let workingPositions = new Map()
+// Long-press move: holding still on a building for LONG_PRESS_MS picks it
+// up. While dragging, its position is staged in dragPosition (not written
+// to the store); release commits it if valid, otherwise it snaps back.
+// Includes Town Hall - same overlap/bounds checks as any other building.
+const LONG_PRESS_MS = 450
+const isMovingBuilding = ref(false)
+let longPressTimer = null
 let draggingId = null
+let dragPosition = null
 let dragOffset = { x: 0, y: 0 }
 let dragValid = true
 
@@ -124,9 +127,8 @@ let selectDragCurrent = null
 
 // Group move: dragging one member of a multi-building selection (select
 // mode, 2+ selected) drags the whole group together, preserving relative
-// offsets. groupWorkingPositions mirrors workingPositions' staging pattern
-// but commits immediately on release instead of waiting for a "Save
-// Layout" step, matching the rest of select mode's bulk actions.
+// offsets. Positions are staged in groupWorkingPositions during the drag
+// and committed on release, matching the rest of select mode's bulk actions.
 let groupDragIds = null
 let groupDragStartGrid = null
 let groupDragOriginalPositions = null
@@ -228,9 +230,7 @@ function resetView() {
 }
 
 function positionFor(building) {
-  if (props.editMode) {
-    return workingPositions.get(building.id) ?? building.position
-  }
+  if (building.id === draggingId && dragPosition) return dragPosition
   if (groupWorkingPositions.has(building.id)) {
     return groupWorkingPositions.get(building.id)
   }
@@ -254,7 +254,7 @@ function render(frameTime = 0) {
   if (document.hidden || frameTime - lastFrameTime < 1000 / 30) return
   lastFrameTime = frameTime
   ctx.clearRect(0, 0, canvasWidth, canvasHeight)
-  ctx.fillStyle = '#a3c98a'
+  ctx.fillStyle = '#253b30'
   ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
   const camera = computeCamera()
@@ -268,22 +268,11 @@ function render(frameTime = 0) {
     expandMode: props.expandMode,
     maxPurchasableRing: store.maxPurchasableRing,
     motionTime,
-    showGrid: !!(props.placingType || props.placingDecorationId || props.editMode || props.expandMode || props.selectMode),
+    showGrid: !!(props.placingType || props.placingDecorationId || isMovingBuilding.value || props.expandMode || props.selectMode),
     width: canvasWidth,
     height: canvasHeight
   })
 
-  for (const decoration of store.decorations) {
-    const definition = getDecorationDefinition(decoration.decorationId)
-    if (!definition) continue
-    const rect = {
-      x: camera.offsetX + decoration.position.x * TILE_SIZE * camera.scale,
-      y: camera.offsetY + decoration.position.y * TILE_SIZE * camera.scale,
-      width: TILE_SIZE * camera.scale,
-      height: TILE_SIZE * camera.scale
-    }
-    drawDecoration(ctx, definition.spriteFile, rect, motionTime)
-  }
 
   if ((props.placingType || props.placingDecorationId) && hoverGrid) {
     const px = camera.offsetX + hoverGrid.x * TILE_SIZE * camera.scale
@@ -302,29 +291,76 @@ function render(frameTime = 0) {
 
   const tilePx = TILE_SIZE * camera.scale
   buildingAnimations.sync(store.allBuildings)
+  const worldObjects = []
+  for (const decoration of store.decorations) {
+    const definition = getDecorationDefinition(decoration.decorationId)
+    if (!definition) continue
+    const rect = {
+      x: camera.offsetX + decoration.position.x * TILE_SIZE * camera.scale,
+      y: camera.offsetY + decoration.position.y * TILE_SIZE * camera.scale,
+      width: TILE_SIZE * camera.scale,
+      height: TILE_SIZE * camera.scale
+    }
+    worldObjects.push({ rect, draw: () => drawDecoration(ctx, definition.spriteFile, rect, motionTime, store.activeThemeId) })
+  }
+
   for (const building of store.allBuildings) {
     const config = store.getBuildingConfig(building.type)
     const rect = getBuildingRect(building, camera)
 
-    const isDragging = props.editMode && building.id === draggingId
-    const isGroupDragging = groupDragIds != null && groupDragIds.includes(building.id)
-    if (isDragging || isGroupDragging) ctx.globalAlpha = 0.7
-    const popScale = motionEnabled.value ? (buildingAnimations.getPopTransform(building.id)?.scale ?? 1) : 1
-    const collectBlocked = building.slot?.status === 'ready' && store.isCollectBlocked(building.id)
-    drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked, store.activeThemeId, motionTime)
-    const effect = motionEnabled.value ? buildingAnimations.getEffect(building.id) : null
-    if (effect) drawBuildingCelebration(ctx, rect, effect.progress, effect.kind)
-    if (isDragging) {
-      ctx.globalAlpha = 1
-      ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
-      ctx.lineWidth = 3
-      ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
-    } else if (isGroupDragging) {
-      ctx.globalAlpha = 1
-      ctx.strokeStyle = groupDragValid ? '#7bc96f' : '#d16a5a'
-      ctx.lineWidth = 3
-      ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
+    worldObjects.push({ rect, draw: () => {
+      const isDragging = building.id === draggingId
+      const isGroupDragging = groupDragIds != null && groupDragIds.includes(building.id)
+      if (isDragging || isGroupDragging) ctx.globalAlpha = 0.7
+      const popScale = motionEnabled.value ? (buildingAnimations.getPopTransform(building.id)?.scale ?? 1) : 1
+      const collectBlocked = building.slot?.status === 'ready' && store.isCollectBlocked(building.id)
+      drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked, store.activeThemeId, motionTime, false)
+      const effect = motionEnabled.value ? buildingAnimations.getEffect(building.id) : null
+      if (effect) drawBuildingCelebration(ctx, rect, effect.progress, effect.kind)
+      if (isDragging) {
+        ctx.globalAlpha = 1
+        ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
+        ctx.lineWidth = 3
+        ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
+      } else if (isGroupDragging) {
+        ctx.globalAlpha = 1
+        ctx.strokeStyle = groupDragValid ? '#7bc96f' : '#d16a5a'
+        ctx.lineWidth = 3
+        ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
+      }
+    } })
+  }
+
+  if (motionEnabled.value) {
+    fleetAnimation.update(store)
+    fleetFrameTime = nowMs.value
+  }
+  for (const vehicle of fleetAnimation.getActiveVehicles()) {
+    const pos = getVehicleWorldPosition(vehicle, fleetFrameTime)
+    const rect = {
+      x: camera.offsetX + pos.x * TILE_SIZE * camera.scale,
+      y: camera.offsetY + pos.y * TILE_SIZE * camera.scale,
+      width: TILE_SIZE * camera.scale * 0.9,
+      height: TILE_SIZE * camera.scale * 0.9
     }
+    worldObjects.push({ rect, draw: () => {
+      ctx.globalAlpha = pos.alpha
+      drawVehicleSprite(ctx, vehicle.tierId, vehicle.direction, rect, motionEnabled.value ? motionTime : fleetFrameTime)
+      ctx.globalAlpha = 1
+    } })
+  }
+
+  // Artwork is grounded at ~82% of its rect, independent of creation order.
+  worldObjects.sort((a, b) => (a.rect.y + a.rect.height * 0.82) - (b.rect.y + b.rect.height * 0.82) || a.rect.x - b.rect.x)
+  for (const object of worldObjects) {
+    ctx.save()
+    object.draw()
+    ctx.restore()
+  }
+  // Labels and action targets stay above every world object.
+  for (const building of store.allBuildings) {
+    drawBuildingOverlay(ctx, building, store.getBuildingConfig(building.type), getBuildingRect(building, camera), tilePx, nowMs.value,
+      building.slot?.status === 'ready' && store.isCollectBlocked(building.id))
   }
 
   if (props.selectedBuildingIds.length) {
@@ -345,22 +381,6 @@ function render(frameTime = 0) {
     }
   }
 
-  if (motionEnabled.value) {
-    fleetAnimation.update(store)
-    fleetFrameTime = nowMs.value
-  }
-  for (const vehicle of fleetAnimation.getActiveVehicles()) {
-    const pos = getVehicleWorldPosition(vehicle, fleetFrameTime)
-    const rect = {
-      x: camera.offsetX + pos.x * TILE_SIZE * camera.scale,
-      y: camera.offsetY + pos.y * TILE_SIZE * camera.scale,
-      width: TILE_SIZE * camera.scale * 0.9,
-      height: TILE_SIZE * camera.scale * 0.9
-    }
-    ctx.globalAlpha = pos.alpha
-    drawVehicleSprite(ctx, vehicle.tierId, vehicle.direction, rect, motionEnabled.value ? motionTime : fleetFrameTime)
-    ctx.globalAlpha = 1
-  }
 
   const pendingCoinDelivery = store.pendingCoinDelivery
   if (pendingCoinDelivery) {
@@ -533,16 +553,31 @@ function gridPosFromScreen(screenPos) {
   return screenToGrid(screenPos.x, screenPos.y, { tileSize: TILE_SIZE, camera })
 }
 
-function currentWorkingMoves() {
-  return Array.from(workingPositions.entries()).map(([id, position]) => ({ id, position }))
+function clearLongPress() {
+  if (longPressTimer) clearTimeout(longPressTimer)
+  longPressTimer = null
 }
 
-function cancelBuildingDrag() {
-  if (!draggingId) return
-  const building = store.allBuildings.find((b) => b.id === draggingId)
-  workingPositions.delete(draggingId)
-  if (building) workingPositions.set(draggingId, { ...building.position })
+function startLongPress(screenPos) {
+  const gridPos = gridPosFromScreen(screenPos)
+  const building = findBuildingAt(gridPos)
+  if (!building) return
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null
+    draggingId = building.id
+    dragPosition = { ...building.position }
+    dragOffset = { x: gridPos.x - building.position.x, y: gridPos.y - building.position.y }
+    dragValid = true
+    isMovingBuilding.value = true
+    navigator.vibrate?.(15)
+  }, LONG_PRESS_MS)
+}
+
+function endBuildingDrag() {
   draggingId = null
+  dragPosition = null
+  dragValid = true
+  isMovingBuilding.value = false
 }
 
 function pinchDistance() {
@@ -561,7 +596,8 @@ function handlePointerDown(event) {
   canvasRef.value.setPointerCapture(event.pointerId)
 
   if (activePointers.size === 2) {
-    cancelBuildingDrag()
+    clearLongPress()
+    endBuildingDrag()
     isPanning = false
     singlePointerId = null
     expandDragStart = null
@@ -589,16 +625,7 @@ function handlePointerDown(event) {
   lastPanPos = screenPos
   isPanning = false
 
-  if (props.editMode) {
-    const gridPos = gridPosFromScreen(screenPos)
-    const building = findBuildingAt(gridPos)
-    if (building) {
-      draggingId = building.id
-      const position = positionFor(building)
-      dragOffset = { x: gridPos.x - position.x, y: gridPos.y - position.y }
-      dragValid = true
-    }
-  } else if (props.expandMode) {
+  if (props.expandMode) {
     expandDragStart = gridPosFromScreen(screenPos)
     expandDragCurrent = expandDragStart
   } else if (props.selectMode) {
@@ -618,6 +645,8 @@ function handlePointerDown(event) {
       selectDragStart = gridPos
       selectDragCurrent = selectDragStart
     }
+  } else if (!props.placingType && !props.placingDecorationId) {
+    startLongPress(screenPos)
   }
 }
 
@@ -638,10 +667,10 @@ function handlePointerMove(event) {
   if (event.pointerId !== singlePointerId) return
   const screenPos = screenPosFromEvent(event)
 
-  if (props.editMode && draggingId) {
+  if (draggingId) {
     const gridPos = gridPosFromScreen(screenPos)
-    workingPositions.set(draggingId, { x: gridPos.x - dragOffset.x, y: gridPos.y - dragOffset.y })
-    dragValid = store.canRelocateBuildings(currentWorkingMoves()).ok
+    dragPosition = { x: gridPos.x - dragOffset.x, y: gridPos.y - dragOffset.y }
+    dragValid = store.canRelocateBuildings([{ id: draggingId, position: dragPosition }]).ok
     return
   }
 
@@ -649,7 +678,7 @@ function handlePointerMove(event) {
   // box-selection instead of panning - see handlePointerUp for the buy/
   // select action this drives. Panning during these modes is still
   // possible via pinch-zoom/scroll; trading it off for drag-select here
-  // matches how edit mode already trades panning for building drag.
+  // matches how a long-press move trades panning for building drag.
   if (props.expandMode) {
     if (expandDragStart) expandDragCurrent = gridPosFromScreen(screenPos)
     return
@@ -671,19 +700,9 @@ function handlePointerMove(event) {
   }
 
   const movedDistance = Math.hypot(screenPos.x - pointerDownPos.x, screenPos.y - pointerDownPos.y)
-  if (props.editMode) {
-    // Empty-space drag in edit mode pans instead of doing nothing.
-    if (movedDistance > CLICK_THRESHOLD || isPanning) {
-      isPanning = true
-      panX += screenPos.x - lastPanPos.x
-      panY += screenPos.y - lastPanPos.y
-      clampPan()
-    }
-    lastPanPos = screenPos
-    return
-  }
-
   if (movedDistance > CLICK_THRESHOLD || isPanning) {
+    // Moving before the long press fires means the player meant to pan.
+    clearLongPress()
     isPanning = true
     panX += screenPos.x - lastPanPos.x
     panY += screenPos.y - lastPanPos.y
@@ -709,11 +728,15 @@ function handlePointerUp(event) {
     return
   }
 
-  if (props.editMode && draggingId) {
-    if (!dragValid) cancelBuildingDrag()
-    draggingId = null
-    dragValid = true
+  clearLongPress()
+  if (draggingId) {
+    const building = store.findBuilding(draggingId)
+    const moved = building && (dragPosition.x !== building.position.x || dragPosition.y !== building.position.y)
+    if (dragValid && moved) store.relocateBuildings([{ id: draggingId, position: dragPosition }])
+    endBuildingDrag()
+    isPanning = false
     singlePointerId = null
+    pointerDownPos = null
     return
   }
 
@@ -795,34 +818,32 @@ function handlePointerUp(event) {
     return
   }
 
-  if (!props.editMode) {
-    // A pending coin delivery takes priority over everything else on the
-    // tile it's floating above - it's a transient pickup, not part of
-    // whatever building/decoration happens to be underneath it.
-    const coinDeliveryHit = findCoinDeliveryHitAt(clickScreenPos)
-    if (coinDeliveryHit) {
-      handleCoinDeliveryClick(coinDeliveryHit)
-      return
-    }
-
-    // The status indicator (start/collect button) intercepts idle/ready
-    // clicks; a processing indicator has nothing to do by clicking it, so
-    // that falls through to opening the panel like anywhere else on the tile.
-    const indicatorHit = findIndicatorHitAt(clickScreenPos)
-    if (indicatorHit && indicatorHit.slot.status !== 'processing') {
-      handleIndicatorClick(indicatorHit)
-      return
-    }
-
-    const building = findBuildingAt(clickGridPos)
-    if (building) {
-      emit('building-selected', building)
-      return
-    }
-
-    const decoration = findDecorationAt(clickGridPos)
-    if (decoration) emit('decoration-selected', decoration)
+  // A pending coin delivery takes priority over everything else on the
+  // tile it's floating above - it's a transient pickup, not part of
+  // whatever building/decoration happens to be underneath it.
+  const coinDeliveryHit = findCoinDeliveryHitAt(clickScreenPos)
+  if (coinDeliveryHit) {
+    handleCoinDeliveryClick(coinDeliveryHit)
+    return
   }
+
+  // The status indicator (start/collect button) intercepts idle/ready
+  // clicks; a processing indicator has nothing to do by clicking it, so
+  // that falls through to opening the panel like anywhere else on the tile.
+  const indicatorHit = findIndicatorHitAt(clickScreenPos)
+  if (indicatorHit && indicatorHit.slot.status !== 'processing') {
+    handleIndicatorClick(indicatorHit)
+    return
+  }
+
+  const building = findBuildingAt(clickGridPos)
+  if (building) {
+    emit('building-selected', building)
+    return
+  }
+
+  const decoration = findDecorationAt(clickGridPos)
+  if (decoration) emit('decoration-selected', decoration)
 }
 
 function handleWheel(event) {
@@ -859,6 +880,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearLongPress()
   motionPreference?.removeEventListener('change', syncMotionPreference)
   delete document.documentElement.dataset.gameMotion
   if (rafId != null) cancelAnimationFrame(rafId)
@@ -876,19 +898,6 @@ watch(
   () => props.placingDecorationId,
   (value) => {
     if (!value) hoverGrid = null
-  }
-)
-
-watch(
-  () => props.editMode,
-  (isEditing) => {
-    if (isEditing) {
-      workingPositions = new Map(store.allBuildings.map((b) => [b.id, { ...b.position }]))
-    } else {
-      workingPositions = new Map()
-    }
-    draggingId = null
-    dragValid = true
   }
 )
 
@@ -917,19 +926,6 @@ watch(
   }
 )
 
-function commitLayout() {
-  const result = store.relocateBuildings(currentWorkingMoves())
-  workingPositions = new Map()
-  draggingId = null
-  return result
-}
-
-function cancelLayout() {
-  workingPositions = new Map()
-  draggingId = null
-}
-
-defineExpose({ commitLayout, cancelLayout })
 </script>
 
 <template>
@@ -938,7 +934,7 @@ defineExpose({ commitLayout, cancelLayout })
       ref="canvasRef"
       class="game-canvas"
       aria-label="Cigar Country town map"
-      :class="{ 'is-placing': placingType, 'is-editing': editMode, 'is-selecting': expandMode || selectMode }"
+      :class="{ 'is-placing': placingType, 'is-moving': isMovingBuilding, 'is-selecting': expandMode || selectMode }"
       @pointerdown="handlePointerDown"
       @pointermove="handlePointerMove"
       @pointerup="handlePointerUp"
@@ -980,8 +976,8 @@ defineExpose({ commitLayout, cancelLayout })
     cursor: crosshair;
   }
 
-  &.is-editing {
-    cursor: grab;
+  &.is-moving {
+    cursor: grabbing;
   }
 
   &.is-selecting {
@@ -996,7 +992,7 @@ defineExpose({ commitLayout, cancelLayout })
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: #fcfdf8;
+  background: #202c28;
   border: 1px solid $color-panel-border;
   border-radius: $radius-sm;
   padding: 2px;

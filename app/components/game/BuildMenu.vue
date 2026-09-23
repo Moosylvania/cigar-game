@@ -100,7 +100,7 @@ function toggle(type) {
   align-items: center;
   gap: 4px;
   padding: 4px;
-  background: #f4f8f0;
+  background: $color-panel;
   border: 1px solid $color-panel-border;
   border-radius: $radius-sm;
   color: $color-text;
@@ -111,7 +111,7 @@ function toggle(type) {
 
   &:hover:not(:disabled) {
     border-color: $color-accent;
-    background: #e3efe5;
+    background: #304239;
   }
 
   &.active {

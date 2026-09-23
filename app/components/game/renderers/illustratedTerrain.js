@@ -11,13 +11,13 @@ function getMeadowImage() {
 
 export function drawMeadow(ctx, gx, gy, x, y, size, owned, time = 0) {
   const seed = Math.abs((gx * 73856093) ^ (gy * 19349663))
-  ctx.fillStyle = owned ? ['#bad88e', '#bedb93', '#b8d68a'][seed % 3] : '#a3c98a'
+  ctx.fillStyle = owned ? ['#3e5942', '#425e46', '#3b5540'][seed % 3] : '#253b30'
   ctx.fillRect(x, y, size + 0.5, size + 0.5)
   const texture = getMeadowImage()
   if (texture?.complete && texture.naturalWidth) {
     const section = texture.naturalWidth / 4
     ctx.save()
-    ctx.globalAlpha = owned ? 0.48 : 0.3
+    ctx.globalAlpha = owned ? 0.12 : 0.06
     ctx.drawImage(texture, ((gx % 4 + 4) % 4) * section, ((gy % 4 + 4) % 4) * section,
       section, section, x, y, size + 0.5, size + 0.5)
     ctx.restore()
@@ -28,7 +28,7 @@ export function drawMeadow(ctx, gx, gy, x, y, size, owned, time = 0) {
   ctx.scale(size / 100, size / 100)
   ctx.lineWidth = 1.5
   ctx.lineCap = 'round'
-  ctx.strokeStyle = owned ? '#8fb572' : '#85b375'
+  ctx.strokeStyle = owned ? '#69805a' : '#45664c'
   for (let i = 0; i < 3; i++) {
     const bx = 13 + ((seed + i * 23) % 74)
     const by = 15 + ((seed * 3 + i * 37) % 70)
