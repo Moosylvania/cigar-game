@@ -7,7 +7,6 @@ import { getActiveBoosts, getBoostMultipliers } from '#game/engine/boostEngine.j
 import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 import { formatDuration } from '#game/util/time.js'
 
-const emit = defineEmits(['edit-name'])
 const store = useGameStore()
 const { nowMs } = useClock()
 
@@ -74,7 +73,7 @@ const activeBoosts = computed(() => {
 
 <template>
   <div class="resource-bar">
-    <button class="game-brand" type="button" title="Edit farm name" aria-label="Edit farm name" @click="emit('edit-name')"><Icon name="mdi:sprout" /><span>{{ store.townName }}<small>Edit farm name</small></span></button>
+    <div class="game-brand"><Icon name="mdi:sprout" /><span>{{ store.townName }}</span></div>
     <div v-for="boost in activeBoosts" :key="boost.key" class="boost-badge">
       <Icon name="mdi:cigar" class="ember" />
       {{ boost.name }}{{ boost.count > 1 ? ` ×${boost.count}` : '' }} ({{ boost.effectText }}) — {{ boost.remaining }}
@@ -132,8 +131,6 @@ const activeBoosts = computed(() => {
 }
 
 .game-brand {
-  background: transparent; border: 0; padding: 4px; text-align: left; cursor: pointer;
-  small { display: block; margin-top: 5px; color: $color-accent; font-size: .7rem; font-weight: 400; line-height: 1.2; }
   span { max-width: 160px; overflow-wrap: anywhere; font-size: 1rem; }
   display: flex;
   align-items: center;

@@ -180,7 +180,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="game-layout">
-    <ResourceBar @edit-name="selectedBuildingId = store.townHall.id" :class="{ 'tutorial-dim': store.isTutorialVisible }" />
+    <ResourceBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
     <InventoryBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
 
     <div class="toolbar">
