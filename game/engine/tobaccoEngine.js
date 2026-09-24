@@ -1,3 +1,4 @@
+import { getPipelineStage } from '../config/pipeline.config.js'
 import { TOBACCO_VARIETIES, DEFAULT_TOBACCO_ID, getTobacco } from '../config/tobacco.config.js'
 
 // Numeric storage remains the source of truth for quantity; these bounded
@@ -30,7 +31,7 @@ export function takeTobaccoResource(state, key, requested, varietyId = null) {
   let remaining = Math.min(Math.max(0, requested), varietyId ? (current[varietyId] ?? 0) : state.resources.storage[key])
   const amount = remaining
   // Use the best available crop first. Existing crops never change their value.
-  for (const variety of [...TOBACCO_VARIETIES].reverse()) {
+  for (const variety of [...TOBACCO_VARIETIES].sort((a, b) => b.marketPrice - a.marketPrice)) {
     if (varietyId && variety.id !== varietyId) continue
     const count = Math.min(current[variety.id] ?? 0, remaining)
     if (count > 0) { taken[variety.id] = count; current[variety.id] -= count; remaining -= count }
@@ -49,15 +50,16 @@ export function getStockCigarMultiplier(state) {
 }
 
 export function getPlantingChoice(building) {
-  return building.type === 'nursery' && getTobacco(building.seedVarietyId) ? building.seedVarietyId : null
+  return getPipelineStage(building.type) && getTobacco(building.seedVarietyId) ? building.seedVarietyId : null
 }
 export function getBatchInputAvailable(building, state, inputKey) {
   const id = getPlantingChoice(building)
   return id ? (getResourceLots(state, inputKey)[id] ?? 0) : state.resources.storage[inputKey]
 }
 export function setPlantingChoice(building, state, id) {
-  if (!building || building.type !== 'nursery') return false
-  if (id !== null && (!getTobacco(id) || !(getResourceLots(state, 'seeds')[id] > 0))) return false
+  const stage = building && getPipelineStage(building.type)
+  if (!stage) return false
+  if (id !== null && (!getTobacco(id) || !(getResourceLots(state, stage.inputKey)[id] > 0))) return false
   building.seedVarietyId = id
   return true
 }

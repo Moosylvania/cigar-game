@@ -15,7 +15,7 @@
 
 /**
  * @typedef {Object} PlacedBuilding
- * @property {string|null} [seedVarietyId] - Nursery seed preference; null means automatic
+ * @property {string|null} [seedVarietyId] - Production tobacco preference (legacy field name); null means highest price first
  * @property {string} id
  * @property {BuildingType} type
  * @property {import('./grid.js').GridPosition} position

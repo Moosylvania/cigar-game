@@ -104,10 +104,10 @@ test('full depot refuses collection without losing premium batch contents', () =
   assert.equal(JSON.stringify(s),before)
 })
 
-test('Nursery selection consumes only owned chosen seeds and changes only future batches', async () => {
+for (const stage of PIPELINE_STAGES) test(`${stage.type} selection consumes only chosen input and changes only future batches`, async () => {
   const { setPlantingChoice } = await import('../game/engine/tobaccoEngine.js')
-  const s = empty(), b = s.buildings.find(b => b.type === 'nursery')
-  addTobaccoResource(s, 'seeds', { piloto: 3, connecticut: 4 }, 7)
+  const s = empty(), b = s.buildings.find(b => b.type === stage.type)
+  addTobaccoResource(s, stage.inputKey, { piloto: 3, connecticut: 4 }, 7)
   assert.equal(setPlantingChoice(b, s, 'piloto'), true)
   assert.equal(startBatch(b, s, {}).ok, true)
   assert.deepEqual(b.slot.tobaccoLots, { piloto: 3 })
@@ -117,29 +117,29 @@ test('Nursery selection consumes only owned chosen seeds and changes only future
   assert.equal(startBatch(b, s, {}).ok, true)
   assert.deepEqual(b.slot.tobaccoLots, { connecticut: 4 })
   b.slot.status = 'ready'; collectBatch(b, s, {})
-  addTobaccoResource(s, 'seeds', { piloto: 10 }, 10)
+  addTobaccoResource(s, stage.inputKey, { piloto: 10 }, 10)
   assert.equal(startBatch(b, s, {}).reason, 'no_input_available')
-  assert.equal(s.resources.storage.seeds, 10)
+  assert.equal(s.resources.storage[stage.inputKey], 10)
   assert.equal(setPlantingChoice(b, s, 'bogus'), false)
   assert.equal(setPlantingChoice(b, s, null), true)
   assert.equal(startBatch(b, s, {}).ok, true)
 })
 
-test('live and offline automation respect independent Nursery choices, including automatic mode', async () => {
+for (const stage of PIPELINE_STAGES) test(`${stage.type} live and offline automation respect independent choices`, async () => {
   const { runAutomation } = await import('../game/engine/batchEngine.js')
   for (const run of [s => runAutomation(s, {}), s => fastForwardAutomation(s, 600, {})]) {
-    const s = empty(), base = s.buildings.find(b => b.type === 'nursery')
+    const s = empty(), base = s.buildings.find(b => b.type === stage.type)
     s.buildings = [
       { ...structuredClone(base), id: 'auto', level: 10 },
       { ...structuredClone(base), id: 'chosen', level: 10, seedVarietyId: 'connecticut' },
       { ...structuredClone(base), id: 'empty', level: 10, seedVarietyId: 'criollo' }
     ]
-    addTobaccoResource(s, 'seeds', { piloto: 1000, connecticut: 1000 }, 2000)
+    addTobaccoResource(s, stage.inputKey, { piloto: 1000, connecticut: 1000 }, 2000)
     run(s)
     const chosen = s.buildings[1]
     assert.ok(!chosen.slot.tobaccoLots?.piloto)
     assert.equal(s.buildings[2].slot.status, 'idle')
-    const lots = [getResourceLots(s, 'seeds'), getResourceLots(s, 'nurserySeedlings'), ...s.buildings.map(b => b.slot.tobaccoLots ?? {})]
+    const lots = [getResourceLots(s, stage.inputKey), getResourceLots(s, stage.outputKey), ...s.buildings.map(b => b.slot.tobaccoLots ?? {})]
     for (const id of ['piloto', 'connecticut']) near(lots.reduce((n, lot) => n + (lot[id] ?? 0), 0), 1000)
     const restored = migrateSave(JSON.parse(JSON.stringify({ version: 1, state: s }))).state
     assert.equal(restored.buildings.find(b => b.id === 'chosen').seedVarietyId, 'connecticut')
@@ -149,4 +149,12 @@ test('live and offline automation respect independent Nursery choices, including
 test('every tobacco variety produces a distinct named cigar', () => {
   assert.equal(new Set(TOBACCO_VARIETIES.map(v => v.cigarName)).size, TOBACCO_VARIETIES.length)
   assert.ok(TOBACCO_VARIETIES.every(v => v.cigarName?.length > 0))
+})
+
+for (const stage of PIPELINE_STAGES) test(`${stage.type} automatic processing takes highest-priced stock first`, () => {
+  const s = empty(), b = s.buildings.find(b => b.type === stage.type)
+  addTobaccoResource(s, stage.inputKey, { piloto: 100, criollo: 100, connecticut: 100 }, 300)
+  assert.equal(startBatch(b, s, {}, 5).ok, true)
+  assert.deepEqual(b.slot.tobaccoLots, { connecticut: 5 })
+  assert.equal(getResourceLots(s, stage.inputKey).piloto, 100)
 })

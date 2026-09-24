@@ -8,7 +8,7 @@ import { getAutomationTier, AUTO_COLLECT_LEVEL, AUTO_START_LEVEL } from '#game/c
 import { TOWN_HALL_GATING } from '#game/config/townHallGating.config.js'
 import { formatDuration } from '#game/util/time.js'
 import { formatCompactNumber } from '#game/util/format.js'
-import NurserySeedSelector from './NurserySeedSelector.vue'
+import TobaccoSelector from './TobaccoSelector.vue'
 import { getBatchInputAvailable } from '#game/engine/tobaccoEngine.js'
 import DistributionPanel from './DistributionPanel.vue'
 import AnimatedGameArt from './AnimatedGameArt.vue'
@@ -266,7 +266,7 @@ function doCollectBatch() {
 
       <section v-if="stage" class="batch-section">
         <h4>Production</h4>
-        <NurserySeedSelector v-if="building.type === 'nursery'" :building="building" />
+        <TobaccoSelector :building="building" />
         <p v-if="batchCropLabel" class="note">{{ batchCropLabel }}</p>
         <div class="slot-status">
           <template v-if="building.upgrade">
