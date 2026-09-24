@@ -180,7 +180,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="game-layout">
-    <ResourceBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
+    <ResourceBar @edit-name="selectedBuildingId = store.townHall.id" :class="{ 'tutorial-dim': store.isTutorialVisible }" />
     <InventoryBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
 
     <div class="toolbar">
@@ -240,6 +240,7 @@ onBeforeUnmount(() => {
 
     <BuildingUpgradePanel
       v-if="selectedBuildingId"
+      :key="selectedBuildingId"
       :building-id="selectedBuildingId"
       @close="selectedBuildingId = null"
     />

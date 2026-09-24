@@ -1,3 +1,4 @@
+import { DEFAULT_TOWN_NAME, MAX_TOWN_NAME_LENGTH, normalizeTownName } from '../engine/townProfile.js'
 import { PRESTIGE_TIERS } from '../config/prestige.config.js'
 import { STARTING_REGION } from '../config/land.config.js'
 import { COIN_DELIVERY_INTERVAL_SECONDS } from '../config/economy.config.js'
@@ -31,6 +32,9 @@ const LEGACY_LAND_TIER_REGIONS = [
  * @param {import('../types/state.js').GameState} state
  */
 function repairState(state) {
+  const name = normalizeTownName(state.townProfile?.name)
+  state.townProfile = { name: name && [...name].length <= MAX_TOWN_NAME_LENGTH ? name : DEFAULT_TOWN_NAME }
+
   if (!state.lab || typeof state.lab.researchLevels !== 'object' || state.lab.researchLevels === null) {
     state.lab = { researchLevels: {} }
   }

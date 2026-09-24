@@ -1,3 +1,4 @@
+import { renameTown as engineRenameTown, DEFAULT_TOWN_NAME } from '#game/engine/townProfile.js'
 import { defineStore } from 'pinia'
 import { createInitialState } from '#game/state/createInitialState.js'
 import {
@@ -103,6 +104,7 @@ export const useGameStore = defineStore('game', {
   }),
 
   getters: {
+    townName: state => state.game.townProfile?.name || DEFAULT_TOWN_NAME,
     money: (state) => state.game.resources.money,
     storage: (state) => state.game.resources.storage,
     townHall: (state) => state.game.townHall,
@@ -341,6 +343,7 @@ export const useGameStore = defineStore('game', {
   },
 
   actions: {
+    renameTown(name) { return engineRenameTown(this.game, name) },
     hydrate(gameState) {
       this.game = gameState
       this.isLoaded = true

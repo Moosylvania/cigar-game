@@ -35,6 +35,7 @@ export function createInitialState() {
   const timestamp = now()
 
   return {
+    townProfile: { name: 'Cigar Country' },
     townHall: {
       id: createId('bld'),
       type: 'town_hall',

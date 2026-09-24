@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { useClock } from '~/composables/useClock.js'
 import { getPipelineStage } from '#game/config/pipeline.config.js'
@@ -10,6 +10,7 @@ import { formatDuration } from '#game/util/time.js'
 import { formatCompactNumber } from '#game/util/format.js'
 import DistributionPanel from './DistributionPanel.vue'
 import AnimatedGameArt from './AnimatedGameArt.vue'
+import TownHallOverview from './TownHallOverview.vue'
 
 const props = defineProps({
   buildingId: { type: String, required: true }
@@ -17,6 +18,24 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const store = useGameStore()
+const hallView = ref('overview')
+const dialog = ref(null)
+let previousFocus
+onMounted(async () => {
+  previousFocus = document.activeElement
+  await nextTick()
+  dialog.value?.focus()
+})
+onBeforeUnmount(() => { if (previousFocus?.isConnected) previousFocus.focus() })
+function dialogKeys(event) {
+  if (event.key === 'Escape') { event.stopPropagation(); emit('close') }
+  if (event.key !== 'Tab') return
+  const items = [...dialog.value.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')].filter(el => el.getClientRects().length)
+  const first = items[0], last = items.at(-1)
+  if (!first) { event.preventDefault(); return }
+  if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.value)) { event.preventDefault(); last.focus() }
+  else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog.value)) { event.preventDefault(); first.focus() }
+}
 const { nowMs } = useClock()
 
 const RESOURCE_LABELS = {
@@ -213,13 +232,19 @@ function doCollectBatch() {
 
 <template>
   <div v-if="building" class="panel-backdrop" @click.self="emit('close')">
-    <div class="panel">
+    <div ref="dialog" class="panel" :class="{ 'town-hall-panel': building.type === 'town_hall' }" role="dialog" aria-modal="true" aria-labelledby="building-dialog-title" tabindex="-1" @keydown="dialogKeys">
       <div class="panel-header">
         <AnimatedGameArt class="building-portrait" :type="building.type" :level="building.level" :status="building.slot?.status ?? 'idle'" :theme="store.activeThemeId" :upgrading="!!building.upgrade" />
-        <h3>{{ config.displayName }} — Lv {{ building.level }}</h3>
-        <button class="close" @click="emit('close')"><Icon name="mdi:close" /></button>
+        <h3 id="building-dialog-title">{{ building.type === 'town_hall' ? store.townName : config.displayName }}<span v-if="building.type === 'town_hall'" class="hall-subtitle">Town Hall · Lv {{ building.level }}</span><template v-else> — Lv {{ building.level }}</template></h3>
+        <button class="close" aria-label="Close building dialog" @click="emit('close')"><Icon name="mdi:close" /></button>
       </div>
 
+      <nav v-if="building.type === 'town_hall'" class="hall-tabs" aria-label="Town Hall sections">
+        <button :aria-pressed="hallView === 'overview'" @click="hallView = 'overview'">Town overview</button>
+        <button :aria-pressed="hallView === 'upgrade'" @click="hallView = 'upgrade'">Town Hall upgrades</button>
+      </nav>
+      <TownHallOverview v-if="building.type === 'town_hall' && hallView === 'overview'" />
+      <div v-show="building.type !== 'town_hall' || hallView === 'upgrade'" class="building-details">
       <p class="description">{{ config.description }}</p>
 
       <section v-if="currentStatEntries.length" class="stats-section">
@@ -315,6 +340,7 @@ function doCollectBatch() {
           <Icon name="mdi:delete-outline" /> Sell for ${{ formatCompactNumber(sellValue) }}
         </button>
       </section>
+      </div>
     </div>
   </div>
 </template>
@@ -359,6 +385,12 @@ function doCollectBatch() {
   }
 }
 
+.town-hall-panel { width: 520px; }
+.building-details { display: flex; flex-direction: column; gap: $spacing-md; }
+.hall-subtitle { display: block; color: $color-text-muted; font-size: .8rem; font-weight: 400; margin-top: 5px; }
+.hall-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.hall-tabs button { flex: 1; padding: 10px; background: $color-bg; color: $color-text-muted; border: 1px solid $color-panel-border; border-radius: $radius-sm; cursor: pointer; font: inherit; font-size: .85rem; }
+.hall-tabs button[aria-pressed='true'] { color: $color-accent; border-color: $color-accent; }
 .panel-header {
   display: flex;
   align-items: center;

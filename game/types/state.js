@@ -2,6 +2,7 @@
 
 /**
  * @typedef {Object} GameState
+ * @property {{ name: string }} townProfile - persists across prestige and tier changes
  * @property {import('./building.js').PlacedBuilding} townHall
  * @property {import('./building.js').PlacedBuilding[]} buildings
  * @property {import('./resources.js').ResourceState} resources
