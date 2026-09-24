@@ -14,13 +14,13 @@ real cigars commonly combine different filler, binder, and wrapper tobaccos.
 | Crop | Reference leaf, USD/lb | Lifetime earnings unlock | Game price: 5-batch seed pack | Cigar multiplier | Base game sale/cigar |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Piloto (ligero filler reference) | $21.99 | Start | $100 | 1× | $20 |
-| Criollo 98 (seco filler reference) | $22.99 | $5,000 | $140 | 1.5× | $30 |
-| Corojo 99 (ligero filler reference) | $23.99 | $25,000 | $200 | 2.3× | $46 |
-| Sumatra (binder reference) | $24.99 | $100,000 | $300 | 3.5× | $70 |
-| Besuki (wrapper reference) | $32.99 | $500,000 | $450 | 5.5× | $110 |
-| Habano 2000 (wrapper reference) | $52.99 | $2,000,000 | $700 | 9× | $180 |
-| San Andrés (wrapper reference) | $58.99 | $10,000,000 | $1,100 | 15× | $300 |
-| Ecuador Connecticut Shade (wrapper reference) | $59.99 | $50,000,000 | $1,700 | 25× | $500 |
+| Criollo 98 (seco filler reference) | $22.99 | $5,000 | $500 | 1.5× | $30 |
+| Corojo 99 (ligero filler reference) | $23.99 | $25,000 | $1,500 | 2.3× | $46 |
+| Sumatra (binder reference) | $24.99 | $100,000 | $4,000 | 3.5× | $70 |
+| Besuki (wrapper reference) | $32.99 | $500,000 | $10,000 | 5.5× | $110 |
+| Habano 2000 (wrapper reference) | $52.99 | $2,000,000 | $22,000 | 9× | $180 |
+| San Andrés (wrapper reference) | $58.99 | $10,000,000 | $45,000 | 15× | $300 |
+| Ecuador Connecticut Shade (wrapper reference) | $59.99 | $50,000,000 | $80,000 | 25× | $500 |
 
 Market examples: [Whole Leaf Tobacco's cigar leaf catalog](https://wholeleaftobacco.com/collections/cigar-tobaccos).
 Game milestones, seed prices, and payout multipliers are balance decisions,
@@ -53,3 +53,8 @@ Click Seeds or Seedlings to open a Nursery selector, or open any Nursery to set
 its own choice. Click Cigars to inspect the Depot. Rolling batches and Depot stock
 show distinct farm product names derived from their tracked tobacco varieties;
 mixed batches retain separate named products rather than becoming an invented blend.
+
+Premium seed prices assume an upgraded Nursery: the top five-batch pack costs
+$80,000. With no sale bonuses its 50 seeds at Nursery level 1 yield only $25,000,
+while Nursery level 10 supplies 1,035 seeds worth $517,500 in finished cigars.
+Unlocking a crop does not guarantee profitability with an early-game Nursery.
