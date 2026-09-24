@@ -10,6 +10,7 @@
  * @property {import('./lab.js').LabState} lab
  * @property {import('./distribution.js').DistributionState} distribution
  * @property {import('./boost.js').BoostState} boosts
+ * @property {Object|null} market - saved customer orders and partial deliveries; reset on prestige
  * @property {number} coins - separate currency earmarked for power-ups; survives prestige
  * @property {import('./coinDelivery.js').CoinDeliveryState} coinDelivery
  * @property {import('./decoration.js').PlacedDecoration[]} decorations

@@ -1,3 +1,4 @@
+import { ensureMarket, deliverMarketOrder } from '#game/engine/marketEngine.js'
 import { setPlantingChoice } from '#game/engine/tobaccoEngine.js'
 import { renameTown as engineRenameTown, DEFAULT_TOWN_NAME } from '#game/engine/townProfile.js'
 import { defineStore } from 'pinia'
@@ -35,6 +36,8 @@ import {
   sellBuilding as engineSellBuilding
 } from '#game/engine/placementEngine.js'
 import {
+  canMoveDecoration as engineCanMoveDecoration,
+  moveDecoration as engineMoveDecoration,
   canPlaceDecoration as engineCanPlaceDecoration,
   placeDecoration as enginePlaceDecoration,
   removeDecoration as engineRemoveDecoration
@@ -344,6 +347,9 @@ export const useGameStore = defineStore('game', {
   },
 
   actions: {
+    openMarket() { return ensureMarket(this.game) },
+    deliverMarketOrder(orderId) { return deliverMarketOrder(this.game, orderId) },
+    setMarketReservation(value) { ensureMarket(this.game).reserve = !!value },
     renameTown(name) { return engineRenameTown(this.game, name) },
     hydrate(gameState) {
       this.game = gameState
@@ -407,6 +413,12 @@ export const useGameStore = defineStore('game', {
       return enginePlaceDecoration(this.game, decorationId, position)
     },
 
+    canMoveDecoration(instanceId, position) {
+      return engineCanMoveDecoration(this.game, instanceId, position)
+    },
+    moveDecoration(instanceId, position) {
+      return engineMoveDecoration(this.game, instanceId, position)
+    },
     removeDecoration(instanceId) {
       return engineRemoveDecoration(this.game, instanceId)
     },

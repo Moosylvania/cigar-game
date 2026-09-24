@@ -1,13 +1,27 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { useTweenedNumber } from '~/composables/useTweenedNumber.js'
 import { BUILDING_CONFIGS } from '#game/config/buildings/index.js'
 import { formatCompactNumber } from '#game/util/format.js'
 
+import { TOBACCO_VARIETIES } from '#game/config/tobacco.config.js'
+import { getResourceLots } from '#game/engine/tobaccoEngine.js'
+
 const store = useGameStore()
-const emit = defineEmits(['open-building'])
-const targetType = key => ['seeds', 'nurserySeedlings'].includes(key) ? 'nursery' : key === 'cigars' ? 'distribution' : null
+const selectedKey = ref(null)
+const selectedItem = computed(() => ITEMS.find(item => item.key === selectedKey.value))
+const rows = computed(() => {
+  if (!selectedKey.value) return []
+  const lots = getResourceLots(store.game, selectedKey.value)
+  return TOBACCO_VARIETIES.map(v => ({ ...v, quantity: lots[v.id] ?? 0 }))
+})
+const quantity = n => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+function closeBreakdown() {
+  const key = selectedKey.value
+  selectedKey.value = null
+  document.getElementById(`inventory-${key}`)?.focus()
+}
 
 // storage key -> the building type whose output fills it, for a matching
 // color swatch, plus a friendly label. Order mirrors the pipeline. Seeds
@@ -50,25 +64,51 @@ const items = computed(() =>
 </script>
 
 <template>
+  <div class="inventory-shell">
   <div class="inventory-bar">
-    <component :is="targetType(item.key) ? 'button' : 'div'" v-for="item in items" :key="item.key" class="inventory-item" :class="{ warn: item.isNearFull }"
-      :type="targetType(item.key) ? 'button' : undefined"
-      :disabled="targetType(item.key) ? !store.game.buildings.some(b => b.type === targetType(item.key)) : undefined"
-      :title="targetType(item.key) === 'nursery' ? 'Choose seeds to plant in your Nursery' : targetType(item.key) ? 'View your cigar varieties' : undefined"
-      @click="targetType(item.key) && emit('open-building', targetType(item.key))">
+    <button v-for="item in items" :id="`inventory-${item.key}`" :key="item.key" type="button" class="inventory-item" :class="{ warn: item.isNearFull }"
+      :aria-expanded="selectedKey === item.key" aria-controls="inventory-breakdown"
+      :title="`View ${item.label.toLowerCase()} by tobacco variety`"
+      @click="selectedKey = selectedKey === item.key ? null : item.key">
       <span class="swatch" :style="{ '--swatch': item.color }"><Icon :name="item.icon" /></span>
       <span class="label">{{ item.label }}</span>
       <span class="amount">
         {{ formatCompactNumber(item.amount) }}<template v-if="item.capacity != null"> / {{ formatCompactNumber(item.capacity) }}</template>
       </span>
       <Icon v-if="item.isNearFull" name="mdi:alert-outline" class="warn-icon" />
-    </component>
+    </button>
+  </div>
+  <section v-if="selectedItem" id="inventory-breakdown" class="inventory-breakdown" aria-labelledby="inventory-title" @keydown.esc.stop="closeBreakdown">
+    <header><h3 id="inventory-title">{{ selectedItem.label }}</h3><button type="button" aria-label="Close inventory breakdown" @click="closeBreakdown"><Icon name="mdi:close" /></button></header>
+    <p>In storage · {{ quantity(store.storage[selectedKey]) }} total</p>
+    <div class="inventory-varieties">
+      <div v-for="row in rows" :key="row.id" class="variety-row">
+        <span class="crop-color" :style="{ background: row.color }" aria-hidden="true"></span>
+        <span>{{ selectedKey === 'cigars' ? row.cigarName : row.name }}<small v-if="selectedKey === 'cigars'">{{ row.name }} tobacco</small></span>
+        <strong>{{ quantity(row.quantity) }}</strong>
+      </div>
+    </div>
+    <p v-if="!rows.some(row => row.quantity > 0)">No {{ selectedItem.label.toLowerCase() }} in storage yet.</p>
+  </section>
   </div>
 </template>
 
 <style lang="scss" scoped>
 @use '~/assets/scss/variables' as *;
 
+.inventory-shell { flex-shrink: 0; }
+.inventory-breakdown {
+  background: $color-panel; color: $color-text; padding: $spacing-md; border-bottom: 1px solid $color-panel-border;
+  max-height: 40vh; overflow-y: auto;
+  header { display: flex; align-items: center; justify-content: space-between; }
+  h3, p { margin: 0 0 $spacing-sm; }
+  p, small { color: $color-text-muted; font-size: 0.8rem; }
+  header button { background: transparent; color: $color-text; border: 0; min-width: 44px; min-height: 44px; cursor: pointer; }
+  button:focus-visible { outline: 2px solid $color-accent; }
+}
+.inventory-varieties { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: $spacing-sm $spacing-lg; }
+.variety-row { display: flex; align-items: center; gap: $spacing-sm; padding: $spacing-xs 0; small { display: block; } strong { margin-left: auto; font-variant-numeric: tabular-nums; } }
+.crop-color { width: 14px; height: 14px; flex-shrink: 0; border-radius: 3px; }
 .inventory-bar {
   display: flex;
   gap: $spacing-md;

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 // scanner can't see. This forces every one of them into the client bundle
 // at build time so icons render offline with no runtime Iconify API call.
 const ICON_NAMES = [
+  'mdi:clipboard-list-outline',
   'mdi:factory',
   'game-icons:plant-seed',
   'mdi:wheat',

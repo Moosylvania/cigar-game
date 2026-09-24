@@ -49,8 +49,9 @@ not claims about real-world seed costs or relative cigar retail prices.
 
 Run `node --test tests/tobacco.test.js` for progression and accounting regression tests.
 
-Click Seeds or Seedlings to open a Nursery selector, or open any Nursery to set
-its own choice. Click Cigars to inspect the Depot. Rolling batches and Depot stock
+Click any inventory category to see all eight varieties and their stored quantities.
+Open a Nursery to set its planting choice. Depot crates share the inventory variety
+colors and show finished cigar varieties queued for export, highest-value first. Rolling batches and Depot stock
 show distinct farm product names derived from their tracked tobacco varieties;
 mixed batches retain separate named products rather than becoming an invented blend.
 

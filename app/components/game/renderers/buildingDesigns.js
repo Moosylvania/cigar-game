@@ -214,9 +214,16 @@ export function drawBuildingDesign(ctx, type, level, p, time, processing, helper
     for(const x of centers) {
       const w=bayWidth-3;b(x-w/2,54,w,24,glass)
       for(let y=58;y<77;y+=5)l(x-w/2+1,y,x+w/2-1,y)
-      b(x-3,71,6,6,trim);l(x,72,x,76)
+      if (p.cargoColors === undefined) { b(x-3,71,6,6,trim);l(x,72,x,76) }
     }
     b(left+1,78,d.width-2,3,trim)
+    // One labeled-color crate per outgoing variety; empty storage leaves a clear dock.
+    for (const [i, color] of (p.cargoColors ?? []).entries()) {
+      const width = Math.min(7, (d.width - 6) / Math.max(1, p.cargoColors.length) - 1)
+      const x = left + 3 + i * (width + 1)
+      b(x, 71, width, 6, color, 0.5)
+      l(x + width / 2, 72, x + width / 2, 76)
+    }
     if(d.feature==='awning'){poly([[left,e+7],[right,e+7],[right+3,e+16],[left-3,e+16]],roof);l(left,e+16,left,77);l(right,e+16,right,77)}
     if(d.feature==='office')for(const x of centers)window(x-3,e+5,6,8)
   }

@@ -92,6 +92,7 @@ export function createInitialState() {
       pending: null,
       nextSpawnAt: timestamp + COIN_DELIVERY_INTERVAL_SECONDS * 1000
     },
+    market: null,
     decorations: [],
     // Only meaningful for a genuinely brand-new game (see game-init.client.js) -
     // a prestige reset discards this fresh copy and keeps the player's

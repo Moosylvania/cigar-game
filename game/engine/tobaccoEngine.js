@@ -61,3 +61,14 @@ export function setPlantingChoice(building, state, id) {
   building.seedVarietyId = id
   return true
 }
+
+// Reservations protect only outstanding market demand; extra stock still exports.
+export function getMarketReservedLots(state) {
+  const result = {}
+  if (!state.market?.reserve) return result
+  for (const order of state.market.orders) {
+    if (order.completed) continue
+    for (const r of order.requirements) result[r.tobaccoId] = (result[r.tobaccoId] ?? 0) + r.amount - r.delivered
+  }
+  return result
+}

@@ -17,7 +17,7 @@ const products = computed(() => {
     <h4>Your cigars</h4>
     <p v-if="!products.length">No finished cigars yet. Your tobacco variety determines the cigar produced.</p>
     <div v-for="product in products" :key="product.id" class="product">
-      <strong>{{ product.cigarName }}</strong>
+      <strong><span class="crop-swatch" :style="{ background: product.color }" aria-hidden="true"></span>{{ product.cigarName }}</strong>
       <span>{{ formatCompactNumber(product.quantity) }} · ${{ formatCompactNumber(product.price) }} each</span>
       <small>Made from {{ product.name }} tobacco</small>
     </div>
@@ -25,6 +25,7 @@ const products = computed(() => {
 </template>
 <style scoped lang="scss">
 @use '~/assets/scss/variables' as *;
+.crop-swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; }
 h4, p { margin: 0 0 $spacing-xs; }
 .product { display: grid; gap: 4px; padding: $spacing-sm 0; border-bottom: 1px solid $color-panel-border; }
 span { color: $color-money; font-size: 0.85rem; }

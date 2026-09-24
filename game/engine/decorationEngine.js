@@ -14,7 +14,7 @@ function footprintsOverlap(a, aFootprint, b, bFootprint) {
   )
 }
 
-function occupiesTile(state, position) {
+function occupiesTile(state, position, excludeId = null) {
   const allBuildings = [state.townHall, ...state.buildings]
   const overlapsBuilding = allBuildings.some((building) => {
     const config = getBuildingConfig(building.type)
@@ -22,7 +22,7 @@ function occupiesTile(state, position) {
   })
   if (overlapsBuilding) return true
 
-  return state.decorations.some((deco) => deco.position.x === position.x && deco.position.y === position.y)
+  return state.decorations.some((deco) => deco.id !== excludeId && deco.position.x === position.x && deco.position.y === position.y)
 }
 
 /**
@@ -78,5 +78,19 @@ export function removeDecoration(state, instanceId) {
   if (index === -1) return { ok: false, reason: 'not_found' }
 
   state.decorations.splice(index, 1)
+  return { ok: true }
+}
+
+export function canMoveDecoration(state, instanceId, position) {
+  if (!state.decorations.some(d => d.id === instanceId)) return { ok: false, reason: 'not_found' }
+  if (!Number.isInteger(position?.x) || !Number.isInteger(position?.y)) return { ok: false, reason: 'invalid_position' }
+  if (!isWithinUnlockedRegion(state, position, DECORATION_FOOTPRINT)) return { ok: false, reason: 'outside_unlocked_land' }
+  if (occupiesTile(state, position, instanceId)) return { ok: false, reason: 'tile_occupied' }
+  return { ok: true }
+}
+export function moveDecoration(state, instanceId, position) {
+  const result = canMoveDecoration(state, instanceId, position)
+  if (!result.ok) return result
+  state.decorations.find(d => d.id === instanceId).position = { ...position }
   return { ok: true }
 }

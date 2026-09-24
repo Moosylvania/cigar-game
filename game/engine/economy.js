@@ -1,3 +1,5 @@
+import { TOBACCO_VARIETIES } from '../config/tobacco.config.js'
+import { getResourceLots, getMarketReservedLots } from './tobaccoEngine.js'
 import { takeTobaccoResource, getLotValue, getStockCigarMultiplier } from './tobaccoEngine.js'
 import { getVehicleTier } from '../config/vehicles.config.js'
 import { getLevelStats } from '../config/buildings/index.js'
@@ -67,12 +69,22 @@ export function exportCigars(state, elapsedSeconds, labMultipliers) {
   const sellable = Math.min(state.resources.storage.cigars, capacityPerHour * (elapsedSeconds / 3600))
   if (sellable <= 0) return { moneyEarned: 0, cigarsSold: 0 }
 
-  const soldLots = takeTobaccoResource(state, 'cigars', sellable)
+  const reserved = getMarketReservedLots(state)
+  const stock = getResourceLots(state, 'cigars')
+  const soldLots = {}
+  let remaining = sellable
+  for (const crop of [...TOBACCO_VARIETIES].reverse()) {
+    const amount = Math.min(remaining, Math.max(0, (stock[crop.id] ?? 0) - (reserved[crop.id] ?? 0)))
+    if (amount > 0) {
+      Object.assign(soldLots, takeTobaccoResource(state, 'cigars', amount, crop.id))
+      remaining -= amount
+    }
+  }
   const moneyEarned = getLotValue(soldLots) * getBaseCigarSalePrice(state, labMultipliers)
   state.resources.money += moneyEarned
   // Tracked separately from resources.money (which resets on prestige) -
   // this is the input to the prestige points formula, see prestigeEngine.js.
   state.meta.lifetimeMoneyEarned = (state.meta.lifetimeMoneyEarned ?? 0) + moneyEarned
 
-  return { moneyEarned, cigarsSold: sellable }
+  return { moneyEarned, cigarsSold: sellable - remaining }
 }

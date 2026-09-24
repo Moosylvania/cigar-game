@@ -6,6 +6,7 @@ import BuildMenu from '~/components/game/BuildMenu.vue'
 import GameCanvas from '~/components/game/GameCanvas.vue'
 import BuildingUpgradePanel from '~/components/game/BuildingUpgradePanel.vue'
 import BulkActionPanel from '~/components/game/BulkActionPanel.vue'
+import MarketPanel from '~/components/game/MarketPanel.vue'
 import LabPanel from '~/components/game/LabPanel.vue'
 import StorePanel from '~/components/game/StorePanel.vue'
 import PrestigePanel from '~/components/game/PrestigePanel.vue'
@@ -24,6 +25,7 @@ const placingType = ref(null)
 const placingDecorationId = ref(null)
 const selectedBuildingId = ref(null)
 const selectedDecorationInstanceId = ref(null)
+const showMarket = ref(false)
 const showLab = ref(false)
 const showStore = ref(false)
 const showPrestige = ref(false)
@@ -132,6 +134,7 @@ const NUMBER_KEY_BUILDING_TYPES = {
 }
 
 const isModalOpen = computed(() =>
+  showMarket.value ||
   showLab.value ||
   showStore.value ||
   showPrestige.value ||
@@ -143,6 +146,7 @@ const isModalOpen = computed(() =>
 function closeAnyOpenModal() {
   selectedDecorationInstanceId.value = null
   selectedBuildingId.value = null
+  showMarket.value = false
   showLab.value = false
   showStore.value = false
   showPrestige.value = false
@@ -181,7 +185,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="game-layout">
     <ResourceBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
-    <InventoryBar @open-building="type => selectedBuildingId = store.game.buildings.find(b => b.type === type)?.id ?? null" :class="{ 'tutorial-dim': store.isTutorialVisible }" />
+    <InventoryBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
 
     <div class="toolbar">
       <template v-if="placingDecorationId">
@@ -200,6 +204,7 @@ onBeforeUnmount(() => {
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Expand territory" @click="startExpand"><Icon name="mdi:map-plus" /> Expand</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Select buildings" @click="startSelect"><Icon name="mdi:selection-drag" /> Select</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLab = true"><Icon name="mdi:flask-outline" /> Research</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showMarket = true"><Icon name="mdi:clipboard-list-outline" /> Market</button>
         <button class="store-btn" :class="{ 'tutorial-glow': storeButtonHighlighted, 'tutorial-dim': store.isTutorialVisible && !storeButtonHighlighted }" @click="showStore = true">
           <Icon name="mdi:storefront-outline" /> Store
         </button>
@@ -244,6 +249,7 @@ onBeforeUnmount(() => {
       :building-id="selectedBuildingId"
       @close="selectedBuildingId = null"
     />
+    <MarketPanel v-if="showMarket" @close="showMarket = false" />
     <LabPanel v-if="showLab" @close="showLab = false" />
     <StorePanel v-if="showStore" @close="showStore = false" @place-decoration="startPlacingDecoration" />
     <PrestigePanel v-if="showPrestige" @close="showPrestige = false" />

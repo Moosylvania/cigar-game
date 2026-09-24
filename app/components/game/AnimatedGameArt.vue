@@ -1,4 +1,7 @@
 <script setup>
+import { useGameStore } from '~/stores/game.js'
+import { getResourceLots } from '#game/engine/tobaccoEngine.js'
+import { TOBACCO_VARIETIES } from '#game/config/tobacco.config.js'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { subscribeArtFrame } from '~/composables/useArtFrames.js'
 import { drawIllustratedBuilding } from './renderers/illustratedBuildings.js'
@@ -14,6 +17,7 @@ const props = defineProps({
   theme: { type: String, default: 'backyard' },
   upgrading: Boolean
 })
+const store = useGameStore()
 const canvas = ref(null)
 let unsubscribe, observer
 let visible = true
@@ -28,7 +32,9 @@ onMounted(() => {
     else if (props.kind === 'decoration') drawDecoration(ctx, props.type, rect, time, props.theme)
     else if (props.kind === 'parcel') drawParcel(ctx, 80, 90, 82, time)
     else {
-      drawIllustratedBuilding(ctx, { type: props.type, level: props.level, slot: { status: props.status }, upgrade: props.upgrading }, rect, time, props.theme)
+      const lots = props.type === 'distribution' ? getResourceLots(store.game, 'cigars') : {}
+      const cargoColors = [...TOBACCO_VARIETIES].reverse().filter(v => lots[v.id] > 0).map(v => v.color)
+      drawIllustratedBuilding(ctx, { cargoColors, type: props.type, level: props.level, slot: { status: props.status }, upgrade: props.upgrading }, rect, time, props.theme)
       if (props.upgrading) drawConstruction(ctx, rect, time)
     }
   }

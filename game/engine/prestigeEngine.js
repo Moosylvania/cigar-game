@@ -184,6 +184,7 @@ function resetBoard(state) {
   state.lab = fresh.lab
   state.distribution = fresh.distribution
   state.boosts = fresh.boosts
+  state.market = fresh.market
   state.decorations = fresh.decorations
   state.meta = fresh.meta
   state.prestige.epicResearchLevels = {}

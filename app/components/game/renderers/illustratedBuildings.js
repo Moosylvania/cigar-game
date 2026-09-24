@@ -208,7 +208,7 @@ export function drawIllustratedBuilding(ctx, building, rect, time = 0, themeId =
     drawField(ctx, level, { ...palette, roof }, time, t, building.slot?.status === 'ready', processing)
     drawBuildingTechnology(ctx, { type, level, left: 25, right: 90, eave: level >= 8 ? 42 : 38, palette, time }, { box, line, ellipse, path })
   } else {
-    drawBuildingDesign(ctx, type, level, { ...palette, roof }, time, processing, { box, path, ellipse, line, plant, flag })
+    drawBuildingDesign(ctx, type, level, { ...palette, roof, cargoColors: building.cargoColors }, time, processing, { box, path, ellipse, line, plant, flag })
   }
   drawBuildingWorkers(ctx, building, { ...palette, roof }, time)
   ctx.restore()

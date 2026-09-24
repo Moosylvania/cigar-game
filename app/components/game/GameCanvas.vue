@@ -4,6 +4,8 @@ import { useGameStore } from '~/stores/game.js'
 import { useClock } from '~/composables/useClock.js'
 import { drawGrid, screenToGrid, gridToScreen } from './renderers/drawGrid.js'
 import { drawBuilding, drawBuildingOverlay, getStatusIndicatorHitbox } from './renderers/buildingGlyphs.js'
+import { getResourceLots } from '#game/engine/tobaccoEngine.js'
+import { TOBACCO_VARIETIES } from '#game/config/tobacco.config.js'
 import { drawDecoration } from './renderers/decorationSprites.js'
 import { drawVehicleSprite } from './renderers/vehicleSprites.js'
 import { drawCoinDelivery, drawCoinCollectBurst } from './renderers/coinDelivery.js'
@@ -111,6 +113,7 @@ const CLICK_THRESHOLD = 6
 const LONG_PRESS_MS = 450
 const isMovingBuilding = ref(false)
 let longPressTimer = null
+let draggingDecoration = false
 let draggingId = null
 let dragPosition = null
 let dragOffset = { x: 0, y: 0 }
@@ -289,6 +292,8 @@ function render(frameTime = 0) {
     drawSelectionBox(camera, normalizedGridRect(selectDragStart, selectDragCurrent), 'rgba(123, 201, 111, 0.18)', 'rgba(123, 201, 111, 0.9)')
   }
 
+  const lots = getResourceLots(store.game, 'cigars')
+  const cargoColors = [...TOBACCO_VARIETIES].reverse().filter(v => lots[v.id] > 0).map(v => v.color)
   const tilePx = TILE_SIZE * camera.scale
   buildingAnimations.sync(store.allBuildings)
   const worldObjects = []
@@ -296,12 +301,23 @@ function render(frameTime = 0) {
     const definition = getDecorationDefinition(decoration.decorationId)
     if (!definition) continue
     const rect = {
-      x: camera.offsetX + decoration.position.x * TILE_SIZE * camera.scale,
-      y: camera.offsetY + decoration.position.y * TILE_SIZE * camera.scale,
+      x: camera.offsetX + positionFor(decoration).x * TILE_SIZE * camera.scale,
+      y: camera.offsetY + positionFor(decoration).y * TILE_SIZE * camera.scale,
       width: TILE_SIZE * camera.scale,
       height: TILE_SIZE * camera.scale
     }
-    worldObjects.push({ rect, draw: () => drawDecoration(ctx, definition.spriteFile, rect, motionTime, store.activeThemeId) })
+    worldObjects.push({ rect, draw: () => {
+      ctx.save()
+      if (decoration.id === draggingId) ctx.globalAlpha = 0.7
+      drawDecoration(ctx, definition.spriteFile, rect, motionTime, store.activeThemeId)
+      if (decoration.id === draggingId) {
+        ctx.globalAlpha = 1
+        ctx.strokeStyle = dragValid ? '#7bc96f' : '#d16a5a'
+        ctx.lineWidth = 3
+        ctx.strokeRect(rect.x - 2, rect.y - 2, rect.width + 4, rect.height + 4)
+      }
+      ctx.restore()
+    } })
   }
 
   for (const building of store.allBuildings) {
@@ -314,7 +330,7 @@ function render(frameTime = 0) {
       if (isDragging || isGroupDragging) ctx.globalAlpha = 0.7
       const popScale = motionEnabled.value ? (buildingAnimations.getPopTransform(building.id)?.scale ?? 1) : 1
       const collectBlocked = building.slot?.status === 'ready' && store.isCollectBlocked(building.id)
-      drawBuilding(ctx, building, config, rect, tilePx, nowMs.value, popScale, collectBlocked, store.activeThemeId, motionTime, false)
+      drawBuilding(ctx, building.type === 'distribution' ? { ...building, cargoColors } : building, config, rect, tilePx, nowMs.value, popScale, collectBlocked, store.activeThemeId, motionTime, false)
       const effect = motionEnabled.value ? buildingAnimations.getEffect(building.id) : null
       if (effect) drawBuildingCelebration(ctx, rect, effect.progress, effect.kind)
       if (isDragging) {
@@ -564,10 +580,11 @@ function clearLongPress() {
 
 function startLongPress(screenPos) {
   const gridPos = gridPosFromScreen(screenPos)
-  const building = findBuildingAt(gridPos)
+  const building = findBuildingAt(gridPos) ?? findDecorationAt(gridPos)
   if (!building) return
   longPressTimer = setTimeout(() => {
     longPressTimer = null
+    draggingDecoration = !!building.decorationId
     draggingId = building.id
     dragPosition = { ...building.position }
     dragOffset = { x: gridPos.x - building.position.x, y: gridPos.y - building.position.y }
@@ -578,6 +595,7 @@ function startLongPress(screenPos) {
 }
 
 function endBuildingDrag() {
+  draggingDecoration = false
   draggingId = null
   dragPosition = null
   dragValid = true
@@ -674,7 +692,7 @@ function handlePointerMove(event) {
   if (draggingId) {
     const gridPos = gridPosFromScreen(screenPos)
     dragPosition = { x: gridPos.x - dragOffset.x, y: gridPos.y - dragOffset.y }
-    dragValid = store.canRelocateBuildings([{ id: draggingId, position: dragPosition }]).ok
+    dragValid = draggingDecoration ? store.canMoveDecoration(draggingId, dragPosition).ok : store.canRelocateBuildings([{ id: draggingId, position: dragPosition }]).ok
     return
   }
 
@@ -734,9 +752,12 @@ function handlePointerUp(event) {
 
   clearLongPress()
   if (draggingId) {
-    const building = store.findBuilding(draggingId)
+    const building = draggingDecoration ? store.decorations.find(d => d.id === draggingId) : store.findBuilding(draggingId)
     const moved = building && (dragPosition.x !== building.position.x || dragPosition.y !== building.position.y)
-    if (dragValid && moved) store.relocateBuildings([{ id: draggingId, position: dragPosition }])
+    if (event.type === 'pointerup' && dragValid && moved) {
+      if (draggingDecoration) store.moveDecoration(draggingId, dragPosition)
+      else store.relocateBuildings([{ id: draggingId, position: dragPosition }])
+    }
     endBuildingDrag()
     isPanning = false
     singlePointerId = null

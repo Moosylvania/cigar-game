@@ -1,3 +1,4 @@
+import { repairMarket } from '../engine/marketEngine.js'
 import { normalizeTobaccoLots } from '../engine/tobaccoEngine.js'
 import { DEFAULT_TOWN_NAME, MAX_TOWN_NAME_LENGTH, normalizeTownName } from '../engine/townProfile.js'
 import { PRESTIGE_TIERS } from '../config/prestige.config.js'
@@ -33,6 +34,7 @@ const LEGACY_LAND_TIER_REGIONS = [
  * @param {import('../types/state.js').GameState} state
  */
 function repairState(state) {
+  repairMarket(state)
   if (state.resources?.storage) {
     const oldLots = state.resources.tobaccoLots
     state.resources.tobaccoLots = Object.fromEntries(Object.entries(state.resources.storage).map(([key, count]) => [key, normalizeTobaccoLots(oldLots?.[key], count)]))
