@@ -59,7 +59,7 @@ export function getBatchInputAvailable(building, state, inputKey) {
 export function setPlantingChoice(building, state, id) {
   const stage = building && getPipelineStage(building.type)
   if (!stage) return false
-  if (id !== null && (!getTobacco(id) || !(getResourceLots(state, stage.inputKey)[id] > 0))) return false
+  if (id !== null && !getTobacco(id)) return false
   building.seedVarietyId = id
   return true
 }

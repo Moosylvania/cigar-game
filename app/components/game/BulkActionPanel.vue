@@ -1,6 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
+import { TOBACCO_VARIETIES } from '#game/config/tobacco.config.js'
+import { getPipelineStage } from '#game/config/pipeline.config.js'
 import { formatCompactNumber } from '#game/util/format.js'
 
 const props = defineProps({
@@ -12,6 +14,24 @@ const store = useGameStore()
 const lastResult = ref(null)
 
 const buildings = computed(() => props.buildingIds.map((id) => store.findBuilding(id)).filter(Boolean))
+
+const productionBuildings = computed(() => buildings.value.filter(b => getPipelineStage(b.type)))
+const tobaccoChoice = computed(() => {
+  const choices = new Set(productionBuildings.value.map(b => b.seedVarietyId ?? ''))
+  return choices.size === 1 ? [...choices][0] : 'mixed'
+})
+const tobaccoChoices = TOBACCO_VARIETIES
+
+function changeTobacco(event) {
+  const varietyId = event.target.value || null
+  let count = 0
+  for (const building of productionBuildings.value) {
+    if (store.selectPlantingSeed(building.id, varietyId)) count++
+  }
+  const skipped = productionBuildings.value.length - count
+  lastResult.value = `Updated ${count} production building${count === 1 ? '' : 's'}.${skipped ? ` ${skipped} unavailable for this tobacco.` : ''}`
+  event.target.value = tobaccoChoice.value
+}
 
 const idleCount = computed(() => buildings.value.filter((b) => b.slot?.status === 'idle').length)
 const readyCount = computed(() => buildings.value.filter((b) => b.slot?.status === 'ready').length)
@@ -46,7 +66,17 @@ function doCollectAll() {
       <button class="close" title="Clear selection" @click="emit('clear')"><Icon name="mdi:close" /></button>
     </div>
 
-    <p v-if="lastResult" class="feedback">{{ lastResult }}</p>
+    <p v-if="lastResult" class="feedback" role="status">{{ lastResult }}</p>
+
+    <div v-if="productionBuildings.length" class="tobacco-choice">
+      <label for="selection-tobacco">Seed / tobacco</label>
+      <select id="selection-tobacco" :value="tobaccoChoice" @change="changeTobacco">
+        <option v-if="tobaccoChoice === 'mixed'" value="mixed" disabled>Mixed choices</option>
+        <option value="">Automatic — highest price first</option>
+        <option v-for="crop in tobaccoChoices" :key="crop.id" :value="crop.id">{{ crop.name }}</option>
+      </select>
+      <p>Applies to the next batch in {{ productionBuildings.length }} production building{{ productionBuildings.length === 1 ? '' : 's' }}. Waits for matching stock.</p>
+    </div>
 
     <div class="bulk-actions">
       <button :disabled="upgradePreview.count === 0" @click="doUpgradeAll">
@@ -133,6 +163,26 @@ function doCollectAll() {
   margin: 0;
   font-size: 0.76rem;
   color: $color-money;
+}
+
+.tobacco-choice {
+  display: grid;
+  gap: $spacing-xs;
+  font-size: 0.8rem;
+
+  select {
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding: $spacing-xs;
+    font: inherit;
+    color: $color-text;
+    background: $color-bg;
+    border: 1px solid $color-panel-border;
+    border-radius: $radius-sm;
+    &:focus-visible { outline: 2px solid $color-accent; outline-offset: 2px; }
+  }
+  p { margin: 0; font-size: 0.72rem; color: $color-text-muted; }
 }
 
 .bulk-actions {

@@ -158,3 +158,14 @@ for (const stage of PIPELINE_STAGES) test(`${stage.type} automatic processing ta
   assert.deepEqual(b.slot.tobaccoLots, { connecticut: 5 })
   assert.equal(getResourceLots(s, stage.inputKey).piloto, 100)
 })
+
+for (const stage of PIPELINE_STAGES) test(`${stage.type} can select any tobacco before unlock or input arrives`, async () => {
+  const { setPlantingChoice } = await import('../game/engine/tobaccoEngine.js')
+  const s = empty(), b = s.buildings.find(b => b.type === stage.type)
+  assert.equal(setPlantingChoice(b, s, 'connecticut'), true)
+  addTobaccoResource(s, stage.inputKey, { piloto: 10 }, 10)
+  assert.equal(startBatch(b, s, {}).reason, 'no_input_available')
+  addTobaccoResource(s, stage.inputKey, { connecticut: 5 }, 5)
+  assert.equal(startBatch(b, s, {}).ok, true)
+  assert.deepEqual(b.slot.tobaccoLots, { connecticut: 5 })
+})
