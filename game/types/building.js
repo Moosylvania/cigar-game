@@ -15,6 +15,7 @@
 
 /**
  * @typedef {Object} PlacedBuilding
+ * @property {string|null} [seedVarietyId] - Nursery seed preference; null means automatic
  * @property {string} id
  * @property {BuildingType} type
  * @property {import('./grid.js').GridPosition} position

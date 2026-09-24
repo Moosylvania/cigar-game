@@ -8,6 +8,8 @@ import { getAutomationTier, AUTO_COLLECT_LEVEL, AUTO_START_LEVEL } from '#game/c
 import { TOWN_HALL_GATING } from '#game/config/townHallGating.config.js'
 import { formatDuration } from '#game/util/time.js'
 import { formatCompactNumber } from '#game/util/format.js'
+import NurserySeedSelector from './NurserySeedSelector.vue'
+import { getBatchInputAvailable } from '#game/engine/tobaccoEngine.js'
 import DistributionPanel from './DistributionPanel.vue'
 import AnimatedGameArt from './AnimatedGameArt.vue'
 import TownHallOverview from './TownHallOverview.vue'
@@ -90,7 +92,7 @@ const building = computed(() => store.findBuilding(props.buildingId))
 const batchCropLabel = computed(() => {
   const slot = building.value?.slot
   if (!slot || slot.status === 'idle') return ''
-  return Object.entries(normalizeTobaccoLots(slot.tobaccoLots, slot.batchSize)).filter(([, n]) => n > 0).map(([id, n]) => `${getTobacco(id).name}: ${formatCompactNumber(n)}`).join(' · ')
+  return Object.entries(normalizeTobaccoLots(slot.tobaccoLots, slot.batchSize)).filter(([, n]) => n > 0).map(([id, n]) => `${building.value.type === 'rolling' ? getTobacco(id).cigarName + ' (' + getTobacco(id).name + ')' : getTobacco(id).name}: ${formatCompactNumber(n)}`).join(' · ')
 })
 const config = computed(() => (building.value ? store.getBuildingConfig(building.value.type) : null))
 const stage = computed(() => (building.value ? getPipelineStage(building.value.type) : null))
@@ -212,7 +214,7 @@ const slotRemainingSeconds = computed(() => {
 
 const inputAvailable = computed(() => {
   if (!stage.value?.inputKey || !building.value) return true
-  return store.storage[stage.value.inputKey] > 0
+  return getBatchInputAvailable(building.value, store.game, stage.value.inputKey) > 0
 })
 
 const automation = computed(() => (building.value ? getAutomationTier(building.value.level) : { autoCollect: false, autoStart: false }))
@@ -264,6 +266,7 @@ function doCollectBatch() {
 
       <section v-if="stage" class="batch-section">
         <h4>Production</h4>
+        <NurserySeedSelector v-if="building.type === 'nursery'" :building="building" />
         <p v-if="batchCropLabel" class="note">{{ batchCropLabel }}</p>
         <div class="slot-status">
           <template v-if="building.upgrade">

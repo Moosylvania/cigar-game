@@ -1,4 +1,4 @@
-import { takeTobaccoResource, addTobaccoResource } from './tobaccoEngine.js'
+import { takeTobaccoResource, addTobaccoResource, getPlantingChoice, getBatchInputAvailable } from './tobaccoEngine.js'
 import { getPipelineStage, PIPELINE_STAGES } from '../config/pipeline.config.js'
 import { getLevelStats } from '../config/buildings/index.js'
 import { getAutomationTier } from '../config/automation.config.js'
@@ -45,10 +45,10 @@ export function startBatch(building, state, labMultipliers, maxAmount = Infinity
   let moved = capacity
   let tobaccoLots = {}
   if (stage.inputKey) {
-    const available = state.resources.storage[stage.inputKey]
+    const available = getBatchInputAvailable(building, state, stage.inputKey)
     moved = Math.min(capacity, available, maxAmount)
     if (moved <= 0) return { ok: false, reason: 'no_input_available' }
-    tobaccoLots = takeTobaccoResource(state, stage.inputKey, moved)
+    tobaccoLots = takeTobaccoResource(state, stage.inputKey, moved, getPlantingChoice(building))
   }
 
   const speedMultiplier = labMultipliers?.speedMultipliers?.[building.type] ?? 1
@@ -135,7 +135,7 @@ function buildingsInPipelineOrder(state) {
   const order = PIPELINE_STAGES.map((stage) => stage.type)
   return state.buildings
     .filter((b) => b.slot)
-    .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type))
+    .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type) || Number(!!getPlantingChoice(b)) - Number(!!getPlantingChoice(a)))
 }
 
 /**
@@ -201,14 +201,15 @@ export function runAutomation(state, labMultipliers) {
   for (const building of ordered) {
     const { autoStart } = getAutomationTier(building.level)
     if (building.slot.status !== 'idle' || !autoStart || building.upgrade) continue
-    const list = idleByType.get(building.type) ?? []
+    const key = `${building.type}:${getPlantingChoice(building) ?? 'auto'}`
+    const list = idleByType.get(key) ?? []
     list.push(building)
-    idleByType.set(building.type, list)
+    idleByType.set(key, list)
   }
 
   for (const buildings of idleByType.values()) {
     const stage = getPipelineStage(buildings[0].type)
-    const availableInput = state.resources.storage[stage.inputKey]
+    const availableInput = getBatchInputAvailable(buildings[0], state, stage.inputKey)
     const shares = computeFairShares(availableInput, buildings, labMultipliers)
     for (const building of buildings) {
       const share = shares.get(building)
@@ -254,9 +255,10 @@ export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
   const idleByType = new Map()
   for (const building of ordered) {
     if (building.slot.status !== 'idle') continue
-    const list = idleByType.get(building.type) ?? []
+    const key = `${building.type}:${getPlantingChoice(building) ?? 'auto'}`
+    const list = idleByType.get(key) ?? []
     list.push(building)
-    idleByType.set(building.type, list)
+    idleByType.set(key, list)
   }
 
   for (const buildings of idleByType.values()) {
@@ -266,7 +268,7 @@ export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
     // Even split of the shared input pool across same-type buildings, up
     // front - each then independently computes its own cycles/partial
     // batch against its share instead of the whole pool.
-    const inputSharePerBuilding = state.resources.storage[stage.inputKey] / buildings.length
+    const inputSharePerBuilding = getBatchInputAvailable(buildings[0], state, stage.inputKey) / buildings.length
 
     for (const building of buildings) {
       const levelStats = getLevelStats(building.type, building.level)
@@ -289,7 +291,7 @@ export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
       let remainingSeconds = elapsedSeconds
       let remainingShare = inputSharePerBuilding
       if (cycles > 0) {
-        const tobaccoLots = takeTobaccoResource(state, stage.inputKey, cycles * capacity)
+        const tobaccoLots = takeTobaccoResource(state, stage.inputKey, cycles * capacity, getPlantingChoice(building))
         addTobaccoResource(state, stage.outputKey, tobaccoLots, cycles * capacity)
         remainingSeconds -= cycles * durationSeconds
         remainingShare -= cycles * capacity

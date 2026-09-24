@@ -181,7 +181,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="game-layout">
     <ResourceBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
-    <InventoryBar :class="{ 'tutorial-dim': store.isTutorialVisible }" />
+    <InventoryBar @open-building="type => selectedBuildingId = store.game.buildings.find(b => b.type === type)?.id ?? null" :class="{ 'tutorial-dim': store.isTutorialVisible }" />
 
     <div class="toolbar">
       <template v-if="placingDecorationId">

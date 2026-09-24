@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { getVehicleTier } from '#game/config/vehicles.config.js'
 import { formatCompactNumber } from '#game/util/format.js'
+import CigarInventory from './CigarInventory.vue'
 import AnimatedGameArt from './AnimatedGameArt.vue'
 import VehiclePickerModal from './VehiclePickerModal.vue'
 
@@ -60,6 +61,8 @@ const isNearFull = computed(() => cigarCapacity.value > 0 && cigarsStored.value 
       <Icon :name="isNearFull ? 'mdi:alert-outline' : 'mdi:warehouse'" />
       <span>Cigar storage: {{ formatCompactNumber(cigarsStored) }} / {{ formatCompactNumber(cigarCapacity) }}</span>
     </div>
+
+    <CigarInventory />
 
     <div class="fleet-list">
       <button

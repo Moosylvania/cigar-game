@@ -31,7 +31,11 @@ not claims about real-world seed costs or relative cigar retail prices.
 - Seed packs still contain 5, 10, 20, or 100 nursery batch-equivalents, sized to
   the largest nursery and current research. Existing bulk discounts apply.
 - A crop's seed-price multiplier applies to every pack size.
-- Higher-value varieties are processed and exported first. Batches may contain
+- Each Nursery can select an owned seed variety, or use Automatic for highest-value
+  seeds first. Explicit choices wait when depleted and apply only to future batches.
+  Automatic Nurseries use stock remaining after explicit choices; Nurseries with the
+  same choice share that stock. Preferences persist through saves and offline work.
+- Downstream varieties are processed and exported highest-value first. Batches may contain
   multiple varieties, and their quantities remain tracked through the pipeline.
 - Buying a premium seed never upgrades previously purchased crops or cigars.
 - Actual revenue = sum of each exported variety's quantity × its multiplier ×
@@ -44,3 +48,8 @@ not claims about real-world seed costs or relative cigar retail prices.
 - Offline automation carries the same variety quantities as manual production.
 
 Run `node --test tests/tobacco.test.js` for progression and accounting regression tests.
+
+Click Seeds or Seedlings to open a Nursery selector, or open any Nursery to set
+its own choice. Click Cigars to inspect the Depot. Rolling batches and Depot stock
+show distinct farm product names derived from their tracked tobacco varieties;
+mixed batches retain separate named products rather than becoming an invented blend.

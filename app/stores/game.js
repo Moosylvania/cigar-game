@@ -1,3 +1,4 @@
+import { setPlantingChoice } from '#game/engine/tobaccoEngine.js'
 import { renameTown as engineRenameTown, DEFAULT_TOWN_NAME } from '#game/engine/townProfile.js'
 import { defineStore } from 'pinia'
 import { createInitialState } from '#game/state/createInitialState.js'
@@ -414,6 +415,10 @@ export const useGameStore = defineStore('game', {
       const building = this.findBuilding(buildingId)
       if (!building) return { ok: false, reason: 'not_found' }
       return engineStartUpgradeToLevel(building, this.game, targetLevel, this.combinedMultipliers.upgradeSpeedMultiplier)
+    },
+
+    selectPlantingSeed(buildingId, varietyId) {
+      return setPlantingChoice(this.findBuilding(buildingId), this.game, varietyId)
     },
 
     startBatch(buildingId) {

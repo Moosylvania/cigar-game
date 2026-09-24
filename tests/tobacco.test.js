@@ -103,3 +103,50 @@ test('full depot refuses collection without losing premium batch contents', () =
   assert.equal(collectBatch(b,s,{}).reason,'output_full')
   assert.equal(JSON.stringify(s),before)
 })
+
+test('Nursery selection consumes only owned chosen seeds and changes only future batches', async () => {
+  const { setPlantingChoice } = await import('../game/engine/tobaccoEngine.js')
+  const s = empty(), b = s.buildings.find(b => b.type === 'nursery')
+  addTobaccoResource(s, 'seeds', { piloto: 3, connecticut: 4 }, 7)
+  assert.equal(setPlantingChoice(b, s, 'piloto'), true)
+  assert.equal(startBatch(b, s, {}).ok, true)
+  assert.deepEqual(b.slot.tobaccoLots, { piloto: 3 })
+  assert.equal(setPlantingChoice(b, s, 'connecticut'), true)
+  assert.deepEqual(b.slot.tobaccoLots, { piloto: 3 })
+  b.slot.status = 'ready'; collectBatch(b, s, {})
+  assert.equal(startBatch(b, s, {}).ok, true)
+  assert.deepEqual(b.slot.tobaccoLots, { connecticut: 4 })
+  b.slot.status = 'ready'; collectBatch(b, s, {})
+  addTobaccoResource(s, 'seeds', { piloto: 10 }, 10)
+  assert.equal(startBatch(b, s, {}).reason, 'no_input_available')
+  assert.equal(s.resources.storage.seeds, 10)
+  assert.equal(setPlantingChoice(b, s, 'bogus'), false)
+  assert.equal(setPlantingChoice(b, s, null), true)
+  assert.equal(startBatch(b, s, {}).ok, true)
+})
+
+test('live and offline automation respect independent Nursery choices, including automatic mode', async () => {
+  const { runAutomation } = await import('../game/engine/batchEngine.js')
+  for (const run of [s => runAutomation(s, {}), s => fastForwardAutomation(s, 600, {})]) {
+    const s = empty(), base = s.buildings.find(b => b.type === 'nursery')
+    s.buildings = [
+      { ...structuredClone(base), id: 'auto', level: 10 },
+      { ...structuredClone(base), id: 'chosen', level: 10, seedVarietyId: 'connecticut' },
+      { ...structuredClone(base), id: 'empty', level: 10, seedVarietyId: 'criollo' }
+    ]
+    addTobaccoResource(s, 'seeds', { piloto: 1000, connecticut: 1000 }, 2000)
+    run(s)
+    const chosen = s.buildings[1]
+    assert.ok(!chosen.slot.tobaccoLots?.piloto)
+    assert.equal(s.buildings[2].slot.status, 'idle')
+    const lots = [getResourceLots(s, 'seeds'), getResourceLots(s, 'nurserySeedlings'), ...s.buildings.map(b => b.slot.tobaccoLots ?? {})]
+    for (const id of ['piloto', 'connecticut']) near(lots.reduce((n, lot) => n + (lot[id] ?? 0), 0), 1000)
+    const restored = migrateSave(JSON.parse(JSON.stringify({ version: 1, state: s }))).state
+    assert.equal(restored.buildings.find(b => b.id === 'chosen').seedVarietyId, 'connecticut')
+  }
+})
+
+test('every tobacco variety produces a distinct named cigar', () => {
+  assert.equal(new Set(TOBACCO_VARIETIES.map(v => v.cigarName)).size, TOBACCO_VARIETIES.length)
+  assert.ok(TOBACCO_VARIETIES.every(v => v.cigarName?.length > 0))
+})

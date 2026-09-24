@@ -516,6 +516,10 @@ function findIndicatorHitAt(screenPos) {
 }
 
 function handleIndicatorClick(building) {
+  if (building.type === 'nursery' && building.slot.status === 'idle') {
+    emit('building-selected', building)
+    return
+  }
   if (building.slot.status === 'idle') {
     store.startBatch(building.id)
   } else if (building.slot.status === 'ready' && !store.isCollectBlocked(building.id)) {

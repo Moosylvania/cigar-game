@@ -24,7 +24,7 @@ const holdings = computed(() => {
       </option>
     </select>
     <p>{{ crop.description }} <strong>{{ crop.cigarMultiplier }}× cigar value</strong> · ${{ number(salePrice) }} per cigar with your current bonuses.</p>
-    <p class="muted">Seed packs below contain {{ crop.name }}. Your best available crops are processed and exported first. Existing stock keeps its original variety.</p>
+    <p class="muted">Seed packs below contain {{ crop.name }}. Choose which seeds to plant by clicking Seedlings or opening a Nursery. Automatic mode uses your highest-value seeds. Existing stock keeps its original variety.</p>
     <details>
       <summary>Seed unlocks · ${{ number(lifetime) }} lifetime earned</summary>
       <div v-for="variety in TOBACCO_VARIETIES" :key="variety.id" class="crop-row">

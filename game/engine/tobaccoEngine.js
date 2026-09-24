@@ -25,12 +25,13 @@ export function addTobaccoResource(state, key, lots, total) {
   state.resources.tobaccoLots[key] = current
   state.resources.storage[key] += total
 }
-export function takeTobaccoResource(state, key, requested) {
+export function takeTobaccoResource(state, key, requested, varietyId = null) {
   const current = getResourceLots(state, key), taken = {}
-  let remaining = Math.min(Math.max(0, requested), state.resources.storage[key])
+  let remaining = Math.min(Math.max(0, requested), varietyId ? (current[varietyId] ?? 0) : state.resources.storage[key])
   const amount = remaining
   // Use the best available crop first. Existing crops never change their value.
   for (const variety of [...TOBACCO_VARIETIES].reverse()) {
+    if (varietyId && variety.id !== varietyId) continue
     const count = Math.min(current[variety.id] ?? 0, remaining)
     if (count > 0) { taken[variety.id] = count; current[variety.id] -= count; remaining -= count }
   }
@@ -45,4 +46,18 @@ export function getLotValue(lots) {
 export function getStockCigarMultiplier(state) {
   const quantity = state.resources.storage.cigars
   return quantity > 0 ? getLotValue(getResourceLots(state, 'cigars')) / quantity : 1
+}
+
+export function getPlantingChoice(building) {
+  return building.type === 'nursery' && getTobacco(building.seedVarietyId) ? building.seedVarietyId : null
+}
+export function getBatchInputAvailable(building, state, inputKey) {
+  const id = getPlantingChoice(building)
+  return id ? (getResourceLots(state, inputKey)[id] ?? 0) : state.resources.storage[inputKey]
+}
+export function setPlantingChoice(building, state, id) {
+  if (!building || building.type !== 'nursery') return false
+  if (id !== null && (!getTobacco(id) || !(getResourceLots(state, 'seeds')[id] > 0))) return false
+  building.seedVarietyId = id
+  return true
 }

@@ -6,6 +6,8 @@ import { BUILDING_CONFIGS } from '#game/config/buildings/index.js'
 import { formatCompactNumber } from '#game/util/format.js'
 
 const store = useGameStore()
+const emit = defineEmits(['open-building'])
+const targetType = key => ['seeds', 'nurserySeedlings'].includes(key) ? 'nursery' : key === 'cigars' ? 'distribution' : null
 
 // storage key -> the building type whose output fills it, for a matching
 // color swatch, plus a friendly label. Order mirrors the pipeline. Seeds
@@ -49,14 +51,18 @@ const items = computed(() =>
 
 <template>
   <div class="inventory-bar">
-    <div v-for="item in items" :key="item.key" class="inventory-item" :class="{ warn: item.isNearFull }">
+    <component :is="targetType(item.key) ? 'button' : 'div'" v-for="item in items" :key="item.key" class="inventory-item" :class="{ warn: item.isNearFull }"
+      :type="targetType(item.key) ? 'button' : undefined"
+      :disabled="targetType(item.key) ? !store.game.buildings.some(b => b.type === targetType(item.key)) : undefined"
+      :title="targetType(item.key) === 'nursery' ? 'Choose seeds to plant in your Nursery' : targetType(item.key) ? 'View your cigar varieties' : undefined"
+      @click="targetType(item.key) && emit('open-building', targetType(item.key))">
       <span class="swatch" :style="{ '--swatch': item.color }"><Icon :name="item.icon" /></span>
       <span class="label">{{ item.label }}</span>
       <span class="amount">
         {{ formatCompactNumber(item.amount) }}<template v-if="item.capacity != null"> / {{ formatCompactNumber(item.capacity) }}</template>
       </span>
       <Icon v-if="item.isNearFull" name="mdi:alert-outline" class="warn-icon" />
-    </div>
+    </component>
   </div>
 </template>
 
@@ -100,6 +106,14 @@ const items = computed(() =>
       color: $color-danger;
     }
   }
+}
+
+button.inventory-item {
+  font: inherit; background: transparent; border: 0; padding: 6px 0; cursor: pointer;
+  .label { text-decoration: underline dotted; text-underline-offset: 3px; }
+  &:hover { color: $color-text; }
+  &:focus-visible { outline: 2px solid $color-accent; outline-offset: 2px; }
+  &:disabled { opacity: 0.5; cursor: default; }
 }
 
 .warn-icon {
