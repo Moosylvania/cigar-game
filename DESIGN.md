@@ -101,7 +101,9 @@ Decorative crews work in the foreground of each building. One human starts
 at level 1; crews grow at levels 4 and 8. Robot helpers appear at level 7,
 with fully robotic crews at level 10. Tools and tasks reflect the building
 type. Human figures share a stylized golden face color. All crews alternate
-walking or rolling between nearby stations with visible tool and cargo work;
+approach, work, return, and unload stages at fixed, grounded stations.
+Hands reach valves, planted beds, racks, vats, rolling tables, and terminals.
+Cargo is carried to loading docks and crews return empty;
 idle crews follow a slower cycle. Workers use the existing motion clock and freeze when motion is off;
 they do not alter simulation state, placement, or interaction bounds.
 Map and preview art use the same level renderer.
