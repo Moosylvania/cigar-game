@@ -7,7 +7,7 @@ import { useClock } from './useClock.js'
 const vehicles = []
 let nextId = 1
 let nextSpawnAt = 0
-// Dev showcase only (see createShowcaseState.js): fixed lanes that each keep
+// Showcase only (see createShowcaseState.js): fixed lanes that each keep
 // one vehicle of their tier driving across forever, instead of the random
 // depot-based spawner.
 let showcaseLanes = null

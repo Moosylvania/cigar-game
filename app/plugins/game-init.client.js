@@ -14,10 +14,10 @@ export default defineNuxtPlugin(async () => {
   const store = useGameStore()
   const adapter = createSaveAdapter()
 
-  // Dev-only: /?showcase lays out every building at every level (idle and
+  // /?showcase lays out every building at every level (idle and
   // under construction) plus every vehicle tier, for art review. Never
   // persisted, so the real save is untouched.
-  if (import.meta.dev && new URLSearchParams(window.location.search).has('showcase')) {
+  if (new URLSearchParams(window.location.search).has('showcase')) {
     const { state, vehicleLanes } = createShowcaseState()
     store.hydrate(state)
     setShowcaseLanes(vehicleLanes)

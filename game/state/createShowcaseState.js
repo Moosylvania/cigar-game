@@ -6,7 +6,7 @@ import { STARTING_REGION, MAX_REGION } from '../config/land.config.js'
 import { VEHICLE_TIERS } from '../config/vehicles.config.js'
 import { DECORATIONS } from '../config/decorations.config.js'
 
-// Dev-only art review board (see game-init.client.js ?showcase): for each
+// Art review board (see game-init.client.js ?showcase): for each
 // building type, a row of levels 1..MAX_BUILDING_LEVEL left to right, then a
 // second row of the same levels permanently under construction. Below that,
 // a row with every decoration, then one lane per vehicle tier with that
