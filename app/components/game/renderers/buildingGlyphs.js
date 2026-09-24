@@ -1,4 +1,6 @@
 import { formatDuration } from '#game/util/time.js'
+import { getTobacco } from '#game/config/tobacco.config.js'
+import { normalizeTobaccoLots } from '#game/engine/tobaccoEngine.js'
 import { publicAsset } from '~/utils/publicAsset.js'
 import { drawIllustratedBuilding } from './illustratedBuildings.js'
 import { drawConstruction } from './worldEffects.js'
@@ -277,6 +279,7 @@ export function drawBuildingOverlay(ctx, building, config, rect, tilePx, nowMs, 
   drawNameLabel(ctx, config.displayName, rect, tilePx)
 
   if (building.slot) {
+    drawTobaccoLabel(ctx, building, rect, tilePx, bottomRow)
     drawSlotIndicator(ctx, building, rect, tilePx, nowMs, bottomRow)
   }
 
@@ -477,11 +480,41 @@ function drawLevelBadge(ctx, level, rect, bottomRow) {
   ctx.restore()
 }
 
-/** Building type name, top-center on a dark chip - a stroke alone still
- * loses contrast over light or busy patches of a sprite, where a solid
- * backdrop reads cleanly regardless of what's underneath. Sized off
- * tilePx (not rect.width) so a 2x2 building's name isn't twice the size of
- * a 1x1 building's at the same zoom level. */
+/** Compact batch caption tucked just above the bottom controls. */
+function drawTobaccoLabel(ctx, building, rect, tilePx, bottomRow) {
+  if (rect.width < 34 || building.slot.status === 'idle') return
+  const slot = building.slot
+  const varieties = slot.status === 'idle' ? [] : Object.entries(normalizeTobaccoLots(slot.tobaccoLots, slot.batchSize))
+    .filter(([, quantity]) => quantity > 0)
+    .sort((a, b) => b[1] - a[1])
+  let label = varieties.length
+    ? `${getTobacco(varieties[0][0]).name}${varieties.length > 1 ? ` +${varieties.length - 1}` : ''}`
+    : ''
+  if (!label) return
+  const margin = bottomRow.margin
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(rect.x, rect.y, rect.width, rect.height)
+  ctx.clip()
+  ctx.font = `600 ${Math.max(8, Math.min(11, tilePx * 0.075))}px sans-serif`
+  const maxWidth = rect.width - margin * 2
+  if (ctx.measureText(label).width > maxWidth) {
+    while (label.length > 1 && ctx.measureText(`${label}…`).width > maxWidth) label = label.slice(0, -1)
+    label += '…'
+  }
+  const x = rect.x + rect.width / 2
+  const y = bottomRow.bottomY - chipHeightFor(tilePx) - 2
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'bottom'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = '#202c28'
+  ctx.lineWidth = 3
+  ctx.strokeText(label, x, y)
+  ctx.fillStyle = '#eee9dc'
+  ctx.fillText(label, x, y)
+  ctx.restore()
+}
+
 function drawNameLabel(ctx, displayName, rect, tilePx) {
   if (!displayName || rect.width < 34) return
 

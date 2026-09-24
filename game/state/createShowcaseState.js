@@ -5,6 +5,7 @@ import { isPipelineBuilding } from '../config/pipeline.config.js'
 import { STARTING_REGION, MAX_REGION } from '../config/land.config.js'
 import { VEHICLE_TIERS } from '../config/vehicles.config.js'
 import { DECORATIONS } from '../config/decorations.config.js'
+import { TOBACCO_VARIETIES } from '../config/tobacco.config.js'
 
 // Art review board (see game-init.client.js ?showcase): for each
 // building type, a row of levels 1..MAX_BUILDING_LEVEL left to right, then a
@@ -23,6 +24,16 @@ const NEVER_MS = (100 * 60 * 60 - 1) * 1000
 
 function createShowcaseBuilding(type, level, position, underConstruction) {
   const startedAt = Date.now()
+  const variety = TOBACCO_VARIETIES[(level - 1) % TOBACCO_VARIETIES.length]
+  const slot = !isPipelineBuilding(type) ? null
+    : underConstruction ? { status: 'idle', batchSize: 0 }
+    : {
+        status: level === 9 ? 'ready' : 'processing',
+        batchSize: 10,
+        tobaccoLots: level === 10 ? { piloto: 6, criollo: 4 } : { [variety.id]: 10 },
+        startedAt: startedAt - NEVER_MS / 2,
+        completesAt: startedAt + NEVER_MS
+      }
   return {
     id: createId('bld'),
     type,
@@ -31,7 +42,7 @@ function createShowcaseBuilding(type, level, position, underConstruction) {
     upgrade: underConstruction
       ? { targetLevel: Math.min(level + 1, MAX_BUILDING_LEVEL), startedAt, completesAt: startedAt + NEVER_MS }
       : null,
-    slot: isPipelineBuilding(type) ? { status: 'idle', batchSize: 0 } : null
+    slot
   }
 }
 
