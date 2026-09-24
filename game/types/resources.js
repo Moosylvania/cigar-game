@@ -17,6 +17,7 @@
  * @typedef {Object} ResourceState
  * @property {number} money
  * @property {ResourceStorage} storage
+ * @property {Object<string, Object<string, number>>} [tobaccoLots] - quantity by variety at each pipeline stage
  */
 
 export {}

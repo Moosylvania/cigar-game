@@ -596,12 +596,12 @@ export const useGameStore = defineStore('game', {
       return engineBuyTrainSlot(this.game)
     },
 
-    canBuyStoreItem(itemId) {
-      return engineCanBuyStoreItem(this.game, itemId)
+    canBuyStoreItem(itemId, tobaccoId) {
+      return engineCanBuyStoreItem(this.game, itemId, tobaccoId)
     },
 
-    buyStoreItem(itemId) {
-      return engineBuyStoreItem(this.game, itemId, this.combinedMultipliers)
+    buyStoreItem(itemId, tobaccoId) {
+      return engineBuyStoreItem(this.game, itemId, this.combinedMultipliers, tobaccoId)
     },
 
     getEpicResearchLevel(researchId) {

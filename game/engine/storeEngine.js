@@ -1,3 +1,5 @@
+import { DEFAULT_TOBACCO_ID, getTobacco, isTobaccoUnlocked } from '../config/tobacco.config.js'
+import { addTobaccoResource } from './tobaccoEngine.js'
 import { getStoreItem } from '../config/store.config.js'
 import { getLevelStats } from '../config/buildings/index.js'
 import { activateBoost } from './boostEngine.js'
@@ -9,7 +11,7 @@ import { activateBoost } from './boostEngine.js'
  */
 
 /**
- * Seeds are a single pooled resource, but nurseries consume a different
+ * Seeds keep per-variety quantities alongside pooled totals. Nurseries consume a different
  * amount per batch depending on level and Lab batch-size research - so
  * "one batch" has no single fixed seed count across a game with multiple
  * nurseries. Seed packs are priced in batch-equivalents, sized off the
@@ -44,10 +46,12 @@ function spendBalance(state, currency, amount) {
  * @param {string} itemId
  * @returns {StorePurchaseResult}
  */
-export function canBuyStoreItem(state, itemId) {
+export function canBuyStoreItem(state, itemId, tobaccoId = DEFAULT_TOBACCO_ID) {
   const item = getStoreItem(itemId)
   if (!item) return { ok: false, reason: 'unknown_item' }
-  if (getBalance(state, item.currency) < item.cost) return { ok: false, reason: 'insufficient_funds' }
+  if (item.type === 'seeds' && !isTobaccoUnlocked(state, tobaccoId)) return { ok: false, reason: 'tobacco_locked' }
+  const cost = getStoreItemCost(item, tobaccoId)
+  if (getBalance(state, item.currency) < cost) return { ok: false, reason: 'insufficient_funds' }
   return { ok: true }
 }
 
@@ -57,15 +61,16 @@ export function canBuyStoreItem(state, itemId) {
  * @param {{ batchSizeMultipliers: Object<string, number> }} [labMultipliers]
  * @returns {StorePurchaseResult}
  */
-export function buyStoreItem(state, itemId, labMultipliers) {
-  const result = canBuyStoreItem(state, itemId)
+export function buyStoreItem(state, itemId, labMultipliers, tobaccoId = DEFAULT_TOBACCO_ID) {
+  const result = canBuyStoreItem(state, itemId, tobaccoId)
   if (!result.ok) return result
 
   const item = getStoreItem(itemId)
-  spendBalance(state, item.currency, item.cost)
+  spendBalance(state, item.currency, getStoreItemCost(item, tobaccoId))
 
   if (item.type === 'seeds') {
-    state.resources.storage.seeds += item.batches * getSeedsPerBatch(state, labMultipliers)
+    const count = item.batches * getSeedsPerBatch(state, labMultipliers)
+    addTobaccoResource(state, 'seeds', { [tobaccoId]: count }, count)
   } else if (item.type === 'speed_boost_processing') {
     activateBoost(state.boosts, 'processing', item)
   } else if (item.type === 'speed_boost_upgrade') {
@@ -75,4 +80,8 @@ export function buyStoreItem(state, itemId, labMultipliers) {
   }
 
   return { ok: true }
+}
+
+export function getStoreItemCost(item, tobaccoId = DEFAULT_TOBACCO_ID) {
+  return item.type === 'seeds' ? Math.ceil(item.cost * (getTobacco(tobaccoId)?.seedCostMultiplier ?? 1)) : item.cost
 }

@@ -11,6 +11,8 @@ import { formatCompactNumber } from '#game/util/format.js'
 import DistributionPanel from './DistributionPanel.vue'
 import AnimatedGameArt from './AnimatedGameArt.vue'
 import TownHallOverview from './TownHallOverview.vue'
+import { normalizeTobaccoLots } from '#game/engine/tobaccoEngine.js'
+import { getTobacco } from '#game/config/tobacco.config.js'
 
 const props = defineProps({
   buildingId: { type: String, required: true }
@@ -85,6 +87,11 @@ function getStatEntries(type, levelStats, labMultipliers) {
 }
 
 const building = computed(() => store.findBuilding(props.buildingId))
+const batchCropLabel = computed(() => {
+  const slot = building.value?.slot
+  if (!slot || slot.status === 'idle') return ''
+  return Object.entries(normalizeTobaccoLots(slot.tobaccoLots, slot.batchSize)).filter(([, n]) => n > 0).map(([id, n]) => `${getTobacco(id).name}: ${formatCompactNumber(n)}`).join(' · ')
+})
 const config = computed(() => (building.value ? store.getBuildingConfig(building.value.type) : null))
 const stage = computed(() => (building.value ? getPipelineStage(building.value.type) : null))
 
@@ -257,6 +264,7 @@ function doCollectBatch() {
 
       <section v-if="stage" class="batch-section">
         <h4>Production</h4>
+        <p v-if="batchCropLabel" class="note">{{ batchCropLabel }}</p>
         <div class="slot-status">
           <template v-if="building.upgrade">
             <span>Under construction — production paused</span>

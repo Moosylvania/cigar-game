@@ -92,7 +92,7 @@ const activeBoosts = computed(() => {
       <span class="value">{{ formattedCoins }}</span>
     </div>
     <div class="resource">
-      <span class="label"><Icon name="mdi:tag-outline" /> Cigar price</span>
+      <span class="label" title="Average value of stored cigars; premium varieties export first. With no stock, shows base cigar value."><Icon name="mdi:tag-outline" /> {{ store.game.resources.storage.cigars > 0 ? 'Avg cigar value' : 'Base cigar value' }}</span>
       <span class="value">${{ formattedCigarPrice }}</span>
     </div>
     <div class="resource">

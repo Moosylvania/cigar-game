@@ -1,3 +1,4 @@
+import { takeTobaccoResource, addTobaccoResource } from './tobaccoEngine.js'
 import { getPipelineStage, PIPELINE_STAGES } from '../config/pipeline.config.js'
 import { getLevelStats } from '../config/buildings/index.js'
 import { getAutomationTier } from '../config/automation.config.js'
@@ -42,11 +43,12 @@ export function startBatch(building, state, labMultipliers, maxAmount = Infinity
   const capacity = Math.round(levelStats.batchSize * batchSizeMultiplier)
 
   let moved = capacity
+  let tobaccoLots = {}
   if (stage.inputKey) {
     const available = state.resources.storage[stage.inputKey]
     moved = Math.min(capacity, available, maxAmount)
     if (moved <= 0) return { ok: false, reason: 'no_input_available' }
-    state.resources.storage[stage.inputKey] -= moved
+    tobaccoLots = takeTobaccoResource(state, stage.inputKey, moved)
   }
 
   const speedMultiplier = labMultipliers?.speedMultipliers?.[building.type] ?? 1
@@ -56,6 +58,7 @@ export function startBatch(building, state, labMultipliers, maxAmount = Infinity
   building.slot = {
     status: 'processing',
     batchSize: moved,
+    tobaccoLots,
     startedAt,
     completesAt: startedAt + durationSeconds * 1000
   }
@@ -88,7 +91,7 @@ export function collectBatch(building, state, labMultipliers) {
     const available = Math.max(0, capacity - state.resources.storage[stage.outputKey])
     if (building.slot.batchSize > available) return { ok: false, reason: 'output_full' }
   }
-  state.resources.storage[stage.outputKey] += building.slot.batchSize
+  addTobaccoResource(state, stage.outputKey, building.slot.tobaccoLots, building.slot.batchSize)
   building.slot = { status: 'idle', batchSize: 0 }
 
   return { ok: true }
@@ -286,8 +289,8 @@ export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
       let remainingSeconds = elapsedSeconds
       let remainingShare = inputSharePerBuilding
       if (cycles > 0) {
-        state.resources.storage[stage.inputKey] -= cycles * capacity
-        state.resources.storage[stage.outputKey] += cycles * capacity
+        const tobaccoLots = takeTobaccoResource(state, stage.inputKey, cycles * capacity)
+        addTobaccoResource(state, stage.outputKey, tobaccoLots, cycles * capacity)
         remainingSeconds -= cycles * durationSeconds
         remainingShare -= cycles * capacity
       }

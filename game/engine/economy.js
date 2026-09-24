@@ -1,3 +1,4 @@
+import { takeTobaccoResource, getLotValue, getStockCigarMultiplier } from './tobaccoEngine.js'
 import { getVehicleTier } from '../config/vehicles.config.js'
 import { getLevelStats } from '../config/buildings/index.js'
 import { BASE_CIGAR_SALE_PRICE } from '../config/economy.config.js'
@@ -30,15 +31,21 @@ function getRollingSalePriceMultiplier(state) {
 /**
  * @param {import('../types/state.js').GameState} state
  * @param {{ salePriceMultiplier: number, prestigeMultiplier?: number }} labMultipliers
- * @returns {number} money earned per cigar right now
+ * @returns {number} base money per cigar before its tobacco variety multiplier
  */
-export function getEffectiveSalePrice(state, labMultipliers) {
+export function getBaseCigarSalePrice(state, labMultipliers) {
   return (
     BASE_CIGAR_SALE_PRICE *
     (labMultipliers?.salePriceMultiplier ?? 1) *
     getRollingSalePriceMultiplier(state) *
     (labMultipliers?.prestigeMultiplier ?? 1)
   )
+}
+
+// HUD quote: weighted average of stored cigars; base price when storage is empty.
+// Actual exports value the specific (highest-value-first) lots sold.
+export function getEffectiveSalePrice(state, labMultipliers) {
+  return getBaseCigarSalePrice(state, labMultipliers) * getStockCigarMultiplier(state)
 }
 
 /**
@@ -60,8 +67,8 @@ export function exportCigars(state, elapsedSeconds, labMultipliers) {
   const sellable = Math.min(state.resources.storage.cigars, capacityPerHour * (elapsedSeconds / 3600))
   if (sellable <= 0) return { moneyEarned: 0, cigarsSold: 0 }
 
-  state.resources.storage.cigars -= sellable
-  const moneyEarned = sellable * getEffectiveSalePrice(state, labMultipliers)
+  const soldLots = takeTobaccoResource(state, 'cigars', sellable)
+  const moneyEarned = getLotValue(soldLots) * getBaseCigarSalePrice(state, labMultipliers)
   state.resources.money += moneyEarned
   // Tracked separately from resources.money (which resets on prestige) -
   // this is the input to the prestige points formula, see prestigeEngine.js.

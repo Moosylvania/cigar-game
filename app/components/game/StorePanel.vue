@@ -8,6 +8,9 @@ import { LEAF_BOOST_COOLDOWN_MS, LEAF_BOOST_BONUS_PER_LEVEL } from '#game/config
 import { formatCompactNumber, formatMultiplier } from '#game/util/format.js'
 import { formatDuration } from '#game/util/time.js'
 import AnimatedGameArt from './AnimatedGameArt.vue'
+import TobaccoSeedCatalog from './TobaccoSeedCatalog.vue'
+import { getStoreItemCost } from '#game/engine/storeEngine.js'
+import { getTobacco } from '#game/config/tobacco.config.js'
 
 const emit = defineEmits(['close', 'place-decoration'])
 const store = useGameStore()
@@ -15,6 +18,7 @@ const { nowMs } = useClock()
 
 const feedback = ref(null)
 const activeTab = ref('items')
+const selectedTobacco = ref('piloto')
 
 // speed_boost_* items activate a timed buff rather than an instant effect
 // (see boostEngine.js) - this maps an item's type to the boosts state key
@@ -38,13 +42,13 @@ function activeInstancesFor(item) {
 
 const rows = computed(() =>
   STORE_ITEMS.map((item) => {
-    const result = store.canBuyStoreItem(item.id)
+    const result = store.canBuyStoreItem(item.id, selectedTobacco.value)
     const activeInstances = activeInstancesFor(item)
     const soonestExpiresAt = activeInstances.length
       ? Math.min(...activeInstances.map((boost) => boost.expiresAt))
       : null
     return {
-      item,
+      item: item.type === 'seeds' ? { ...item, name: `${getTobacco(selectedTobacco.value).name} · ${item.batches} batches`, cost: getStoreItemCost(item, selectedTobacco.value) } : item,
       canBuy: result.ok,
       reason: result.reason,
       seedsGranted: item.type === 'seeds' ? item.batches * store.seedsPerBatch : null,
@@ -62,12 +66,13 @@ const decorationRows = computed(() =>
 )
 
 function reasonLabel(reason, item) {
+  if (reason === 'tobacco_locked') return 'Reach this crop’s lifetime earnings milestone first'
   if (reason === 'insufficient_funds') return item?.currency === 'coins' ? 'Not enough coins' : 'Not enough money'
   return null
 }
 
 function buy(row) {
-  const result = store.buyStoreItem(row.item.id)
+  const result = store.buyStoreItem(row.item.id, selectedTobacco.value)
   const message = result.ok ? `Bought ${row.item.name}` : reasonLabel(result.reason, row.item)
   feedback.value = message
   setTimeout(() => {
@@ -120,6 +125,7 @@ function buyLeafBoost() {
       </div>
 
       <div v-if="activeTab === 'items'" class="item-list">
+        <TobaccoSeedCatalog v-model="selectedTobacco" />
         <div v-for="row in rows" :key="row.item.id" class="item-row" :class="{ active: row.activeRemaining }">
           <span class="item-icon"><Icon :name="row.item.icon" /></span>
           <div class="info">

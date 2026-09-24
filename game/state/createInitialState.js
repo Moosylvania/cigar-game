@@ -46,6 +46,7 @@ export function createInitialState() {
     },
     buildings: STARTER_LAYOUT.map(({ type, position }) => createStarterBuilding(type, position)),
     resources: {
+      tobaccoLots: {},
       money: 800,
       storage: {
         // A small free starter stockpile (3 batches at level 1) so a new

@@ -8,6 +8,7 @@
  * @typedef {Object} ProcessingSlot
  * @property {SlotStatus} status
  * @property {number} batchSize
+ * @property {Object<string, number>} [tobaccoLots] - variety quantities carried through this batch
  * @property {number} [startedAt]
  * @property {number} [completesAt]
  */
