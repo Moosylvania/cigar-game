@@ -532,12 +532,9 @@ function findIndicatorHitAt(screenPos) {
 }
 
 function handleIndicatorClick(building) {
-  if (building.type === 'nursery' && building.slot.status === 'idle') {
-    emit('building-selected', building)
-    return
-  }
   if (building.slot.status === 'idle') {
-    store.startBatch(building.id)
+    const result = store.startBatch(building.id)
+    if (!result.ok) emit('building-selected', building)
   } else if (building.slot.status === 'ready' && !store.isCollectBlocked(building.id)) {
     store.collectBatch(building.id)
   }
@@ -822,6 +819,17 @@ function handlePointerUp(event) {
   pointerDownPos = null
 
   if (!wasClick || !clickGridPos) return
+
+  // Repeated building placement must not swallow an existing building's
+  // start/collect button. Require its own footprint to avoid catching a
+  // neighboring button's generous hit area when placing on empty land.
+  if (props.placingType) {
+    const indicator = findIndicatorHitAt(clickScreenPos)
+    if (indicator && indicator.slot.status !== 'processing' && findBuildingAt(clickGridPos)?.id === indicator.id) {
+      handleIndicatorClick(indicator)
+      return
+    }
+  }
 
   if (props.placingType) {
     const result = store.placeBuilding(props.placingType, clickGridPos)
