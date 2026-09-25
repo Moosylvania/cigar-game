@@ -35,15 +35,6 @@
 /** @type {StoreItem[]} */
 export const STORE_ITEMS = [
   {
-    id: 'finish_construction',
-    name: 'Finish All Construction',
-    description: 'Instantly finish every active building upgrade, including Town Hall.',
-    icon: 'mdi:hammer-wrench',
-    type: 'finish_construction',
-    currency: 'coins',
-    cost: 100
-  },
-  {
     id: 'seeds_5',
     name: 'Seed Pack (5)',
     description: 'Enough tobacco seeds for 5 nursery batches.',
@@ -132,6 +123,15 @@ export const STORE_ITEMS = [
     effectMultiplier: 10,
     durationSeconds: 240,
     cost: 90
+  },
+  {
+    id: 'finish_construction',
+    name: 'Finish All Construction',
+    description: 'Instantly finish every active building upgrade, including Town Hall.',
+    icon: 'mdi:hammer-wrench',
+    type: 'finish_construction',
+    currency: 'coins',
+    cost: 100
   },
   {
     id: 'money_rush_10m',
