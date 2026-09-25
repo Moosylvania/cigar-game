@@ -66,6 +66,7 @@ const decorationRows = computed(() =>
 )
 
 function reasonLabel(reason, item) {
+  if (reason === 'no_construction') return 'No construction in progress'
   if (reason === 'tobacco_locked') return 'Reach this crop’s lifetime earnings milestone first'
   if (reason === 'insufficient_funds') return item?.currency === 'coins' ? 'Not enough coins' : 'Not enough money'
   return null
@@ -73,7 +74,7 @@ function reasonLabel(reason, item) {
 
 function buy(row) {
   const result = store.buyStoreItem(row.item.id, selectedTobacco.value)
-  const message = result.ok ? `Bought ${row.item.name}` : reasonLabel(result.reason, row.item)
+  const message = result.ok ? (row.item.type === 'finish_construction' ? 'All construction finished!' : `Bought ${row.item.name}`) : reasonLabel(result.reason, row.item)
   feedback.value = message
   setTimeout(() => {
     if (feedback.value === message) feedback.value = null

@@ -23,7 +23,7 @@
  * @property {string} name
  * @property {string} description
  * @property {string} icon
- * @property {'seeds'|'speed_boost_processing'|'speed_boost_upgrade'|'money_boost'} type
+ * @property {'seeds'|'speed_boost_processing'|'speed_boost_upgrade'|'money_boost'|'finish_construction'} type
  * @property {'money'|'coins'} currency
  * @property {number} [batches] - seeds items only
  * @property {number} [effectPercent] - speed-boost items only: fraction faster while active
@@ -34,6 +34,15 @@
 
 /** @type {StoreItem[]} */
 export const STORE_ITEMS = [
+  {
+    id: 'finish_construction',
+    name: 'Finish All Construction',
+    description: 'Instantly finish every active building upgrade, including Town Hall.',
+    icon: 'mdi:hammer-wrench',
+    type: 'finish_construction',
+    currency: 'coins',
+    cost: 100
+  },
   {
     id: 'seeds_5',
     name: 'Seed Pack (5)',

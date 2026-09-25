@@ -2,6 +2,7 @@ import { DEFAULT_TOBACCO_ID, getTobacco, isTobaccoUnlocked } from '../config/tob
 import { addTobaccoResource } from './tobaccoEngine.js'
 import { getStoreItem } from '../config/store.config.js'
 import { getLevelStats } from '../config/buildings/index.js'
+import { resolveCompletedUpgrades } from './upgradeEngine.js'
 import { activateBoost } from './boostEngine.js'
 
 /**
@@ -50,6 +51,7 @@ export function canBuyStoreItem(state, itemId, tobaccoId = DEFAULT_TOBACCO_ID) {
   const item = getStoreItem(itemId)
   if (!item) return { ok: false, reason: 'unknown_item' }
   if (item.type === 'seeds' && !isTobaccoUnlocked(state, tobaccoId)) return { ok: false, reason: 'tobacco_locked' }
+  if (item.type === 'finish_construction' && ![state.townHall, ...state.buildings].some(b => b.upgrade)) return { ok: false, reason: 'no_construction' }
   const cost = getStoreItemCost(item, tobaccoId)
   if (getBalance(state, item.currency) < cost) return { ok: false, reason: 'insufficient_funds' }
   return { ok: true }
@@ -68,7 +70,9 @@ export function buyStoreItem(state, itemId, labMultipliers, tobaccoId = DEFAULT_
   const item = getStoreItem(itemId)
   spendBalance(state, item.currency, getStoreItemCost(item, tobaccoId))
 
-  if (item.type === 'seeds') {
+  if (item.type === 'finish_construction') {
+    resolveCompletedUpgrades(state, Infinity)
+  } else if (item.type === 'seeds') {
     const count = item.batches * getSeedsPerBatch(state, labMultipliers)
     addTobaccoResource(state, 'seeds', { [tobaccoId]: count }, count)
   } else if (item.type === 'speed_boost_processing') {
