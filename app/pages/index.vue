@@ -22,6 +22,24 @@ const store = useGameStore()
 const isDev = import.meta.dev
 
 const placingType = ref(null)
+const placedCount = ref(0)
+const placementFeedback = ref('')
+const placingConfig = computed(() => placingType.value ? store.getBuildingConfig(placingType.value) : null)
+const placementCost = computed(() => placingConfig.value?.levels[0].upgradeCost ?? 0)
+
+function chooseBuilding(type) {
+  placingType.value = type
+  placedCount.value = 0
+  placementFeedback.value = ''
+}
+
+function onPlaceFailed(reason) {
+  placementFeedback.value = {
+    outside_unlocked_land: 'Choose land you own.',
+    overlaps_existing_building: 'That space is occupied. Try an empty tile.',
+    insufficient_funds: 'Not enough money for another building.'
+  }[reason] ?? 'Cannot build here. Try another tile.'
+}
 const placingDecorationId = ref(null)
 const selectedBuildingId = ref(null)
 const selectedDecorationInstanceId = ref(null)
@@ -72,8 +90,12 @@ function cancelPlacingDecoration() {
 }
 
 function onPlaced() {
-  placingType.value = null
-  placingDecorationId.value = null
+  if (placingType.value) {
+    placedCount.value++
+    placementFeedback.value = ''
+  } else {
+    placingDecorationId.value = null
+  }
 }
 
 function startExpand() {
@@ -156,15 +178,25 @@ function closeAnyOpenModal() {
 function handleKeydown(event) {
   if (event.metaKey || event.ctrlKey || event.altKey) return
   const target = event.target
-  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return
 
   if (event.key === 'Escape') {
     if (isModalOpen.value) closeAnyOpenModal()
+    else if (placingType.value) chooseBuilding(null)
+    else if (placingDecorationId.value) cancelPlacingDecoration()
     else if (expandMode.value) stopExpand()
     else if (selectMode.value) stopSelect()
     return
   }
   if (isModalOpen.value) return
+
+  if (event.shiftKey && /^Digit[1-6]$/.test(event.code)) {
+    if (expandMode.value || selectMode.value || placingDecorationId.value) return
+    event.preventDefault()
+    const type = NUMBER_KEY_BUILDING_TYPES[event.code.slice(-1)]
+    if (store.money >= store.getBuildingConfig(type).levels[0].upgradeCost) chooseBuilding(type)
+    return
+  }
 
   if (event.key === 'c' || event.key === 'C') {
     store.collectAllReady()
@@ -191,6 +223,10 @@ onBeforeUnmount(() => {
       <template v-if="placingDecorationId">
         <span class="rearrange-hint">Placing {{ placingDecorationName }} - tap an empty tile</span>
         <button class="cancel" @click="cancelPlacingDecoration"><Icon name="mdi:close" /> Cancel</button>
+      </template>
+      <template v-else-if="placingType">
+        <span class="rearrange-hint" role="status">{{ placingConfig.displayName }} · ${{ formatCompactNumber(placementCost) }} each · {{ placedCount }} placed — {{ placementFeedback || (store.money < placementCost ? 'Not enough money for another.' : 'Tap empty tiles to keep building') }}</span>
+        <button class="confirm" title="Finish building (Esc)" @click="chooseBuilding(null)"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else-if="expandMode">
         <span class="rearrange-hint">{{ expandFeedback || 'Tap a tile to buy it, or drag to buy many at once' }}</span>
@@ -219,7 +255,7 @@ onBeforeUnmount(() => {
       <BuildMenu
         :active-type="placingType"
         :class="{ disabled: placingDecorationId || expandMode || selectMode, 'tutorial-dim': store.isTutorialVisible }"
-        @select="(type) => (placingType = type)"
+        @select="chooseBuilding"
       />
       <GameCanvas
         :placing-type="placingType"
@@ -232,6 +268,7 @@ onBeforeUnmount(() => {
         @building-selected="onBuildingSelected"
         @decoration-selected="onDecorationSelected"
         @placed="onPlaced"
+        @place-failed="onPlaceFailed"
         @expand-result="onExpandResult"
         @selection-changed="onSelectionChanged"
       />

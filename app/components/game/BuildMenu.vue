@@ -19,10 +19,10 @@ const store = useGameStore()
 const placeableTypes = ['nursery', 'field', 'curing', 'steam', 'fermentation', 'rolling']
 
 const items = computed(() =>
-  placeableTypes.map((type) => {
+  placeableTypes.map((type, index) => {
     const config = BUILDING_CONFIGS[type]
     const cost = config.levels[0].upgradeCost
-    return { type, config, cost, disabled: store.money < cost }
+    return { type, config, cost, shortcut: index + 1, disabled: store.money < cost }
   })
 )
 
@@ -39,14 +39,15 @@ function toggle(type) {
       :key="item.type"
       class="build-item"
       :class="{ active: activeType === item.type }"
-      :disabled="item.disabled"
+      :disabled="item.disabled && activeType !== item.type"
+      :title="`${item.config.displayName} — Shift+${item.shortcut}. Select once, then tap tiles to build repeatedly.`"
       :aria-pressed="activeType === item.type"
       :style="{ '--swatch': item.config.color }"
       @click="toggle(item.type)"
     >
       <AnimatedGameArt class="building-art" :type="item.type" :theme="store.activeThemeId" />
       <span class="name">{{ item.config.displayName }}</span>
-      <span class="cost">${{ formatCompactNumber(item.cost) }}</span>
+      <span class="cost">${{ formatCompactNumber(item.cost) }}<small class="shortcut">⇧{{ item.shortcut }}</small></span>
     </button>
   </div>
 </template>
@@ -159,6 +160,8 @@ function toggle(type) {
     line-height: 1.15;
   }
 }
+
+.shortcut { display: block; font-size: 0.65rem; text-align: right; margin-top: 4px; @include mobile { display: none; } }
 
 .cost {
   font-size: 0.8rem;
