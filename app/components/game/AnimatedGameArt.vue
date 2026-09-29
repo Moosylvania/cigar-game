@@ -13,6 +13,7 @@ const props = defineProps({
   kind: { type: String, default: 'building' },
   type: { type: String, default: 'nursery' },
   level: { type: Number, default: 1 },
+  mergeGeneration: { type: Number, default: 0 },
   status: { type: String, default: 'idle' },
   theme: { type: String, default: 'backyard' },
   upgrading: Boolean
@@ -34,7 +35,7 @@ onMounted(() => {
     else {
       const lots = props.type === 'distribution' ? getResourceLots(store.game, 'cigars') : {}
       const cargoColors = [...TOBACCO_VARIETIES].reverse().filter(v => lots[v.id] > 0).map(v => v.color)
-      drawIllustratedBuilding(ctx, { cargoColors, type: props.type, level: props.level, slot: { status: props.status }, upgrade: props.upgrading }, rect, time, props.theme)
+      drawIllustratedBuilding(ctx, { mergeGeneration: props.mergeGeneration, cargoColors, type: props.type, level: props.level, slot: { status: props.status }, upgrade: props.upgrading }, rect, time, props.theme)
       if (props.upgrading) drawConstruction(ctx, rect, time)
     }
   }

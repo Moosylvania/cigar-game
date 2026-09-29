@@ -12,9 +12,9 @@ export function getWorkerCycle(time, index = 0, seed = 0, active = true) {
 
 // Workers operate grounded stations in the foreground. Tools reach their target;
 // props stay in world space instead of following the worker like accessories.
-export function drawBuildingWorkers(ctx, building, p, time = 0) {
+export function drawBuildingWorkers(ctx, building, p, time = 0, stations = null) {
   const { type, level = 1 } = building
-  const count = level >= 8 ? 3 : level >= 4 ? 2 : 1
+  const count = stations?.length ?? (level >= 8 ? 3 : level >= 4 ? 2 : 1)
   const active = !!building.upgrade || building.slot?.status === 'processing' || ['town_hall','distribution'].includes(type)
   const task = building.upgrade ? 'repair' : ({town_hall:'inspect',nursery:'water',field:'tend',curing:'leaf',steam:'repair',fermentation:'stir',rolling:'roll',distribution:'carry'}[type] ?? 'inspect')
   const seed = (building.position?.x ?? 0)*.17+(building.position?.y ?? 0)*.23
@@ -24,14 +24,16 @@ export function drawBuildingWorkers(ctx, building, p, time = 0) {
   const parcel=(x,y)=>{box(x,y,4.5,3.8,p.material);ctx.strokeStyle=p.wall;line(x+2.2,y+.4,x+2.2,y+3.4);ctx.strokeStyle=INK}
   ctx.save();ctx.lineWidth=.75;ctx.strokeStyle=INK;ctx.lineCap='round';ctx.lineJoin='round'
   for(let i=0;i<count;i++) {
-    const robot=level>=10||(level>=7&&i>0)
+    const station=stations?.[i]
+    const robot=station?.robot ?? (level>=10||(level>=7&&i>0))
     const state=getWorkerCycle(time,i,seed,active)
     const working=state.stage==='work'
     const returning=state.stage==='return'||state.stage==='unload'
     const wave=time?Math.sin(time/(active?240:400)+i*2):0
     const work=working?wave:0
     const x=count===1?51:count===2?33+i*31:24+i*24
-    ctx.save();ctx.translate(x,82)
+    ctx.save();ctx.translate(station?.x ?? x,station?.y ?? 82)
+    if(station)ctx.scale(station.scale,station.scale)
     // Fixed stations are drawn behind the worker, at reachable arm height.
     if(task==='water'||task==='tend') {
       box(4,-3,9,3,p.material)

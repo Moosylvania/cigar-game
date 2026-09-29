@@ -1,5 +1,5 @@
 import { getDecorationDefinition } from '../config/decorations.config.js'
-import { getBuildingConfig } from '../config/buildings/index.js'
+import { getBuildingFootprint } from '../config/buildings/index.js'
 import { isWithinUnlockedRegion } from './landEngine.js'
 import { createId } from '../util/id.js'
 
@@ -17,8 +17,8 @@ function footprintsOverlap(a, aFootprint, b, bFootprint) {
 function occupiesTile(state, position, excludeId = null) {
   const allBuildings = [state.townHall, ...state.buildings]
   const overlapsBuilding = allBuildings.some((building) => {
-    const config = getBuildingConfig(building.type)
-    return footprintsOverlap(position, DECORATION_FOOTPRINT, building.position, config.footprint)
+    const config = getBuildingFootprint(building)
+    return footprintsOverlap(position, DECORATION_FOOTPRINT, building.position, config)
   })
   if (overlapsBuilding) return true
 

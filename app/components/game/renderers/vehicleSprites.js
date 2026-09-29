@@ -5,7 +5,7 @@ const GLASS = '#bde8e7'
 export function drawVehicleSprite(ctx, tierId, direction, rect, time = 0) {
   ctx.save()
   ctx.translate(rect.x + rect.width / 2, rect.y + rect.height / 2)
-  ctx.rotate(({ e: 0, s: Math.PI / 2, w: Math.PI, n: -Math.PI / 2 })[direction] ?? 0)
+  ctx.rotate(({ e: 0, s: Math.PI / 2, w: Math.PI, n: -Math.PI / 2 })[tierId === 'rocket' ? 'n' : direction] ?? 0)
   // Uniform scaling keeps articulated vehicles and wheels in proportion.
   const scale = Math.min(rect.width, rect.height) / 100
   ctx.scale(scale, scale)
@@ -30,11 +30,42 @@ export function drawVehicleSprite(ctx, tierId, direction, rect, time = 0) {
   const crate = (x,y,w=8,h=8) => {box(x,y,w,h,'#d1a86d');line(x+1,y+1,x+w-1,y+h-1);line(x+w-1,y+1,x+1,y+h-1)}
   const coupling = (x,y,w=5) => {ctx.lineWidth=2.2;line(x,y,x+w,y);ctx.lineWidth=1.35}
   const train = ['cargo_train','freight_train','bullet_train'].includes(tierId)
-  ctx.save();ctx.globalAlpha*=.18
-  ctx.beginPath();ctx.ellipse(0,19,train?47:41,5,0,0,Math.PI*2);ctx.fillStyle=INK;ctx.fill();ctx.restore()
-  ctx.translate(0,time?Math.sin(time/(train?420:160))*(train?.18:.45):0)
+  if(tierId !== 'rocket') {
+    ctx.save();ctx.globalAlpha*=.18
+    ctx.beginPath();ctx.ellipse(0,19,train?47:41,5,0,0,Math.PI*2);ctx.fillStyle=INK;ctx.fill();ctx.restore()
+    ctx.translate(0,time?Math.sin(time/(train?420:160))*(train?.18:.45):0)
+  }
 
-  if(tierId==='cargo_train') {
+  if(tierId==='rocket') {
+    // A compact cargo shuttle uses the same flat fills and dark outlines as
+    // the depot. Its engine sits at the pad center; the hull rises above it.
+    const pulse = time ? 1 + Math.sin(time / 80) * .12 : 1
+    ctx.lineWidth = 2
+    if (time) {
+      ctx.save();ctx.globalAlpha *= .8
+      poly([[-10,-5],[-29*pulse,0],[-10,5]],'#db9976')
+      poly([[-11,-2.5],[-23*pulse,0],[-11,2.5]],'#fff4cf')
+      ctx.restore()
+    }
+    // Broad swept fins make the silhouette readable even at town-map scale.
+    poly([[17,-8],[1,-21],[-10,-21],[-5,-7]],'#79bfc3')
+    poly([[17,8],[1,21],[-10,21],[-5,7]],'#79bfc3')
+    box(-12,-6,10,12,'#526f72',1.5)
+    ctx.beginPath();ctx.moveTo(-5,-10);ctx.lineTo(24,-10)
+    ctx.quadraticCurveTo(37,-9,46,0)
+    ctx.quadraticCurveTo(37,9,24,10)
+    ctx.lineTo(-5,10);ctx.closePath();ctx.fillStyle='#fff4cf';ctx.fill();ctx.stroke()
+    // Teal nose, panoramic cockpit, and one restrained copper cargo band.
+    ctx.beginPath();ctx.moveTo(31,-8);ctx.quadraticCurveTo(40,-5,46,0)
+    ctx.quadraticCurveTo(40,5,31,8);ctx.closePath();ctx.fillStyle='#79bfc3';ctx.fill();ctx.stroke()
+    box(20,-6,8,12,'#526f72',2)
+    ctx.strokeStyle='#bde8e7';line(23,-3,23,3);ctx.strokeStyle=INK
+    box(3,-10,6,20,'#d79978',.5)
+    line(-2,-5,-2,5)
+    // Thin wing tips and symmetric hull avoid the old tilted bitmap silhouette.
+    ctx.strokeStyle='#fff4cf';line(-5,-17,1,-17);line(-5,17,1,17)
+    ctx.strokeStyle=INK
+  } else if(tierId==='cargo_train') {
     // Steam locomotive, driving wheels, tender, and an open cargo wagon.
     for(const x of [-37,-21])wheel(x,15,3,true)
     box(-46,-3,33,16,'#769d70');box(-47,11,35,3,'#aac496')

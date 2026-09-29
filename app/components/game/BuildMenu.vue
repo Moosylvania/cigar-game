@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import AnimatedGameArt from './AnimatedGameArt.vue'
 import { useGameStore } from '~/stores/game.js'
+import { getBuildingPurchaseCost } from '#game/engine/placementEngine.js'
 import { BUILDING_CONFIGS } from '#game/config/buildings/index.js'
 import { formatCompactNumber } from '#game/util/format.js'
 
@@ -12,16 +13,13 @@ const emit = defineEmits(['select'])
 
 const store = useGameStore()
 
-// Town Hall and Distribution are both placed for free at game start and
-// can't be built again (there's only ever one of each) - only the
-// pipeline buildings, which can be placed as many times as land allows,
-// belong here.
-const placeableTypes = ['nursery', 'field', 'curing', 'steam', 'fermentation', 'rolling']
+// Town Hall is fixed. Additional depots use the escalating purchase curve.
+const placeableTypes = ['nursery', 'field', 'curing', 'steam', 'fermentation', 'rolling', 'distribution']
 
 const items = computed(() =>
   placeableTypes.map((type, index) => {
     const config = BUILDING_CONFIGS[type]
-    const cost = config.levels[0].upgradeCost
+    const cost = getBuildingPurchaseCost(store.game, type)
     return { type, config, cost, shortcut: index + 1, disabled: store.money < cost }
   })
 )

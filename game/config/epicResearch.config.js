@@ -266,7 +266,7 @@ export const EPIC_RESEARCH = [
   {
     id: 'epic_legacy_ascension',
     name: 'Legacy Ascension',
-    description: "Your legacy compounds - every prestige tier's bonus, again.",
+    description: "Your legacy grows - strengthen the active prestige tier bonus.",
     icon: 'mdi:crown-outline',
     effect: { type: 'prestige_multiplier_boost' },
     perLevelValue: 0.03,

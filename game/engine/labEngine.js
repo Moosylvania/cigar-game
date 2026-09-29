@@ -57,8 +57,8 @@ export function buyResearch(state, researchId) {
 /**
  * Folds every research line's current level into a flat multiplier object.
  * Engine modules consume this without knowing anything about Lab internals.
- * Each level compounds perLevelValue onto the previous one (e.g. 5 levels
- * of a 5%/level price line = 1.05^5 ≈ 1.28x, not a flat 25%).
+ * Production and logistics compound per level. Price bonuses add across
+ * levels and lines to avoid a self-funding exponential cash loop.
  * depotCapacityMultiplier and fleetThroughputMultiplier exist specifically
  * to give the Lab a way to counter Rolling outpacing the Depot (see
  * distributionEngine.js / economy.js) - research the overflow problem away
@@ -82,7 +82,7 @@ export function getMultipliers(labState) {
     const { effect, perLevelValue } = research
 
     if (effect.type === 'sale_price_multiplier') {
-      salePriceMultiplier *= (1 + perLevelValue) ** level
+      salePriceMultiplier += perLevelValue * level
     } else if (effect.type === 'production_speed_multiplier') {
       const factor = (1 - perLevelValue) ** level
       const targets = effect.stageTarget === 'all' ? PIPELINE_TYPES : [effect.stageTarget]

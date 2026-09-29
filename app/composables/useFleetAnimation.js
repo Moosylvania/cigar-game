@@ -1,3 +1,4 @@
+import { LAUNCH_PAD } from '../components/game/renderers/expansionArt.js'
 import { useClock } from './useClock.js'
 
 // Module-scoped, ephemeral, never persisted - same reasoning as useClock's
@@ -15,6 +16,8 @@ const SHOWCASE_TRIP_MS = 9000
 
 export function setShowcaseLanes(lanes) {
   showcaseLanes = lanes
+  vehicles.length = 0
+  nextSpawnAt = 0
 }
 
 const SPAWN_INTERVAL_MS = 4500
@@ -62,17 +65,22 @@ export function useFleetAnimation() {
     if (showcaseLanes) {
       showcaseLanes.forEach((lane, i) => {
         if (vehicles.some((v) => v.laneIndex === i)) return
+        const rocket = lane.tierId === 'rocket'
+        const depot = rocket && store.game.buildings.find(b => b.type === 'distribution' && b.level >= 10)
+        if (rocket && !depot) return
+        const x = rocket ? depot.position.x + LAUNCH_PAD.x / 50 : lane.x0
+        const y = rocket ? depot.position.y + LAUNCH_PAD.y / 50 : lane.y0
         vehicles.push({
           id: nextId++,
           laneIndex: i,
           tierId: lane.tierId,
-          direction: lane.direction,
-          startX: lane.x0,
-          startY: lane.y0,
-          endX: lane.x1,
-          endY: lane.y1,
+          direction: rocket ? 'n' : lane.direction,
+          startX: x,
+          startY: y,
+          endX: rocket ? x : lane.x1,
+          endY: rocket ? y - TRAVEL_TILES : lane.y1,
           // Stagger lanes on first spawn so they don't move in lockstep.
-          spawnedAt: nextSpawnAt === 0 ? t - (i / showcaseLanes.length) * SHOWCASE_TRIP_MS : t,
+          spawnedAt: !rocket && nextSpawnAt === 0 ? t - (i / showcaseLanes.length) * SHOWCASE_TRIP_MS : t,
           durationMs: SHOWCASE_TRIP_MS
         })
       })
@@ -80,26 +88,31 @@ export function useFleetAnimation() {
       return
     }
 
-    const depot = store.distributionBuilding
+    const depots = store.game.buildings.filter(b => b.type === 'distribution')
+    const depot = depots[Math.floor(Math.random() * depots.length)]
     const fleet = store.fleet
     const eligible = depot && fleet.length > 0 && store.storage.cigars > 0
     if (!eligible || vehicles.length >= MAX_CONCURRENT) return
     if (t < nextSpawnAt) return
 
-    const direction = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)]
+    const tierId = pickWeightedTier(fleet)
+    const launchDepots = depots.filter(b => b.level >= 10)
+    if (tierId === 'rocket' && !launchDepots.length) return
+    const origin = tierId === 'rocket' ? launchDepots[Math.floor(Math.random() * launchDepots.length)] : depot
+    const direction = tierId === 'rocket' ? 'n' : DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)]
     const [dx, dy] = DIRECTION_VECTORS[direction]
-    const startX = depot.position.x + 1
-    const startY = depot.position.y + 1
+    const startX = origin.position.x + (tierId === 'rocket' ? LAUNCH_PAD.x / 50 : 1)
+    const startY = origin.position.y + (tierId === 'rocket' ? LAUNCH_PAD.y / 50 : 1)
     vehicles.push({
       id: nextId++,
-      tierId: pickWeightedTier(fleet),
+      tierId,
       direction,
       startX,
       startY,
       endX: startX + dx * TRAVEL_TILES,
       endY: startY + dy * TRAVEL_TILES,
       spawnedAt: t,
-      durationMs: TRAVEL_DURATION_MS
+      durationMs: tierId === 'rocket' ? 4300 : TRAVEL_DURATION_MS
     })
     nextSpawnAt = t + SPAWN_INTERVAL_MS + Math.random() * SPAWN_JITTER_MS
   }
@@ -117,11 +130,12 @@ export function useFleetAnimation() {
  */
 export function getVehicleWorldPosition(vehicle, nowMs) {
   const progress = Math.min(1, (nowMs - vehicle.spawnedAt) / vehicle.durationMs)
-  const eased = easeInOutSine(progress)
+  const eased = vehicle.tierId === 'rocket' ? Math.max(0, (progress - 0.25) / 0.75) ** 2 : easeInOutSine(progress)
   const x = vehicle.startX + (vehicle.endX - vehicle.startX) * eased
   const y = vehicle.startY + (vehicle.endY - vehicle.startY) * eased
-  // Fade in over the first 10% and out over the last 15% of the trip -
+  // Rockets are visible during ignition; other vehicles fade in over 10%.
+  // All vehicles fade out over the last 15% of the trip -
   // avoids needing any camera/viewport-bounds awareness to look clean.
-  const alpha = Math.min(progress / 0.1, (1 - progress) / 0.15, 1)
+  const alpha = Math.min(vehicle.tierId === 'rocket' ? 1 : progress / 0.1, (1 - progress) / 0.15, 1)
   return { x, y, alpha: Math.max(0, alpha) }
 }

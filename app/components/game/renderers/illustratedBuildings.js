@@ -1,3 +1,4 @@
+import { drawSpaceport, drawMergedComplex } from './expansionArt.js'
 import { drawBuildingWorkers } from './buildingWorkers.js'
 import { drawBuildingTechnology } from './buildingTechnology.js'
 import { getPrestigePalette } from './prestigePalette.js'
@@ -204,13 +205,25 @@ export function drawIllustratedBuilding(ctx, building, rect, time = 0, themeId =
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   ellipse(ctx, 51, 81, 39, 6, '#395e4428', false)
-  if (type === 'field') {
+  if (type === 'distribution' && level >= 10) {
+    drawSpaceport(ctx, building, { ...palette, roof }, time, { box, path, ellipse, line, plant, flag })
+  } else if (building.mergeGeneration > 0) {
+    drawMergedComplex(ctx, building, { ...palette, roof }, time, { box, path, ellipse, line, plant, flag })
+  } else if (type === 'field') {
     drawField(ctx, level, { ...palette, roof }, time, t, building.slot?.status === 'ready', processing)
     drawBuildingTechnology(ctx, { type, level, left: 25, right: 90, eave: level >= 8 ? 42 : 38, palette, time }, { box, line, ellipse, path })
   } else {
     drawBuildingDesign(ctx, type, level, { ...palette, roof, cargoColors: building.cargoColors }, time, processing, { box, path, ellipse, line, plant, flag })
   }
-  drawBuildingWorkers(ctx, building, { ...palette, roof }, time)
+  // Keep crews proportional to the larger footprint and clear of the launch apron.
+  const stations = type === 'distribution' && level >= 10
+    ? [{ x: 19, y: 79, scale: .6, robot: false }, { x: 38, y: 79, scale: .6, robot: true }]
+    : building.mergeGeneration > 0
+      ? (type === 'field'
+        ? [{ x: 25, y: 79, scale: .38, robot: false }, { x: 49, y: 79, scale: .38, robot: true }, { x: 72, y: 79, scale: .38, robot: true }]
+        : [{ x: 23, y: 81, scale: .6, robot: false }, { x: 49, y: 81, scale: .6, robot: true }, { x: 76, y: 81, scale: .6, robot: false }])
+      : null
+  drawBuildingWorkers(ctx, building, { ...palette, roof }, time, stations)
   ctx.restore()
 }
 

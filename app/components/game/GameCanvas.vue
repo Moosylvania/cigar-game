@@ -1,4 +1,5 @@
 <script setup>
+import { getBuildingFootprint } from "#game/config/buildings/index.js"
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { useClock } from '~/composables/useClock.js'
@@ -246,8 +247,8 @@ function getBuildingRect(building, camera) {
   return {
     x: camera.offsetX + position.x * TILE_SIZE * camera.scale,
     y: camera.offsetY + position.y * TILE_SIZE * camera.scale,
-    width: config.footprint.width * TILE_SIZE * camera.scale,
-    height: config.footprint.height * TILE_SIZE * camera.scale
+    width: getBuildingFootprint(building).width * TILE_SIZE * camera.scale,
+    height: getBuildingFootprint(building).height * TILE_SIZE * camera.scale
   }
 }
 
@@ -351,15 +352,18 @@ function render(frameTime = 0) {
     fleetAnimation.update(store)
     fleetFrameTime = nowMs.value
   }
+  const airborneVehicles = []
   for (const vehicle of fleetAnimation.getActiveVehicles()) {
     const pos = getVehicleWorldPosition(vehicle, fleetFrameTime)
+    const vehicleSize = vehicle.tierId === 'rocket' ? 1.1 : 0.9
     const rect = {
-      x: camera.offsetX + pos.x * TILE_SIZE * camera.scale,
-      y: camera.offsetY + pos.y * TILE_SIZE * camera.scale,
-      width: TILE_SIZE * camera.scale * 0.9,
-      height: TILE_SIZE * camera.scale * 0.9
+      x: camera.offsetX + (pos.x - vehicleSize / 2) * TILE_SIZE * camera.scale,
+      y: camera.offsetY + (pos.y - vehicleSize / 2) * TILE_SIZE * camera.scale,
+      width: TILE_SIZE * camera.scale * vehicleSize,
+      height: TILE_SIZE * camera.scale * vehicleSize
     }
-    worldObjects.push({ rect, draw: () => {
+    const layer = vehicle.tierId === 'rocket' ? airborneVehicles : worldObjects
+    layer.push({ rect, draw: () => {
       ctx.globalAlpha = pos.alpha
       drawVehicleSprite(ctx, vehicle.tierId, vehicle.direction, rect, motionEnabled.value ? motionTime : fleetFrameTime)
       ctx.globalAlpha = 1
@@ -369,6 +373,12 @@ function render(frameTime = 0) {
   // Artwork is grounded at ~82% of its rect, independent of creation order.
   worldObjects.sort((a, b) => (a.rect.y + a.rect.height * 0.82) - (b.rect.y + b.rect.height * 0.82) || a.rect.x - b.rect.x)
   for (const object of worldObjects) {
+    ctx.save()
+    object.draw()
+    ctx.restore()
+  }
+  // Rockets fly above roofs; ground sorting must never hide them inside a facade.
+  for (const object of airborneVehicles) {
     ctx.save()
     object.draw()
     ctx.restore()
@@ -464,9 +474,9 @@ function findBuildingAt(gridPos) {
     const position = positionFor(building)
     if (
       gridPos.x >= position.x &&
-      gridPos.x < position.x + config.footprint.width &&
+      gridPos.x < position.x + getBuildingFootprint(building).width &&
       gridPos.y >= position.y &&
-      gridPos.y < position.y + config.footprint.height
+      gridPos.y < position.y + getBuildingFootprint(building).height
     ) {
       return building
     }
@@ -493,8 +503,8 @@ function buildingsInRect(rect) {
   return store.allBuildings.filter((building) => {
     const config = store.getBuildingConfig(building.type)
     const position = positionFor(building)
-    const bx1 = position.x + config.footprint.width - 1
-    const by1 = position.y + config.footprint.height - 1
+    const bx1 = position.x + getBuildingFootprint(building).width - 1
+    const by1 = position.y + getBuildingFootprint(building).height - 1
     return position.x <= rect.x1 && bx1 >= rect.x0 && position.y <= rect.y1 && by1 >= rect.y0
   })
 }

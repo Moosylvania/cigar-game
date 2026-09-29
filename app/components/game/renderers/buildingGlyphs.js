@@ -276,7 +276,7 @@ export function drawBuildingOverlay(ctx, building, config, rect, tilePx, nowMs, 
   const isReady = building.slot?.status === 'ready'
   const bottomRow = computeBottomRowLayout(ctx, building, rect, tilePx)
   drawLevelBadge(ctx, building.level, rect, bottomRow)
-  drawNameLabel(ctx, config.displayName, rect, tilePx)
+  drawNameLabel(ctx, building.mergeGeneration ? `${config.displayName} · G${building.mergeGeneration}` : config.displayName, rect, tilePx)
 
   if (building.slot) {
     drawTobaccoLabel(ctx, building, rect, tilePx, bottomRow)

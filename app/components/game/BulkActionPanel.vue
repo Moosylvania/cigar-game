@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { MERGE_REASONS } from '#game/engine/mergeEngine.js'
 import { useGameStore } from '~/stores/game.js'
 import { TOBACCO_VARIETIES } from '#game/config/tobacco.config.js'
 import { getPipelineStage } from '#game/config/pipeline.config.js'
@@ -31,6 +32,18 @@ function changeTobacco(event) {
   const skipped = productionBuildings.value.length - count
   lastResult.value = `Updated ${count} production building${count === 1 ? '' : 's'}.${skipped ? ` ${skipped} unavailable for this tobacco.` : ''}`
   event.target.value = tobaccoChoice.value
+}
+
+const mergePreview = computed(() => store.previewMerge(props.buildingIds))
+const mergeMessage = computed(() => {
+  const plan = mergePreview.value
+  if (!plan.ok) return MERGE_REASONS[plan.reason]
+  return `${plan.footprint.width}×${plan.footprint.height} complex at (${plan.building.position.x}, ${plan.building.position.y}) · generation ${plan.building.mergeGeneration}. Combined capacity and production ×1.5. Batches are kept. No cash cost.`
+})
+function doMerge() {
+  const result = store.mergeSelection(props.buildingIds)
+  if (result.ok) emit('clear')
+  else lastResult.value = MERGE_REASONS[result.reason]
 }
 
 const idleCount = computed(() => buildings.value.filter((b) => b.slot?.status === 'idle').length)
@@ -78,6 +91,10 @@ function doCollectAll() {
       <p>Applies to the next batch in {{ productionBuildings.length }} production building{{ productionBuildings.length === 1 ? '' : 's' }}. Waits for matching stock.</p>
     </div>
 
+    <div class="merge-action">
+      <button :disabled="!mergePreview.ok" @click="doMerge"><Icon name="mdi:merge" /> Combine buildings · +50%</button>
+      <p>{{ mergeMessage }}</p>
+    </div>
     <div class="bulk-actions">
       <button :disabled="upgradePreview.count === 0" @click="doUpgradeAll">
         <span class="btn-main"><Icon name="mdi:arrow-up-bold-circle-outline" /> Upgrade All</span>
@@ -109,6 +126,8 @@ function doCollectAll() {
   gap: $spacing-xs;
   width: 360px;
   max-width: calc(100vw - #{$spacing-md * 2});
+  max-height: calc(100dvh - 170px);
+  overflow-y: auto;
   background: $color-panel;
   border: 1px solid $color-panel-border;
   border-radius: $radius-md;
@@ -185,6 +204,13 @@ function doCollectAll() {
   p { margin: 0; font-size: 0.72rem; color: $color-text-muted; }
 }
 
+.merge-action {
+  border-top: 1px solid $color-panel-border;
+  padding-top: $spacing-xs;
+  button { width: 100%; min-height: 38px; font: inherit; font-weight: 600; color: $color-text; background: rgba(212, 169, 74, 0.2); border: 1px solid $color-accent; border-radius: $radius-sm; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; border-color: $color-panel-border; }
+  p { font-size: 0.72rem; color: $color-text-muted; margin: 5px 0; }
+}
 .bulk-actions {
   display: flex;
   gap: $spacing-xs;

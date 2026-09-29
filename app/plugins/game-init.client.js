@@ -1,7 +1,7 @@
 import { createSaveAdapter } from '#game/persistence/index.js'
 import { migrateSave } from '#game/persistence/migrations.js'
 import { createInitialState } from '#game/state/createInitialState.js'
-import { createShowcaseState } from '#game/state/createShowcaseState.js'
+import { createShowcaseState, createExpansionShowcaseState } from '#game/state/createShowcaseState.js'
 import { runOfflineCatchUp } from '#game/engine/catchUp.js'
 import { clamp, now } from '#game/util/time.js'
 import { useGameStore } from '~/stores/game.js'
@@ -18,7 +18,7 @@ export default defineNuxtPlugin(async () => {
   // under construction) plus every vehicle tier, for art review. Never
   // persisted, so the real save is untouched.
   if (new URLSearchParams(window.location.search).has('showcase')) {
-    const { state, vehicleLanes } = createShowcaseState()
+    const { state, vehicleLanes } = new URLSearchParams(window.location.search).get('showcase') === 'expansion' ? createExpansionShowcaseState() : createShowcaseState()
     store.hydrate(state)
     setShowcaseLanes(vehicleLanes)
     useGameLoop().start()

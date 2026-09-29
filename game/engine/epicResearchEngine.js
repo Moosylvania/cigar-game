@@ -77,7 +77,7 @@ export function getEpicMultipliers(prestigeState) {
     const { effect, perLevelValue } = research
 
     if (effect.type === 'sale_price_multiplier') {
-      salePriceMultiplier *= (1 + perLevelValue) ** level
+      salePriceMultiplier += perLevelValue * level
     } else if (effect.type === 'production_speed_multiplier') {
       const factor = (1 - perLevelValue) ** level
       const targets = effect.stageTarget === 'all' ? PIPELINE_TYPES : [effect.stageTarget]
@@ -91,7 +91,7 @@ export function getEpicMultipliers(prestigeState) {
     } else if (effect.type === 'fleet_throughput_multiplier') {
       fleetThroughputMultiplier *= (1 + perLevelValue) ** level
     } else if (effect.type === 'prestige_multiplier_boost') {
-      prestigeMultiplierBoost *= (1 + perLevelValue) ** level
+      prestigeMultiplierBoost += perLevelValue * level
     }
   }
 

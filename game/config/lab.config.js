@@ -1,6 +1,6 @@
 /**
  * Egg-Inc style research: a handful of independent lines, each buyable
- * repeatedly up to maxLevel. Every purchase compounds perLevelValue onto
+ * repeatedly up to maxLevel. Production/logistics compound while price bonuses add to
  * the effect (see engine/labEngine.js) and costs more than the last (cost
  * at level L = baseCost * costGrowth^L). All lines are purchasable in any
  * order/mix from the start - no sequential gating. Level caps are set high
@@ -18,7 +18,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.02,
     maxLevel: 30,
     baseCost: 150,
-    costGrowth: 1.3
+    costGrowth: 1.6
   },
   {
     id: 'premium_seeds',
@@ -29,7 +29,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.05,
     maxLevel: 25,
     baseCost: 300,
-    costGrowth: 1.35
+    costGrowth: 1.65
   },
   {
     id: 'nursery_speed',
@@ -40,7 +40,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.025,
     maxLevel: 25,
     baseCost: 200,
-    costGrowth: 1.3
+    costGrowth: 1.6
   },
   {
     id: 'field_speed',
@@ -51,7 +51,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.03,
     maxLevel: 25,
     baseCost: 400,
-    costGrowth: 1.3
+    costGrowth: 1.6
   },
   {
     id: 'field_yield',
@@ -62,7 +62,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.04,
     maxLevel: 25,
     baseCost: 450,
-    costGrowth: 1.32
+    costGrowth: 1.65
   },
   {
     id: 'curing_efficiency',
@@ -73,7 +73,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.03,
     maxLevel: 30,
     baseCost: 500,
-    costGrowth: 1.3
+    costGrowth: 1.6
   },
   {
     id: 'curing_capacity',
@@ -84,7 +84,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.035,
     maxLevel: 25,
     baseCost: 900,
-    costGrowth: 1.32
+    costGrowth: 1.65
   },
   {
     id: 'steam_optimization',
@@ -95,7 +95,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.03,
     maxLevel: 30,
     baseCost: 700,
-    costGrowth: 1.3
+    costGrowth: 1.6
   },
   {
     id: 'steam_capacity',
@@ -106,7 +106,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.035,
     maxLevel: 25,
     baseCost: 1300,
-    costGrowth: 1.32
+    costGrowth: 1.65
   },
   {
     id: 'master_fermentation',
@@ -117,7 +117,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.03,
     maxLevel: 30,
     baseCost: 1000,
-    costGrowth: 1.3
+    costGrowth: 1.6
   },
   {
     id: 'fermentation_capacity',
@@ -128,7 +128,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.035,
     maxLevel: 25,
     baseCost: 1800,
-    costGrowth: 1.32
+    costGrowth: 1.65
   },
   {
     id: 'expert_rollers',
@@ -139,7 +139,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.04,
     maxLevel: 30,
     baseCost: 1500,
-    costGrowth: 1.3
+    costGrowth: 1.6
   },
   {
     id: 'cigar_press',
@@ -150,7 +150,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.04,
     maxLevel: 25,
     baseCost: 2500,
-    costGrowth: 1.3
+    costGrowth: 1.6
   },
   {
     id: 'premium_blend',
@@ -161,7 +161,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.05,
     maxLevel: 50,
     baseCost: 2000,
-    costGrowth: 1.25
+    costGrowth: 1.6
   },
   {
     id: 'warehouse_expansion',
@@ -172,7 +172,7 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.06,
     maxLevel: 30,
     baseCost: 1200,
-    costGrowth: 1.28
+    costGrowth: 1.6
   },
   {
     id: 'logistics_optimization',
@@ -183,9 +183,44 @@ export const LAB_RESEARCH = [
     perLevelValue: 0.06,
     maxLevel: 30,
     baseCost: 1500,
-    costGrowth: 1.28
+    costGrowth: 1.6
   }
 ]
+
+// New programs span industrial expansion through deep-space logistics.
+// Each stage has dedicated yield and speed lines, plus shared logistics.
+const ADVANCED_PROGRAMS = [
+  { id: 'industrial', name: 'Industrial', baseCost: 1e8, costGrowth: 2.1 },
+  { id: 'orbital', name: 'Orbital', baseCost: 1e14, costGrowth: 2.5 },
+  { id: 'interstellar', name: 'Interstellar', baseCost: 1e21, costGrowth: 3 },
+  { id: 'cosmic', name: 'Cosmic', baseCost: 1e27, costGrowth: 3.5 }
+]
+const STAGE_NAMES = { nursery: 'Propagation', field: 'Harvests', curing: 'Curing Racks', steam: 'Steam Chambers', fermentation: 'Fermentation Vats', rolling: 'Rolling Lines' }
+for (const program of ADVANCED_PROGRAMS) {
+  Object.entries(STAGE_NAMES).forEach(([stage, name], index) => {
+    for (const [kind, label, effect, value] of [
+      ['yield', 'Capacity', 'batch_size_multiplier', 0.12],
+      ['speed', 'Automation', 'production_speed_multiplier', 0.025]
+    ]) {
+      LAB_RESEARCH.push({
+        id: `${program.id}_${stage}_${kind}`, name: `${program.name} ${name} ${label}`, program: program.name,
+        description: `${label === 'Capacity' ? 'Larger batches' : 'Faster processing'} for ${stage} buildings.`,
+        effect: { type: effect, stageTarget: stage }, icon: kind === 'yield' ? 'mdi:factory' : 'mdi:cog',
+        perLevelValue: value, maxLevel: 20, baseCost: program.baseCost * (index + 1), costGrowth: program.costGrowth
+      })
+    }
+  })
+  for (const [id, name, type, value] of [
+    ['storage', 'Cargo Vaults', 'storage_capacity_multiplier', 0.35],
+    ['fleet', 'Freight Networks', 'fleet_throughput_multiplier', 0.2],
+    ['quality', 'Blend Certification', 'sale_price_multiplier', 0.015]
+  ]) LAB_RESEARCH.push({
+    id: `${program.id}_${id}`, name: `${program.name} ${name}`, program: program.name,
+    description: `Expand ${name.toLowerCase()} across your empire.`,
+    effect: { type }, icon: id === 'fleet' ? 'mdi:rocket-launch' : id === 'storage' ? 'mdi:warehouse' : 'mdi:certificate',
+    perLevelValue: value, maxLevel: 20, baseCost: program.baseCost * 8, costGrowth: program.costGrowth
+  })
+}
 
 export function getResearchDefinition(researchId) {
   return LAB_RESEARCH.find((r) => r.id === researchId) ?? null

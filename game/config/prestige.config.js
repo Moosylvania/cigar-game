@@ -34,11 +34,8 @@ export const PRESTIGE_TIERS = [
 export const LEAF_DOLLARS_PER_UNIT = 1000000
 export const LEAF_EARN_EXPONENT = 0.5
 
-// Each Legacy Leaf you've ever earned adds this fraction to the money
-// multiplier, permanently and without limit (see prestigeEngine.js
-// getLeafMultiplier: multiplier = 1 + leafBonusPerLeaf * legacyLeaves).
-// Raised further, one level at a time, by the Leaf Tonic store upgrade
-// below.
+// Leaves feed a logarithmic bonus: 1 + 5 * log10(1 + bonusPerLeaf * leaves).
+// Existing leaf balances remain intact; returns diminish as the empire grows.
 export const BASE_LEAF_BONUS_PER_LEAF = 0.01
 
 // Leaf Tonic (see Store panel / prestigeEngine.js buyLeafBoost): a
@@ -52,15 +49,5 @@ export const LEAF_BOOST_BASE_COST = 1000000
 export const LEAF_BOOST_COST_GROWTH = 1.2
 export const LEAF_BOOST_COOLDOWN_MS = 6 * 60 * 60 * 1000
 
-// Separate from the cumulative multiplier above, and multiplicative with
-// it: rewards actually playing at a tier, not just having once earned past
-// it. Doubles the sale price of every cigar sold per step of
-// prestige.activeTierIndex (see prestigeEngine.js getActiveTierMultiplier)
-// - moving back to an earlier tier's look (see advanceTier) drops this
-// back down to that tier's own bonus, even though the cumulative
-// multiplier above stays at its full locked-in value regardless. Kept to
-// a doubling (not the cumulative multiplier's already-large per-tier
-// factor) since this one applies once per tier rather than compounding
-// band-progress within each - backyard is 1x (no bonus), cosmic_ascendant
-// (the 10th tier, index 9) is 2^9 = 512x.
-export const ACTIVE_TIER_PRICE_GROWTH = 2
+// Each active tier adds 50% to its tier factor instead of doubling it.
+export const ACTIVE_TIER_PRICE_GROWTH = 0.5

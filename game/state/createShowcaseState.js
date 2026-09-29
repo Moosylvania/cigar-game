@@ -92,3 +92,35 @@ export function createShowcaseState() {
 
   return { state, vehicleLanes }
 }
+
+/** Compact, unsaved review town for late-game artwork and merge interactions. */
+export function createExpansionShowcaseState() {
+  const state = createInitialState()
+  state.tutorial = { active: false, dismissed: true, currentStep: 0 }
+  state.resources.money = 1e39
+  state.resources.storage.cigars = 2e9
+  state.resources.tobaccoLots = { cigars: { piloto: 2e9 } }
+  state.coins = 1000
+  state.townHall.level = 10
+  state.townHall.position = { x: 8, y: 0 }
+  state.buildings = []
+  const add = (type, x, y, generation = 0) => {
+    const building = createShowcaseBuilding(type, 10, { x, y }, false)
+    building.slot = isPipelineBuilding(type) ? { status: 'idle', batchSize: 0 } : null
+    if (generation) {
+      building.mergeGeneration = generation
+      building.mergedBuildingCount = 2 ** generation
+      building.mergeFactors = { batchSize: 3 ** generation }
+    }
+    state.buildings.push(building)
+  }
+  add('field', 0, 0, 3)
+  add('distribution', 4, 0)
+  add('distribution', 6, 0, 2)
+  for (const [i, type] of ['nursery', 'curing', 'steam', 'fermentation', 'rolling'].entries()) add(type, i*2, 4, i%3+1)
+  add('nursery',4,2);add('nursery',5,2)
+  state.distribution.fleet = [{ vehicleTierId: 'rocket', count: 2 }]
+  state.lab.researchLevels = { logistics_optimization: 10, warehouse_expansion: 30 }
+  for(let x=-1;x<=10;x++) for(let y=-1;y<=6;y++) state.land.purchasedTiles.push({x,y})
+  return { state, vehicleLanes: null }
+}

@@ -91,6 +91,7 @@ export function startUpgradeToLevel(building, state, targetLevel, speedMultiplie
   if (state.resources.money < plan.cost) return { ok: false, reason: 'insufficient_funds' }
 
   state.resources.money -= plan.cost
+  if (building.investedValue != null) building.investedValue += plan.cost
   const startedAt = now()
   building.upgrade = {
     targetLevel,

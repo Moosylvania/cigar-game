@@ -4,6 +4,7 @@
  * @property {string} name
  * @property {number} cost
  * @property {number} capacityPerHour
+ * @property {number} [requiredDepotLevel]
  */
 
 /**
@@ -18,7 +19,7 @@
  * money on top of the Depot's normal level-based slots (see
  * trainSlots.config.js) - 0 until unlocked/bought, capped at
  * TRAIN_SLOT_CONFIG.maxPurchasable.
- * @typedef {{ fleet: FleetEntry[], purchasedTrainSlots: number }} DistributionState
+ * @typedef {{ fleet: FleetEntry[], purchasedTrainSlots: number, depotsBuilt?: number }} DistributionState
  */
 
 export {}

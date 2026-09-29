@@ -3,7 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useGameStore } from '~/stores/game.js'
 import { useClock } from '~/composables/useClock.js'
 import { getPipelineStage } from '#game/config/pipeline.config.js'
-import { getLevelStats, MAX_BUILDING_LEVEL } from '#game/config/buildings/index.js'
+import { getLevelStats, getBuildingStats, MAX_BUILDING_LEVEL } from '#game/config/buildings/index.js'
 import { getAutomationTier, AUTO_COLLECT_LEVEL, AUTO_START_LEVEL } from '#game/config/automation.config.js'
 import { TOWN_HALL_GATING } from '#game/config/townHallGating.config.js'
 import { formatDuration } from '#game/util/time.js'
@@ -163,7 +163,7 @@ function doSell() {
 
 const currentStatEntries = computed(() => {
   if (!building.value) return []
-  const entries = getStatEntries(building.value.type, getLevelStats(building.value.type, building.value.level), store.labMultipliers)
+  const entries = getStatEntries(building.value.type, getBuildingStats(building.value), store.combinedMultipliers)
   // Sale price and Depot fullness aren't level stats of Rolling itself -
   // they're live/derived values worth surfacing here anyway, since
   // Rolling's cigars go straight into that capped Depot storage and
@@ -189,7 +189,7 @@ const currentStatEntries = computed(() => {
 // target" without re-matching by key.
 const nextStatEntries = computed(() => {
   if (!building.value || !upgradePlan.value) return []
-  return getStatEntries(building.value.type, getLevelStats(building.value.type, upgradePlan.value.targetLevel), store.labMultipliers)
+  return getStatEntries(building.value.type, getBuildingStats(building.value, upgradePlan.value.targetLevel), store.combinedMultipliers)
 })
 
 const upgradePreviewRows = computed(() =>
@@ -243,8 +243,8 @@ function doCollectBatch() {
   <div v-if="building" class="panel-backdrop" @click.self="emit('close')">
     <div ref="dialog" class="panel" :class="{ 'town-hall-panel': building.type === 'town_hall' }" role="dialog" aria-modal="true" aria-labelledby="building-dialog-title" tabindex="-1" @keydown="dialogKeys">
       <div class="panel-header">
-        <AnimatedGameArt class="building-portrait" :type="building.type" :level="building.level" :status="building.slot?.status ?? 'idle'" :theme="store.activeThemeId" :upgrading="!!building.upgrade" />
-        <h3 id="building-dialog-title">{{ building.type === 'town_hall' ? store.townName : config.displayName }}<span v-if="building.type === 'town_hall'" class="hall-subtitle">Town Hall · Lv {{ building.level }}</span><template v-else> — Lv {{ building.level }}</template></h3>
+        <AnimatedGameArt class="building-portrait" :type="building.type" :level="building.level" :merge-generation="building.mergeGeneration ?? 0" :status="building.slot?.status ?? 'idle'" :theme="store.activeThemeId" :upgrading="!!building.upgrade" />
+        <h3 id="building-dialog-title">{{ building.type === 'town_hall' ? store.townName : config.displayName }}<span v-if="building.type === 'town_hall'" class="hall-subtitle">Town Hall · Lv {{ building.level }}</span><template v-else> — Lv {{ building.level }}<span v-if="building.mergeGeneration" class="hall-subtitle">Complex G{{ building.mergeGeneration }} · {{ building.mergedBuildingCount }} buildings combined</span></template></h3>
         <button class="close" aria-label="Close building dialog" @click="emit('close')"><Icon name="mdi:close" /></button>
       </div>
 

@@ -43,6 +43,7 @@ const rows = computed(() =>
 )
 
 const reasonText = {
+  launch_pad_required: 'Reach Depot level 10 to build a launch pad',
   no_distribution_building: 'Build a Distribution Depot first',
   no_fleet_slots: 'Fleet full - upgrade the depot for more slots',
   insufficient_funds: 'Not enough money',
@@ -89,7 +90,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
           <span class="item-icon"><AnimatedGameArt kind="vehicle" :type="row.tier.id" /></span>
           <div class="info">
             <span class="name">{{ row.tier.name }}</span>
-            <span class="detail">{{ formatCompactNumber(row.tier.capacityPerHour) }} cigars/hr</span>
+            <span class="detail">{{ formatCompactNumber(row.tier.capacityPerHour * store.combinedMultipliers.fleetThroughputMultiplier) }} cigars/hr · research included</span>
             <span v-if="!row.canBuy && row.reason" class="warn" :class="{ current: row.isCurrent }">{{ reasonText[row.reason] ?? 'Unavailable' }}</span>
           </div>
           <button :disabled="!row.canBuy" @click="buy(row)">

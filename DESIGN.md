@@ -108,6 +108,15 @@ idle crews follow a slower cycle. Workers use the existing motion clock and free
 they do not alter simulation state, placement, or interaction bounds.
 Map and preview art use the same level renderer.
 
+Expansion artwork inherits this illustrated world with thinner outlines and
+wide, stage-specific silhouettes: conservatories, curing halls, horizontal
+steam vessels, sheltered casks, rolling floors, and greenhouse rows. Later
+merge generations add roof-mounted equipment and small indicators, never a
+central tower, reactor crown, or oversized glow frame. Level-10 depots pair a
+low asymmetrical freight hangar and mission-control room with a physically
+separate octagonal launch apron. The existing cargo-rocket asset flies in an
+air layer above roofs and below labels, launching upright from its pad and traveling straight up only.
+
 ## Do's and Don'ts
 
 - Do preserve gameplay, save compatibility, and recognizable building roles.

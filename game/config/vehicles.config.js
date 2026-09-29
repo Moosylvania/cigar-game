@@ -12,7 +12,8 @@ export const VEHICLE_TIERS = [
   { id: 'semi', name: 'Semi Trailer', cost: 3000, capacityPerHour: 320, icon: 'mdi:truck-trailer' },
   { id: 'cargo_train', name: 'Cargo Train', cost: 40000, capacityPerHour: 900, icon: 'mdi:train-car-box' },
   { id: 'freight_train', name: 'Freight Train', cost: 250000, capacityPerHour: 4200, icon: 'mdi:train-car-container' },
-  { id: 'bullet_train', name: 'Bullet Train', cost: 2000000, capacityPerHour: 20000, icon: 'mdi:train-variant' }
+  { id: 'bullet_train', name: 'Bullet Train', cost: 2000000, capacityPerHour: 20000, icon: 'mdi:train-variant' },
+  { id: 'rocket', name: 'Cargo Rocket', cost: 2e12, capacityPerHour: 2e9, icon: 'mdi:rocket-launch', requiredDepotLevel: 10 }
 ]
 
 export function getVehicleTier(id) {
@@ -33,12 +34,14 @@ const VEHICLE_SPRITE_FILE = {
 }
 
 export function getVehicleSpritePath(tierId) {
+  if (tierId === 'rocket') return '/images/vehicles/cargo-rocket.png'
   const file = VEHICLE_SPRITE_FILE[tierId]
   return file ? `/images/cigar_sprite_pack_topdown/sprites/vehicles/${file}_s.webp` : null
 }
 
 /** @param {string} tierId @param {'n'|'e'|'s'|'w'} direction */
 export function getVehicleSpriteDirPath(tierId, direction) {
+  if (tierId === 'rocket') return '/images/vehicles/cargo-rocket.png'
   const file = VEHICLE_SPRITE_FILE[tierId]
   return file ? `/images/cigar_sprite_pack_topdown/sprites/vehicles/${file}_${direction}.webp` : null
 }

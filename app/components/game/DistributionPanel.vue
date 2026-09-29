@@ -11,20 +11,11 @@ const store = useGameStore()
 const showPicker = ref(false)
 const replacingTierId = ref(null)
 
-// One row per fleet slot - occupied slots show that vehicle (click to
-// replace it in place), and any remaining slots up to the Depot's cap show
-// an "Add Vehicle" placeholder (click to fill it) - same popup either way.
-const slotRows = computed(() => {
-  const rows = []
-  for (const entry of store.fleet) {
-    const tier = getVehicleTier(entry.vehicleTierId)
-    if (!tier) continue
-    for (let i = 0; i < entry.count; i++) rows.push({ occupied: true, tier })
-  }
-  const emptyCount = Math.max(0, store.fleetMaxSlots - rows.length)
-  for (let i = 0; i < emptyCount; i++) rows.push({ occupied: false, tier: null })
-  return rows
-})
+// Group identical vehicles so repeated depot merges never create millions of DOM rows.
+const slotRows = computed(() => store.fleet.map(entry => ({
+  tier: getVehicleTier(entry.vehicleTierId), count: entry.count
+})).filter(row => row.tier))
+const availableSlots = computed(() => Math.max(0, store.fleetMaxSlots - store.fleetSlotsUsed))
 
 function openAddSlot() {
   replacingTierId.value = null
@@ -65,26 +56,18 @@ const isNearFull = computed(() => cigarCapacity.value > 0 && cigarsStored.value 
     <CigarInventory />
 
     <div class="fleet-list">
-      <button
-        v-for="(row, index) in slotRows"
-        :key="row.occupied ? `${row.tier.id}-${index}` : `empty-${index}`"
-        class="vehicle-row"
-        :class="{ 'add-row': !row.occupied }"
-        @click="row.occupied ? openReplaceSlot(row.tier.id) : openAddSlot()"
-      >
-        <span class="vehicle-icon" :class="{ 'add-icon': !row.occupied }">
-          <AnimatedGameArt v-if="row.occupied" kind="vehicle" :type="row.tier.id" />
-          <Icon v-else name="mdi:plus" />
-        </span>
+      <button v-for="row in slotRows" :key="row.tier.id" class="vehicle-row" @click="openReplaceSlot(row.tier.id)">
+        <span class="vehicle-icon"><AnimatedGameArt kind="vehicle" :type="row.tier.id" /></span>
         <div class="vehicle-info">
-          <template v-if="row.occupied">
-            <span class="name">{{ row.tier.name }}</span>
-            <span class="detail">+{{ formatCompactNumber(row.tier.capacityPerHour) }} cigars/hr &middot; tap to upgrade</span>
-          </template>
-          <template v-else>
-            <span class="name">Add Vehicle</span>
-            <span class="detail">Buy any truck or train, any time</span>
-          </template>
+          <span class="name">{{ row.tier.name }} ×{{ formatCompactNumber(row.count) }}</span>
+          <span class="detail">{{ formatCompactNumber(row.tier.capacityPerHour * store.combinedMultipliers.fleetThroughputMultiplier) }} cigars/hr each (research included) · tap to replace one</span>
+        </div>
+      </button>
+      <button v-if="availableSlots" class="vehicle-row add-row" @click="openAddSlot">
+        <span class="vehicle-icon add-icon"><Icon name="mdi:plus" /></span>
+        <div class="vehicle-info">
+          <span class="name">Add Vehicle</span>
+          <span class="detail">{{ formatCompactNumber(availableSlots) }} slots available · rockets require a level-10 depot</span>
         </div>
       </button>
     </div>

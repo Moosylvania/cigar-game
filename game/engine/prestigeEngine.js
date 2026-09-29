@@ -40,8 +40,7 @@ export function getLeavesEarned(dollarsEarned) {
 }
 
 /**
- * The money-multiplier bonus each individual Legacy Leaf is currently
- * worth - the store-bought base, raised permanently by Leaf Tonic levels
+ * Leaf strength inside the logarithmic money bonus, raised by Leaf Tonic levels
  * (see buyLeafBoost).
  * @param {import('../types/prestige.js').PrestigeState} prestigeState
  * @returns {number}
@@ -59,7 +58,7 @@ export function getLeafBonusPerLeaf(prestigeState) {
  */
 export function getLeafMultiplier(prestigeState) {
   const leaves = prestigeState.legacyLeaves ?? 0
-  return 1 + getLeafBonusPerLeaf(prestigeState) * leaves
+  return 1 + 5 * Math.log10(1 + getLeafBonusPerLeaf(prestigeState) * Math.max(0, leaves))
 }
 
 /**
@@ -75,7 +74,7 @@ export function getLeafMultiplier(prestigeState) {
  * @returns {number}
  */
 export function getActiveTierMultiplier(activeTierIndex) {
-  return ACTIVE_TIER_PRICE_GROWTH ** Math.max(0, activeTierIndex)
+  return 1 + ACTIVE_TIER_PRICE_GROWTH * Math.max(0, activeTierIndex)
 }
 
 /**

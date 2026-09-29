@@ -134,6 +134,15 @@ export const STORE_ITEMS = [
     cost: 100
   },
   {
+    id: 'finish_construction_cash',
+    name: 'Finish All Construction · Cash',
+    description: 'Instantly finish every active building upgrade. Alternative to the 100-coin purchase.',
+    icon: 'mdi:hammer-wrench',
+    type: 'finish_construction',
+    currency: 'money',
+    cost: 1e9
+  },
+  {
     id: 'money_rush_10m',
     name: 'Money Rush (10 min)',
     description: 'Cigars sell for 10x more for the next 10 minutes.',

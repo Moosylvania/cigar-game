@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url'
 const ICON_NAMES = [
   'mdi:clipboard-list-outline',
   'mdi:factory',
+  'mdi:merge',
+  'mdi:cog',
+  'mdi:certificate',
   'game-icons:plant-seed',
   'mdi:wheat',
   'mdi:barn',

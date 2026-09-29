@@ -1,5 +1,5 @@
 import { getVehicleTier } from '../config/vehicles.config.js'
-import { getLevelStats } from '../config/buildings/index.js'
+import { getBuildingStats } from '../config/buildings/index.js'
 import { TRAIN_SLOT_CONFIG } from '../config/trainSlots.config.js'
 
 function getDistributionBuilding(state) {
@@ -7,10 +7,7 @@ function getDistributionBuilding(state) {
 }
 
 function getMaxSlots(state) {
-  const depot = getDistributionBuilding(state)
-  if (!depot) return 0
-  const levelSlots = getLevelStats('distribution', depot.level).maxVehicleSlots
-  return levelSlots + getPurchasedTrainSlots(state)
+  return Math.floor(state.buildings.filter(b => b.type === 'distribution').reduce((sum, b) => sum + getBuildingStats(b).maxVehicleSlots, 0)) + getPurchasedTrainSlots(state)
 }
 
 /**
@@ -34,9 +31,7 @@ function getFleetEntry(state, vehicleTierId) {
  * @returns {number}
  */
 export function getCigarStorageCapacity(state, labMultipliers) {
-  const depot = getDistributionBuilding(state)
-  if (!depot) return 0
-  const base = getLevelStats('distribution', depot.level).cigarStorageCapacity
+  const base = state.buildings.filter(b => b.type === 'distribution').reduce((sum, b) => sum + getBuildingStats(b).cigarStorageCapacity, 0)
   return Math.round(base * (labMultipliers?.depotCapacityMultiplier ?? 1))
 }
 
@@ -54,6 +49,7 @@ export function canBuyVehicle(state, vehicleTierId) {
 
   const tier = getVehicleTier(vehicleTierId)
   if (!tier) return { ok: false, reason: 'unknown_vehicle' }
+  if (tier.requiredDepotLevel && !state.buildings.some(b => b.type === 'distribution' && b.level >= tier.requiredDepotLevel)) return { ok: false, reason: 'launch_pad_required' }
 
   if (getTotalFleetCount(state) >= getMaxSlots(state)) return { ok: false, reason: 'no_fleet_slots' }
   if (state.resources.money < tier.cost) return { ok: false, reason: 'insufficient_funds' }
@@ -120,6 +116,7 @@ export function canReplaceVehicle(state, fromVehicleTierId, toVehicleTierId) {
 
   const toTier = getVehicleTier(toVehicleTierId)
   if (!toTier) return { ok: false, reason: 'unknown_vehicle' }
+  if (toTier.requiredDepotLevel && !state.buildings.some(b => b.type === 'distribution' && b.level >= toTier.requiredDepotLevel)) return { ok: false, reason: 'launch_pad_required' }
   if (toVehicleTierId === fromVehicleTierId) return { ok: false, reason: 'already_owned' }
 
   if (state.resources.money < toTier.cost) return { ok: false, reason: 'insufficient_funds' }
@@ -153,8 +150,7 @@ export function replaceVehicle(state, fromVehicleTierId, toVehicleTierId) {
  * @returns {boolean}
  */
 export function isTrainSlotPurchaseUnlocked(state) {
-  const depot = getDistributionBuilding(state)
-  return !!depot && depot.level >= TRAIN_SLOT_CONFIG.unlockDepotLevel
+  return state.buildings.some(b => b.type === 'distribution' && b.level >= TRAIN_SLOT_CONFIG.unlockDepotLevel)
 }
 
 /**

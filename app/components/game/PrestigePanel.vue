@@ -114,7 +114,7 @@ function confirmAction() {
           <span class="overview-value highlight">
             {{ formatCompactNumber(store.legacyLeaves) }}
             <template v-if="leavesPreview > 0"><span class="preview-arrow">+{{ formatCompactNumber(leavesPreview) }}</span></template>
-            <span class="sub-value">({{ formatMultiplier(1 + store.leafBonusPerLeaf) }} per leaf)</span>
+            <span class="sub-value">(diminishing returns)</span>
           </span>
         </div>
         <div class="overview-row">

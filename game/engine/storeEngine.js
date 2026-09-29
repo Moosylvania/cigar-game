@@ -1,7 +1,7 @@
 import { DEFAULT_TOBACCO_ID, getTobacco, isTobaccoUnlocked } from '../config/tobacco.config.js'
 import { addTobaccoResource } from './tobaccoEngine.js'
 import { getStoreItem } from '../config/store.config.js'
-import { getLevelStats } from '../config/buildings/index.js'
+import { getBuildingStats } from '../config/buildings/index.js'
 import { resolveCompletedUpgrades } from './upgradeEngine.js'
 import { activateBoost } from './boostEngine.js'
 
@@ -25,8 +25,8 @@ import { activateBoost } from './boostEngine.js'
 export function getSeedsPerBatch(state, labMultipliers) {
   const batchSizeMultiplier = labMultipliers?.batchSizeMultipliers?.nursery ?? 1
   const nurseries = state.buildings.filter((b) => b.type === 'nursery')
-  const levels = nurseries.length > 0 ? nurseries.map((n) => n.level) : [1]
-  const capacities = levels.map((level) => Math.round(getLevelStats('nursery', level).batchSize * batchSizeMultiplier))
+  const buildings = nurseries.length > 0 ? nurseries : [{ type: 'nursery', level: 1 }]
+  const capacities = buildings.map((building) => Math.round(getBuildingStats(building).batchSize * batchSizeMultiplier))
   return Math.max(...capacities)
 }
 

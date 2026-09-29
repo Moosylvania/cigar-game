@@ -52,3 +52,21 @@ export function getBuildingWorth(type, level) {
   }
   return worth
 }
+
+/** Instance-aware footprint shared by placement, selection, and rendering. */
+export function getBuildingFootprint(building) {
+  if (building.mergeGeneration > 0) {
+    const size = building.type === 'field' ? 4 : 2
+    return { width: size, height: size }
+  }
+  return getBuildingConfig(building.type).footprint
+}
+
+/** Merge factors preserve combined capacity and throughput through later upgrades. */
+export function getBuildingStats(building, level = building.level) {
+  const stats = { ...getLevelStats(building.type, level) }
+  for (const [key, factor] of Object.entries(building.mergeFactors ?? {})) {
+    if (typeof stats[key] === 'number') stats[key] *= factor
+  }
+  return stats
+}

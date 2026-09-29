@@ -16,6 +16,7 @@ import TutorialCard from '~/components/game/TutorialCard.vue'
 import OfflineEarningsModal from '~/components/game/OfflineEarningsModal.vue'
 import { useGameStore } from '~/stores/game.js'
 import { getDecorationDefinition } from '#game/config/decorations.config.js'
+import { getBuildingPurchaseCost } from '#game/engine/placementEngine.js'
 import { formatCompactNumber } from '#game/util/format.js'
 
 const store = useGameStore()
@@ -25,7 +26,7 @@ const placingType = ref(null)
 const placedCount = ref(0)
 const placementFeedback = ref('')
 const placingConfig = computed(() => placingType.value ? store.getBuildingConfig(placingType.value) : null)
-const placementCost = computed(() => placingConfig.value?.levels[0].upgradeCost ?? 0)
+const placementCost = computed(() => placingType.value ? getBuildingPurchaseCost(store.game, placingType.value) : 0)
 
 function chooseBuilding(type) {
   placingType.value = type
@@ -190,11 +191,11 @@ function handleKeydown(event) {
   }
   if (isModalOpen.value) return
 
-  if (event.shiftKey && /^Digit[1-6]$/.test(event.code)) {
+  if (event.shiftKey && /^Digit[1-7]$/.test(event.code)) {
     if (expandMode.value || selectMode.value || placingDecorationId.value) return
     event.preventDefault()
-    const type = NUMBER_KEY_BUILDING_TYPES[event.code.slice(-1)]
-    if (store.money >= store.getBuildingConfig(type).levels[0].upgradeCost) chooseBuilding(type)
+    const type = event.code === 'Digit7' ? 'distribution' : NUMBER_KEY_BUILDING_TYPES[event.code.slice(-1)]
+    if (store.money >= getBuildingPurchaseCost(store.game, type)) chooseBuilding(type)
     return
   }
 
@@ -233,7 +234,7 @@ onBeforeUnmount(() => {
         <button class="confirm" @click="stopExpand"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else-if="selectMode">
-        <span class="rearrange-hint">Drag over buildings to select them. With 2+ selected, drag one to move the group</span>
+        <span class="rearrange-hint">Drag over buildings to select them. Select matching types to combine, or drag one to move the group</span>
         <button class="confirm" @click="stopSelect"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else>

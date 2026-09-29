@@ -6,6 +6,8 @@
 // reach well past a trillion, so the named range needs real headroom
 // rather than falling back to "e+21" scientific notation.
 const UNITS = [
+  { value: 1e42, suffix: 'Td' }, // Tredecillion
+  { value: 1e39, suffix: 'Dd' }, // Duodecillion
   { value: 1e36, suffix: 'Ud' }, // Undecillion
   { value: 1e33, suffix: 'Dc' }, // Decillion
   { value: 1e30, suffix: 'No' }, // Nonillion
@@ -34,6 +36,8 @@ function roundTo(value, decimals) {
  * @returns {string}
  */
 export function formatCompactNumber(value) {
+  if (!Number.isFinite(value)) return '—'
+  if (Math.abs(value) >= 1e45) return value.toExponential(2)
   const num = Math.floor(value)
   const abs = Math.abs(num)
 

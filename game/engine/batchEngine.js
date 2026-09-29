@@ -1,6 +1,6 @@
 import { takeTobaccoResource, addTobaccoResource, getPlantingChoice, getBatchInputAvailable } from './tobaccoEngine.js'
 import { getPipelineStage, PIPELINE_STAGES } from '../config/pipeline.config.js'
-import { getLevelStats } from '../config/buildings/index.js'
+import { getBuildingStats } from '../config/buildings/index.js'
 import { getAutomationTier } from '../config/automation.config.js'
 import { getCigarStorageCapacity } from './distributionEngine.js'
 import { now } from '../util/time.js'
@@ -38,7 +38,7 @@ export function startBatch(building, state, labMultipliers, maxAmount = Infinity
   if (building.upgrade) return { ok: false, reason: 'building_upgrading' }
   if (building.slot.status !== 'idle') return { ok: false, reason: 'slot_not_idle' }
 
-  const levelStats = getLevelStats(building.type, building.level)
+  const levelStats = getBuildingStats(building)
   const batchSizeMultiplier = labMultipliers?.batchSizeMultipliers?.[building.type] ?? 1
   const capacity = Math.round(levelStats.batchSize * batchSizeMultiplier)
 
@@ -157,7 +157,7 @@ function buildingsInPipelineOrder(state) {
  */
 function computeFairShares(availableInput, buildings, labMultipliers) {
   const batchSizeMultiplier = labMultipliers?.batchSizeMultipliers?.[buildings[0].type] ?? 1
-  const desired = buildings.map((b) => Math.round(getLevelStats(b.type, b.level).batchSize * batchSizeMultiplier))
+  const desired = buildings.map((b) => Math.round(getBuildingStats(b).batchSize * batchSizeMultiplier))
   const totalDesired = desired.reduce((sum, d) => sum + d, 0)
 
   const shares = new Map()
@@ -271,7 +271,7 @@ export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
     const inputSharePerBuilding = getBatchInputAvailable(buildings[0], state, stage.inputKey) / buildings.length
 
     for (const building of buildings) {
-      const levelStats = getLevelStats(building.type, building.level)
+      const levelStats = getBuildingStats(building)
       const batchSizeMultiplier = labMultipliers?.batchSizeMultipliers?.[building.type] ?? 1
       const capacity = Math.round(levelStats.batchSize * batchSizeMultiplier)
       const speedMultiplier = labMultipliers?.speedMultipliers?.[building.type] ?? 1

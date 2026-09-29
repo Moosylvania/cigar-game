@@ -1,3 +1,4 @@
+import { planMerge, mergeBuildings } from '#game/engine/mergeEngine.js'
 import { ensureMarket, deliverMarketOrder } from '#game/engine/marketEngine.js'
 import { setPlantingChoice } from '#game/engine/tobaccoEngine.js'
 import { renameTown as engineRenameTown, DEFAULT_TOWN_NAME } from '#game/engine/townProfile.js'
@@ -347,6 +348,8 @@ export const useGameStore = defineStore('game', {
   },
 
   actions: {
+    previewMerge(ids) { return planMerge(this.game, ids) },
+    mergeSelection(ids) { return mergeBuildings(this.game, ids) },
     openMarket() { return ensureMarket(this.game) },
     deliverMarketOrder(orderId) { return deliverMarketOrder(this.game, orderId) },
     setMarketReservation(value) { ensureMarket(this.game).reserve = !!value },

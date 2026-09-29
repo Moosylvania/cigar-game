@@ -149,12 +149,12 @@ function buyLeafBoost() {
           <div class="info">
             <span class="name">Leaf Tonic (Level {{ store.prestige.leafBoostLevel }})</span>
             <span class="detail">
-              Permanently raises the money multiplier bonus each Legacy Leaf is worth. Limited to
+              Strengthens the diminishing-return Legacy Leaf bonus. Limited to
               one dose every {{ formatDuration(LEAF_BOOST_COOLDOWN_MS / 1000) }}.
             </span>
             <span class="current-effect">
-              {{ formatMultiplier(1 + store.leafBonusPerLeaf) }} per leaf
-              → {{ formatMultiplier(1 + store.leafBonusPerLeaf + LEAF_BOOST_BONUS_PER_LEVEL) }} per leaf
+              Leaf strength {{ store.leafBonusPerLeaf.toFixed(3) }}
+              → {{ (store.leafBonusPerLeaf + LEAF_BOOST_BONUS_PER_LEVEL).toFixed(3) }}
             </span>
             <span v-if="leafBoostOnCooldown" class="current-effect active-boost">
               <Icon name="mdi:clock-outline" /> Next dose in {{ formatDuration(leafBoostCooldownRemainingMs / 1000) }}

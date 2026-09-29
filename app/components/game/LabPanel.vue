@@ -7,11 +7,10 @@ import { formatCompactNumber } from '#game/util/format.js'
 
 const emit = defineEmits(['close'])
 const store = useGameStore()
-
 function effectLabel(research, level) {
   if (level <= 0) return null
   if (research.effect.type === 'sale_price_multiplier') {
-    const pct = (((1 + research.perLevelValue) ** level - 1) * 100).toFixed(0)
+    const pct = (research.perLevelValue * level * 100).toFixed(0)
     return `+${pct}% cigar price`
   }
   if (research.effect.type === 'production_speed_multiplier') {
@@ -50,39 +49,34 @@ const rows = computed(() =>
 )
 
 function buy(researchId) {
-  store.buyResearch(researchId)
+  return store.buyResearch(researchId)
 }
 
-// Click-and-hold to keep buying levels without a separate click per level -
-// fires once immediately (so a plain tap/click still works normally),
-// waits HOLD_DELAY_MS to make sure it's a hold and not just a click, then
-// repeats every HOLD_REPEAT_MS. A no-op past max level or when unaffordable
-// (buyResearch/buyEpicResearch just return {ok: false}) so holding down on
-// a maxed-out or too-expensive row is harmless, not an error.
+// Tap buys one level. Holding for HOLD_DELAY_MS buys every further level
+// you can afford at once, stopping at max level or when money runs out
+// (buyResearch/buyEpicResearch return {ok: false} then).
 const HOLD_DELAY_MS = 400
-const HOLD_REPEAT_MS = 120
 let holdTimeout = null
-let holdInterval = null
 
 function startHold(action) {
   stopHold()
   action()
   holdTimeout = setTimeout(() => {
-    holdInterval = setInterval(action, HOLD_REPEAT_MS)
+    holdTimeout = null
+    while (action().ok);
+    navigator.vibrate?.(15)
   }, HOLD_DELAY_MS)
 }
 
 function stopHold() {
   clearTimeout(holdTimeout)
-  clearInterval(holdInterval)
   holdTimeout = null
-  holdInterval = null
 }
 
 function epicEffectLabel(research, level) {
   if (level <= 0) return null
   if (research.effect.type === 'prestige_multiplier_boost') {
-    const pct = (((1 + research.perLevelValue) ** level - 1) * 100).toFixed(0)
+    const pct = (research.perLevelValue * level * 100).toFixed(0)
     return `+${pct}% to every prestige tier's multiplier`
   }
   return effectLabel(research, level)
@@ -104,8 +98,29 @@ const epicRows = computed(() =>
   })
 )
 
+// Cheapest next level first; maxed lines sink to the bottom.
+function byPrice(a, b) {
+  return (a.maxed ? Infinity : a.cost) - (b.maxed ? Infinity : b.cost)
+}
+
+// Foundation lines have no `program`; advanced programs are tagged in
+// lab.config.js. Sections keep config order, with Epic last, and rows are
+// sorted by price within each section.
+const sections = computed(() => {
+  const byName = new Map()
+  for (const row of rows.value) {
+    const name = row.research.program ?? 'Foundation'
+    if (!byName.has(name)) byName.set(name, [])
+    byName.get(name).push(row)
+  }
+  return [
+    ...Array.from(byName, ([name, sectionRows]) => ({ name, rows: sectionRows.sort(byPrice) })),
+    { name: 'Epic', epic: true, rows: epicRows.value.map((row) => ({ ...row, epic: true })).sort(byPrice) }
+  ]
+})
+
 function buyEpic(researchId) {
-  store.buyEpicResearch(researchId)
+  return store.buyEpicResearch(researchId)
 }
 
 onBeforeUnmount(stopHold)
@@ -120,68 +135,43 @@ onBeforeUnmount(stopHold)
         <button class="close" @click="emit('close')"><Icon name="mdi:close" /></button>
       </div>
 
-      <div class="research-list">
-        <div v-for="row in rows" :key="row.research.id" class="research-row" :class="{ maxed: row.maxed }">
-          <span class="research-icon"><Icon :name="row.research.icon" /></span>
-          <div class="info">
-            <div class="title-line">
-              <span class="name">{{ row.research.name }}</span>
-              <span class="level">Lv {{ row.level }}/{{ row.research.maxLevel }}</span>
-            </div>
-            <span class="detail">{{ row.research.description }}</span>
-            <span v-if="row.current" class="current-effect">{{ row.current }}</span>
-            <div class="progress-track">
-              <div class="progress-fill" :style="{ width: `${(row.level / row.research.maxLevel) * 100}%` }" />
-            </div>
-          </div>
-          <span v-if="row.maxed" class="status">MAX</span>
-          <button
-            v-else
-            :disabled="!row.canBuy"
-            @pointerdown="startHold(() => buy(row.research.id))"
-            @pointerup="stopHold"
-            @pointerleave="stopHold"
-            @pointercancel="stopHold"
-          >
-            +{{ (row.research.perLevelValue * 100).toFixed(0) }}%<br />
-            ${{ formatCompactNumber(row.cost) }}
-          </button>
-        </div>
-      </div>
+      <p class="hint">Tap to buy a level. Hold to buy as many as you can afford.</p>
 
-      <div class="epic-header">
-        <Icon name="mdi:crown" />
-        <h4>Epic Research</h4>
-      </div>
-
-      <div class="research-list">
-        <div v-for="row in epicRows" :key="row.research.id" class="research-row epic" :class="{ maxed: row.maxed }">
-          <span class="research-icon"><Icon :name="row.research.icon" /></span>
-          <div class="info">
-            <div class="title-line">
-              <span class="name">{{ row.research.name }}</span>
-              <span class="level">Lv {{ row.level }}/{{ row.research.maxLevel }}</span>
+      <section v-for="section in sections" :key="section.name" class="research-section">
+        <h4 class="section-header" :class="{ epic: section.epic }">
+          <Icon v-if="section.epic" name="mdi:crown" />
+          {{ section.name }}
+        </h4>
+        <div class="research-list">
+          <div v-for="row in section.rows" :key="row.research.id" class="research-row" :class="{ maxed: row.maxed, epic: row.epic }">
+            <span class="research-icon"><Icon :name="row.research.icon" /></span>
+            <div class="info">
+              <div class="title-line">
+                <span class="name">{{ row.research.name }}</span>
+                <span class="level">Lv {{ row.level }}/{{ row.research.maxLevel }}</span>
+              </div>
+              <span class="detail">{{ row.research.description }}</span>
+              <span v-if="row.current" class="current-effect">{{ row.current }}</span>
+              <div class="progress-track">
+                <div class="progress-fill" :class="{ 'epic-fill': row.epic }" :style="{ width: `${(row.level / row.research.maxLevel) * 100}%` }" />
+              </div>
             </div>
-            <span class="detail">{{ row.research.description }}</span>
-            <span v-if="row.current" class="current-effect">{{ row.current }}</span>
-            <div class="progress-track">
-              <div class="progress-fill epic-fill" :style="{ width: `${(row.level / row.research.maxLevel) * 100}%` }" />
-            </div>
+            <span v-if="row.maxed" class="status">MAX</span>
+            <button
+              v-else
+              :disabled="!row.canBuy"
+              @pointerdown="startHold(() => row.epic ? buyEpic(row.research.id) : buy(row.research.id))"
+              @pointerup="stopHold"
+              @pointerleave="stopHold"
+              @pointercancel="stopHold"
+              @contextmenu.prevent
+            >
+              +{{ Number((row.research.perLevelValue * 100).toFixed(1)) }}%<br />
+              ${{ formatCompactNumber(row.cost) }}
+            </button>
           </div>
-          <span v-if="row.maxed" class="status">MAX</span>
-          <button
-            v-else
-            :disabled="!row.canBuy"
-            @pointerdown="startHold(() => buyEpic(row.research.id))"
-            @pointerup="stopHold"
-            @pointerleave="stopHold"
-            @pointercancel="stopHold"
-          >
-            +{{ (row.research.perLevelValue * 100).toFixed(0) }}%<br />
-            ${{ formatCompactNumber(row.cost) }}
-          </button>
         </div>
-      </div>
+      </section>
     </div>
   </div>
 </template>
@@ -266,6 +256,33 @@ onBeforeUnmount(stopHold)
   flex-shrink: 0;
 }
 
+.hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: $color-text-muted;
+}
+
+.research-section {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  margin: 0;
+  padding-top: $spacing-sm;
+  border-top: 1px solid $color-panel-border;
+  font-size: 0.85rem;
+  color: $color-text-muted;
+
+  &.epic {
+    color: $color-accent;
+  }
+}
+
 .research-list {
   display: flex;
   flex-direction: column;
@@ -285,25 +302,6 @@ onBeforeUnmount(stopHold)
     border-color: $color-money;
     background: rgba(123, 201, 111, 0.08);
   }
-}
-
-.epic-header {
-  display: flex;
-  align-items: baseline;
-  gap: $spacing-xs;
-  margin-top: $spacing-xs;
-  padding-top: $spacing-sm;
-  border-top: 1px solid $color-panel-border;
-  color: $color-accent;
-
-  h4 {
-    margin: 0;
-    font-size: 0.85rem;
-  }
-}
-
-.epic-fill {
-  background: $color-accent;
 }
 
 .research-icon {
@@ -363,6 +361,8 @@ onBeforeUnmount(stopHold)
 .progress-fill {
   height: 100%;
   background: $color-money;
+
+  &.epic-fill { background: $color-accent; }
 }
 
 .status {
@@ -385,6 +385,9 @@ button {
   white-space: nowrap;
   text-align: center;
   min-height: 40px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 
   &:disabled {
     opacity: 0.5;
