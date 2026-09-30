@@ -294,9 +294,7 @@ function render(frameTime = 0) {
     drawSelectionBox(camera, normalizedGridRect(selectDragStart, selectDragCurrent), 'rgba(123, 201, 111, 0.18)', 'rgba(123, 201, 111, 0.9)')
   }
 
-  for (const tile of props.selectedLandTiles) {
-    drawSelectionBox(camera, { x0: tile.x, y0: tile.y, x1: tile.x, y1: tile.y }, 'rgba(212, 169, 74, 0.22)', 'rgba(212, 169, 74, 0.9)')
-  }
+  if (props.selectedLandTiles.length) drawSelectedLandTiles(camera)
 
   const lots = getResourceLots(store.game, 'cigars')
   const cargoColors = [...TOBACCO_VARIETIES].reverse().filter(v => lots[v.id] > 0).map(v => v.color)
@@ -512,6 +510,27 @@ function buildingsInRect(rect) {
     const by1 = position.y + getBuildingFootprint(building).height - 1
     return position.x <= rect.x1 && bx1 >= rect.x0 && position.y <= rect.y1 && by1 >= rect.y0
   })
+}
+
+/** Every selected land tile as one filled + one stroked path (a save/fill/
+ * stroke per tile lagged every frame with thousands selected), skipping
+ * tiles that are off screen. */
+function drawSelectedLandTiles(camera) {
+  const size = TILE_SIZE * camera.scale
+  ctx.save()
+  ctx.beginPath()
+  for (const tile of props.selectedLandTiles) {
+    const x = camera.offsetX + tile.x * size
+    const y = camera.offsetY + tile.y * size
+    if (x + size < 0 || y + size < 0 || x > canvasWidth || y > canvasHeight) continue
+    ctx.rect(x, y, size, size)
+  }
+  ctx.fillStyle = 'rgba(212, 169, 74, 0.22)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(212, 169, 74, 0.9)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.restore()
 }
 
 /** Draws a translucent drag-select box (grid-space rect) in screen space. */
@@ -819,10 +838,22 @@ function handlePointerUp(event) {
     const rect = normalizedGridRect(start, end)
     const ids = buildingsInRect(rect).map((b) => b.id)
     if (event.type === 'pointerup') {
+      // Index occupied tiles once - a per-tile findBuildingAt scan made
+      // large boxes on big farms O(tiles x buildings) and stalled the UI.
+      const occupied = new Set(store.decorations.map((d) => d.position.x + ',' + d.position.y))
+      for (const building of store.allBuildings) {
+        const position = positionFor(building)
+        const { width, height } = getBuildingFootprint(building)
+        for (let dx = 0; dx < width; dx++) {
+          for (let dy = 0; dy < height; dy++) occupied.add((position.x + dx) + ',' + (position.y + dy))
+        }
+      }
+      const ownedTileSet = store.ownedTileSet
       const tiles = []
       for (let y = Math.max(rect.y0, MAX_REGION.y0); y <= Math.min(rect.y1, MAX_REGION.y1); y++) {
         for (let x = Math.max(rect.x0, MAX_REGION.x0); x <= Math.min(rect.x1, MAX_REGION.x1); x++) {
-          if (store.ownedTileSet.has(x + ',' + y) && !findBuildingAt({ x, y }) && !findDecorationAt({ x, y })) tiles.push({ x, y })
+          const key = x + ',' + y
+          if (ownedTileSet.has(key) && !occupied.has(key)) tiles.push({ x, y })
         }
       }
       emit('selection-changed', ids)

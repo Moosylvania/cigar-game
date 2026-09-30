@@ -8,7 +8,7 @@ export { getTileCost }
 // isRingComplete/getHighestCompletedRing) before ring 3 opens up.
 const RING_LOOKAHEAD = 2
 
-function tileKey(x, y) {
+export function tileKey(x, y) {
   return `${x},${y}`
 }
 

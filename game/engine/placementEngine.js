@@ -1,14 +1,23 @@
 import { getBuildingConfig, getLevelStats, getBuildingWorth, getBuildingFootprint } from '../config/buildings/index.js'
 import { isPipelineBuilding } from '../config/pipeline.config.js'
 import { BUILDING_SELL_REFUND_RATE } from '../config/economy.config.js'
-import { isWithinUnlockedRegion } from './landEngine.js'
+import { isWithinUnlockedRegion, getOwnedTileSet, tileKey } from './landEngine.js'
 import { createId } from '../util/id.js'
 
 // Additional depots start at one sextillion and grow a thousandfold each.
 export function getBuildingPurchaseCost(state, type) {
   if (type !== 'distribution') return getLevelStats(type, 1).upgradeCost
-  const count = Math.max(state.distribution?.depotsBuilt ?? 0, state.buildings.filter(b => b.type === type).reduce((sum, b) => sum + (b.mergedBuildingCount ?? 1), 0))
-  return count === 0 ? getLevelStats(type, 1).upgradeCost : 1e21 * 1000 ** (count - 1)
+  return getDepotCost(getDepotCount(state))
+}
+
+/** Depots bought so far - merged depots count every original they absorbed. */
+function getDepotCount(state) {
+  const standing = state.buildings.filter(b => b.type === 'distribution').reduce((sum, b) => sum + (b.mergedBuildingCount ?? 1), 0)
+  return Math.max(state.distribution?.depotsBuilt ?? 0, standing)
+}
+
+function getDepotCost(depotCount) {
+  return depotCount === 0 ? getLevelStats('distribution', 1).upgradeCost : 1e21 * 1000 ** (depotCount - 1)
 }
 
 function footprintsOverlap(a, aFootprint, b, bFootprint) {
@@ -116,8 +125,16 @@ export function placeBuilding(state, type, position) {
   const cost = getBuildingPurchaseCost(state, type)
   state.resources.money -= cost
 
-  /** @type {import('../types/building.js').PlacedBuilding} */
-  const building = {
+  const building = createPlacedBuilding(type, position)
+  if (type === 'distribution') state.distribution.depotsBuilt = getDepotCount(state) + 1
+  state.buildings.push(building)
+
+  return { ok: true, building }
+}
+
+/** @returns {import('../types/building.js').PlacedBuilding} */
+function createPlacedBuilding(type, position) {
+  return {
     id: createId('bld'),
     type,
     position,
@@ -125,10 +142,6 @@ export function placeBuilding(state, type, position) {
     upgrade: null,
     slot: isPipelineBuilding(type) ? { status: 'idle', batchSize: 0 } : null
   }
-  if (type === 'distribution') state.distribution.depotsBuilt = Math.max(state.distribution.depotsBuilt ?? 0, state.buildings.filter(b => b.type === type).reduce((sum, b) => sum + (b.mergedBuildingCount ?? 1), 0)) + 1
-  state.buildings.push(building)
-
-  return { ok: true, building }
 }
 
 /**
@@ -174,33 +187,90 @@ export function sellBuilding(state, buildingId) {
   return { ok: true, refund }
 }
 
-/** Read-only, row-ordered preview; includes escalating depot prices. */
+function markFootprint(tileSet, position, footprint) {
+  for (let dx = 0; dx < footprint.width; dx++) {
+    for (let dy = 0; dy < footprint.height; dy++) tileSet.add(tileKey(position.x + dx, position.y + dy))
+  }
+}
+
+function footprintHits(tileSet, position, footprint) {
+  for (let dx = 0; dx < footprint.width; dx++) {
+    for (let dy = 0; dy < footprint.height; dy++) {
+      if (tileSet.has(tileKey(position.x + dx, position.y + dy))) return true
+    }
+  }
+  return false
+}
+
+function footprintOwned(ownedSet, position, footprint) {
+  for (let dx = 0; dx < footprint.width; dx++) {
+    for (let dy = 0; dy < footprint.height; dy++) {
+      if (!ownedSet.has(tileKey(position.x + dx, position.y + dy))) return false
+    }
+  }
+  return true
+}
+
+/**
+ * Read-only, row-ordered preview; includes escalating depot prices. Same
+ * checks and reasons as canPlaceBuilding, but owned land and occupied tiles
+ * are indexed once up front instead of rescanned per tile - a big drag
+ * selection on a big farm was O(tiles x (land + buildings)) and froze the UI.
+ */
 export function planBuildingBatch(state, type, positions) {
-  const staged = { ...state, resources: { ...state.resources }, distribution: { ...state.distribution }, buildings: [...state.buildings] }
-  const seen = new Set()
   const placements = []
   const skipped = []
   let spent = 0
-  for (const position of [...positions].sort((a,b) => a.y-b.y || a.x-b.x)) {
+  const sorted = [...positions].sort((a, b) => a.y - b.y || a.x - b.x)
+
+  if (type === 'town_hall') {
+    for (const position of sorted) skipped.push({ position: { ...position }, reason: 'town_hall_is_fixed' })
+    return { count: 0, spent, placements, skipped }
+  }
+
+  const footprint = getBuildingConfig(type).footprint
+  const ownedSet = getOwnedTileSet(state)
+  const buildingTiles = new Set()
+  for (const building of [state.townHall, ...state.buildings]) markFootprint(buildingTiles, building.position, getBuildingFootprint(building))
+  const decorationTiles = new Set()
+  for (const decoration of state.decorations ?? []) decorationTiles.add(tileKey(decoration.position.x, decoration.position.y))
+
+  let money = state.resources.money
+  let depotCount = type === 'distribution' ? getDepotCount(state) : 0
+  const seen = new Set()
+  for (const position of sorted) {
     if (!Number.isInteger(position.x) || !Number.isInteger(position.y)) continue
-    const key = position.x + ',' + position.y
+    const key = tileKey(position.x, position.y)
     if (seen.has(key)) continue
     seen.add(key)
-    const check = canPlaceBuilding(staged, type, position)
-    if (!check.ok) { skipped.push({ position: { ...position }, reason: check.reason }); continue }
-    const cost = getBuildingPurchaseCost(staged, type)
-    staged.resources.money -= cost
+
+    let reason = null
+    if (!footprintOwned(ownedSet, position, footprint)) reason = 'outside_unlocked_land'
+    else if (footprintHits(buildingTiles, position, footprint)) reason = 'overlaps_existing_building'
+    else if (footprintHits(decorationTiles, position, footprint)) reason = 'overlaps_existing_decoration'
+    const cost = type === 'distribution' ? getDepotCost(depotCount) : getLevelStats(type, 1).upgradeCost
+    if (!reason && (!Number.isFinite(cost) || money < cost)) reason = 'insufficient_funds'
+    if (reason) { skipped.push({ position: { ...position }, reason }); continue }
+
+    money -= cost
     spent += cost
-    if (type === 'distribution') staged.distribution.depotsBuilt = Math.max(staged.distribution.depotsBuilt ?? 0, staged.buildings.filter(b => b.type === type).reduce((sum,b) => sum+(b.mergedBuildingCount ?? 1),0)) + 1
-    staged.buildings.push({ type, level: 1, position: { ...position } })
+    if (type === 'distribution') depotCount += 1
+    markFootprint(buildingTiles, position, footprint)
     placements.push({ ...position })
   }
   return { count: placements.length, spent, placements, skipped }
 }
 
-/** Revalidate at purchase time, filling only affordable and available spots. */
+/**
+ * Plans against the current state at purchase time (so a stale preview
+ * never overspends), then applies the plan directly - it's already fully
+ * validated, so there's no need to re-check each tile via placeBuilding.
+ */
 export function placeBuildingBatch(state, type, positions) {
   const plan = planBuildingBatch(state, type, positions)
-  for (const position of plan.placements) placeBuilding(state, type, position)
+  if (!plan.count) return plan
+  if (type === 'distribution') state.distribution.depotsBuilt = getDepotCount(state) + plan.count
+  state.resources.money -= plan.spent
+  state.buildings.push(...plan.placements.map((position) => createPlacedBuilding(type, position)))
   return plan
 }
