@@ -22,12 +22,13 @@ const props = defineProps({
   placingDecorationId: { type: String, default: null },
   expandMode: { type: Boolean, default: false },
   selectMode: { type: Boolean, default: false },
+  selectedLandTiles: { type: Array, default: () => [] },
   selectedBuildingIds: { type: Array, default: () => [] },
   tutorialHighlightType: { type: String, default: null },
   tutorialDim: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['building-selected', 'decoration-selected', 'placed', 'place-failed', 'expand-result', 'selection-changed'])
+const emit = defineEmits(['building-selected', 'decoration-selected', 'placed', 'place-failed', 'expand-result', 'selection-changed', 'land-selection-changed'])
 
 const store = useGameStore()
 const { nowMs } = useClock()
@@ -291,6 +292,10 @@ function render(frameTime = 0) {
   }
   if (props.selectMode && selectDragStart && selectDragCurrent) {
     drawSelectionBox(camera, normalizedGridRect(selectDragStart, selectDragCurrent), 'rgba(123, 201, 111, 0.18)', 'rgba(123, 201, 111, 0.9)')
+  }
+
+  for (const tile of props.selectedLandTiles) {
+    drawSelectionBox(camera, { x0: tile.x, y0: tile.y, x1: tile.x, y1: tile.y }, 'rgba(212, 169, 74, 0.22)', 'rgba(212, 169, 74, 0.9)')
   }
 
   const lots = getResourceLots(store.game, 'cigars')
@@ -796,6 +801,7 @@ function handlePointerUp(event) {
       if (groupDragValid) {
         const moves = Array.from(groupWorkingPositions.entries()).map(([id, position]) => ({ id, position }))
         store.relocateBuildings(moves)
+        emit('land-selection-changed', [])
       }
       groupDragIds = null
       groupDragStartGrid = null
@@ -812,7 +818,16 @@ function handlePointerUp(event) {
     const end = selectDragCurrent ?? start
     const rect = normalizedGridRect(start, end)
     const ids = buildingsInRect(rect).map((b) => b.id)
-    emit('selection-changed', ids)
+    if (event.type === 'pointerup') {
+      const tiles = []
+      for (let y = Math.max(rect.y0, MAX_REGION.y0); y <= Math.min(rect.y1, MAX_REGION.y1); y++) {
+        for (let x = Math.max(rect.x0, MAX_REGION.x0); x <= Math.min(rect.x1, MAX_REGION.x1); x++) {
+          if (store.ownedTileSet.has(x + ',' + y) && !findBuildingAt({ x, y }) && !findDecorationAt({ x, y })) tiles.push({ x, y })
+        }
+      }
+      emit('selection-changed', ids)
+      emit('land-selection-changed', tiles)
+    }
     selectDragStart = null
     selectDragCurrent = null
     isPanning = false

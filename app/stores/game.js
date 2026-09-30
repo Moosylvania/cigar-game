@@ -31,6 +31,8 @@ import { getFleetCapacityPerHour, getEffectiveSalePrice, exportCigars } from '#g
 import {
   placeBuilding as enginePlaceBuilding,
   canPlaceBuilding,
+  planBuildingBatch,
+  placeBuildingBatch,
   planRelocation,
   relocateBuildings as engineRelocateBuildings,
   getBuildingSellValue,
@@ -389,6 +391,14 @@ export const useGameStore = defineStore('game', {
 
     placeBuilding(type, position) {
       return enginePlaceBuilding(this.game, type, position)
+    },
+
+    previewBuildingBatch(type, positions) {
+      return planBuildingBatch(this.game, type, positions)
+    },
+
+    placeBuildingBatch(type, positions) {
+      return placeBuildingBatch(this.game, type, positions)
     },
 
     getBuildingSellValue(buildingId) {

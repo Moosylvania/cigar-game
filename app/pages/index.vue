@@ -29,6 +29,16 @@ const placingConfig = computed(() => placingType.value ? store.getBuildingConfig
 const placementCost = computed(() => placingType.value ? getBuildingPurchaseCost(store.game, placingType.value) : 0)
 
 function chooseBuilding(type) {
+  if (selectMode.value) {
+    if (!type || !selectedLandTiles.value.length) return
+    const result = store.placeBuildingBatch(type, selectedLandTiles.value)
+    const placed = new Set(result.placements.map(p => p.x + ',' + p.y))
+    selectedLandTiles.value = selectedLandTiles.value.filter(p => !placed.has(p.x + ',' + p.y))
+    landBuildFeedback.value = result.count
+      ? `Built ${result.count} ${store.getBuildingConfig(type).displayName} for $${formatCompactNumber(result.spent)}.${selectedLandTiles.value.length ? ' Remaining tiles are still selected.' : ''}`
+      : 'No buildings placed. Check your money and available space.'
+    return
+  }
   placingType.value = type
   placedCount.value = 0
   placementFeedback.value = ''
@@ -38,6 +48,7 @@ function onPlaceFailed(reason) {
   placementFeedback.value = {
     outside_unlocked_land: 'Choose land you own.',
     overlaps_existing_building: 'That space is occupied. Try an empty tile.',
+    overlaps_existing_decoration: 'That space has a decoration. Try an empty tile.',
     insufficient_funds: 'Not enough money for another building.'
   }[reason] ?? 'Cannot build here. Try another tile.'
 }
@@ -53,6 +64,8 @@ const expandMode = ref(false)
 const expandFeedback = ref(null)
 const selectMode = ref(false)
 const selectedBuildingIds = ref([])
+const selectedLandTiles = ref([])
+const landBuildFeedback = ref('')
 let expandFeedbackTimer = null
 
 const placingDecorationName = computed(() => {
@@ -104,6 +117,8 @@ function startExpand() {
   selectedBuildingId.value = null
   selectMode.value = false
   selectedBuildingIds.value = []
+  selectedLandTiles.value = []
+  landBuildFeedback.value = ''
   expandFeedback.value = null
   expandMode.value = true
 }
@@ -129,12 +144,21 @@ function startSelect() {
   selectedBuildingId.value = null
   expandMode.value = false
   selectedBuildingIds.value = []
+  selectedLandTiles.value = []
+  landBuildFeedback.value = ''
   selectMode.value = true
 }
 
 function stopSelect() {
   selectMode.value = false
   selectedBuildingIds.value = []
+  selectedLandTiles.value = []
+  landBuildFeedback.value = ''
+}
+
+function onLandSelectionChanged(tiles) {
+  selectedLandTiles.value = tiles
+  landBuildFeedback.value = ''
 }
 
 function onSelectionChanged(ids) {
@@ -192,7 +216,7 @@ function handleKeydown(event) {
   if (isModalOpen.value) return
 
   if (event.shiftKey && /^Digit[1-7]$/.test(event.code)) {
-    if (expandMode.value || selectMode.value || placingDecorationId.value) return
+    if (expandMode.value || (selectMode.value && !selectedLandTiles.value.length) || placingDecorationId.value) return
     event.preventDefault()
     const type = event.code === 'Digit7' ? 'distribution' : NUMBER_KEY_BUILDING_TYPES[event.code.slice(-1)]
     if (store.money >= getBuildingPurchaseCost(store.game, type)) chooseBuilding(type)
@@ -234,12 +258,12 @@ onBeforeUnmount(() => {
         <button class="confirm" @click="stopExpand"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else-if="selectMode">
-        <span class="rearrange-hint">Drag over buildings to select them. Select matching types to combine, or drag one to move the group</span>
+        <span class="rearrange-hint" role="status">{{ landBuildFeedback || (selectedLandTiles.length ? `${selectedLandTiles.length} empty tiles selected. Choose a building to fill them.` : 'Drag over empty owned land to build on many tiles, or over buildings to combine or move them.') }}</span>
         <button class="confirm" @click="stopSelect"><Icon name="mdi:check" /> Done</button>
       </template>
       <template v-else>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Expand territory" @click="startExpand"><Icon name="mdi:map-plus" /> Expand</button>
-        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Select buildings" @click="startSelect"><Icon name="mdi:selection-drag" /> Select</button>
+        <button :class="{ 'tutorial-dim': store.isTutorialVisible }" title="Select land or buildings" @click="startSelect"><Icon name="mdi:selection-drag" /> Select</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showLab = true"><Icon name="mdi:flask-outline" /> Research</button>
         <button :class="{ 'tutorial-dim': store.isTutorialVisible }" @click="showMarket = true"><Icon name="mdi:clipboard-list-outline" /> Market</button>
         <button class="store-btn" :class="{ 'tutorial-glow': storeButtonHighlighted, 'tutorial-dim': store.isTutorialVisible && !storeButtonHighlighted }" @click="showStore = true">
@@ -255,7 +279,8 @@ onBeforeUnmount(() => {
     <div class="main-area">
       <BuildMenu
         :active-type="placingType"
-        :class="{ disabled: placingDecorationId || expandMode || selectMode, 'tutorial-dim': store.isTutorialVisible }"
+        :selected-land-tiles="selectedLandTiles"
+        :class="{ disabled: placingDecorationId || expandMode || (selectMode && !selectedLandTiles.length), 'tutorial-dim': store.isTutorialVisible }"
         @select="chooseBuilding"
       />
       <GameCanvas
@@ -264,6 +289,7 @@ onBeforeUnmount(() => {
         :expand-mode="expandMode"
         :select-mode="selectMode"
         :selected-building-ids="selectedBuildingIds"
+        :selected-land-tiles="selectedLandTiles"
         :tutorial-highlight-type="tutorialHighlightBuildingType"
         :tutorial-dim="store.isTutorialVisible"
         @building-selected="onBuildingSelected"
@@ -272,6 +298,7 @@ onBeforeUnmount(() => {
         @place-failed="onPlaceFailed"
         @expand-result="onExpandResult"
         @selection-changed="onSelectionChanged"
+        @land-selection-changed="onLandSelectionChanged"
       />
       <BulkActionPanel
         v-if="selectedBuildingIds.length"

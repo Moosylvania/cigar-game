@@ -95,6 +95,8 @@ export function canPlaceBuilding(state, type, position) {
   })
   if (overlaps) return { ok: false, reason: 'overlaps_existing_building' }
 
+  if ((state.decorations ?? []).some(d => footprintsOverlap(position, config.footprint, d.position, { width: 1, height: 1 }))) return { ok: false, reason: 'overlaps_existing_decoration' }
+
   const cost = getBuildingPurchaseCost(state, type)
   if (!Number.isFinite(cost) || state.resources.money < cost) return { ok: false, reason: 'insufficient_funds' }
 
@@ -170,4 +172,35 @@ export function sellBuilding(state, buildingId) {
   state.buildings.splice(index, 1)
 
   return { ok: true, refund }
+}
+
+/** Read-only, row-ordered preview; includes escalating depot prices. */
+export function planBuildingBatch(state, type, positions) {
+  const staged = { ...state, resources: { ...state.resources }, distribution: { ...state.distribution }, buildings: [...state.buildings] }
+  const seen = new Set()
+  const placements = []
+  const skipped = []
+  let spent = 0
+  for (const position of [...positions].sort((a,b) => a.y-b.y || a.x-b.x)) {
+    if (!Number.isInteger(position.x) || !Number.isInteger(position.y)) continue
+    const key = position.x + ',' + position.y
+    if (seen.has(key)) continue
+    seen.add(key)
+    const check = canPlaceBuilding(staged, type, position)
+    if (!check.ok) { skipped.push({ position: { ...position }, reason: check.reason }); continue }
+    const cost = getBuildingPurchaseCost(staged, type)
+    staged.resources.money -= cost
+    spent += cost
+    if (type === 'distribution') staged.distribution.depotsBuilt = Math.max(staged.distribution.depotsBuilt ?? 0, staged.buildings.filter(b => b.type === type).reduce((sum,b) => sum+(b.mergedBuildingCount ?? 1),0)) + 1
+    staged.buildings.push({ type, level: 1, position: { ...position } })
+    placements.push({ ...position })
+  }
+  return { count: placements.length, spent, placements, skipped }
+}
+
+/** Revalidate at purchase time, filling only affordable and available spots. */
+export function placeBuildingBatch(state, type, positions) {
+  const plan = planBuildingBatch(state, type, positions)
+  for (const position of plan.placements) placeBuilding(state, type, position)
+  return plan
 }

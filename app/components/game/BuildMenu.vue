@@ -7,6 +7,7 @@ import { BUILDING_CONFIGS } from '#game/config/buildings/index.js'
 import { formatCompactNumber } from '#game/util/format.js'
 
 const props = defineProps({
+  selectedLandTiles: { type: Array, default: () => [] },
   activeType: { type: String, default: null }
 })
 const emit = defineEmits(['select'])
@@ -20,7 +21,8 @@ const items = computed(() =>
   placeableTypes.map((type, index) => {
     const config = BUILDING_CONFIGS[type]
     const cost = getBuildingPurchaseCost(store.game, type)
-    return { type, config, cost, shortcut: index + 1, disabled: store.money < cost }
+    const batch = props.selectedLandTiles.length ? store.previewBuildingBatch(type, props.selectedLandTiles) : null
+    return { type, config, cost: batch?.spent ?? cost, batch, shortcut: index + 1, disabled: batch ? !batch.count : store.money < cost }
   })
 )
 
@@ -38,14 +40,14 @@ function toggle(type) {
       class="build-item"
       :class="{ active: activeType === item.type }"
       :disabled="item.disabled && activeType !== item.type"
-      :title="`${item.config.displayName} — Shift+${item.shortcut}. Select once, then tap tiles to build repeatedly.`"
+      :title="item.batch ? `Build ${item.batch.count} ${item.config.displayName} for $${formatCompactNumber(item.cost)} total. ${selectedLandTiles.length - item.batch.count} tiles will remain.` : `${item.config.displayName} — Shift+${item.shortcut}. Select once, then tap tiles to build repeatedly.`"
       :aria-pressed="activeType === item.type"
       :style="{ '--swatch': item.config.color }"
       @click="toggle(item.type)"
     >
       <AnimatedGameArt class="building-art" :type="item.type" :theme="store.activeThemeId" />
-      <span class="name">{{ item.config.displayName }}</span>
-      <span class="cost">${{ formatCompactNumber(item.cost) }}<small class="shortcut">⇧{{ item.shortcut }}</small></span>
+      <span class="name">{{ item.config.displayName }}<small v-if="item.batch" class="batch-count">Build {{ item.batch.count }} / {{ selectedLandTiles.length }}</small></span>
+      <span class="cost">${{ formatCompactNumber(item.cost) }}<small v-if="!item.batch" class="shortcut">⇧{{ item.shortcut }}</small></span>
     </button>
   </div>
 </template>
@@ -158,6 +160,8 @@ function toggle(type) {
     line-height: 1.15;
   }
 }
+
+.batch-count { display: block; margin-top: 3px; font-weight: 400; }
 
 .shortcut { display: block; font-size: 0.65rem; text-align: right; margin-top: 4px; @include mobile { display: none; } }
 
