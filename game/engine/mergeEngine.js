@@ -1,6 +1,10 @@
-import { getBuildingFootprint, getBuildingStats, getLevelStats, getBuildingWorth, MAX_MERGE_GENERATION } from '../config/buildings/index.js'
+import { getBuildingFootprint, getBuildingStats, getLevelStats, getBuildingWorth, MAX_MERGE_GENERATION, MAX_BUILDING_LEVEL } from '../config/buildings/index.js'
 import { normalizeTobaccoLots } from './tobaccoEngine.js'
+import { now } from '../util/time.js'
+
 import { planRelocation } from './placementEngine.js'
+
+export const MERGE_DURATION_SECONDS = 20 * 60
 
 export const MERGE_REASONS = {
   select_multiple: 'Select at least two buildings of the same type.',
@@ -11,6 +15,7 @@ export const MERGE_REASONS = {
   different_tobacco: 'Set the same tobacco choice on all selected buildings first.',
   no_space: 'Clear enough owned land near the selected buildings for the larger complex.',
   max_combinations: 'This building has reached the maximum of 5 combinations (10×10).',
+  insufficient_funds: 'Not enough money to combine these buildings.',
   capacity_limit: 'This combination exceeds the supported production range.'
 }
 
@@ -25,6 +30,13 @@ export function planMerge(state, buildingIds) {
   if (buildings.some(b => b.upgrade)) return { ok: false, reason: 'busy' }
   if (buildings.some(b => b.level !== 10)) return { ok: false, reason: 'level_required' }
   if (new Set(buildings.map(b => b.seedVarietyId ?? null)).size > 1) return { ok: false, reason: 'different_tobacco' }
+  const generation = Math.max(...buildings.map(b => b.mergeGeneration ?? 0)) + 1
+  const buildingCount = buildings.reduce((sum, b) => sum + (b.mergedBuildingCount ?? 1), 0)
+  const maxedBuildingCost = getBuildingWorth(type, MAX_BUILDING_LEVEL)
+  const cost = buildingCount * maxedBuildingCost * generation ** generation
+  const pricing = { cost, buildingCount, maxedBuildingCost, generation, durationSeconds: MERGE_DURATION_SECONDS }
+  if (!Number.isFinite(cost)) return { ok: false, reason: 'capacity_limit' }
+  if (state.resources.money < cost) return { ok: false, reason: 'insufficient_funds', ...pricing }
   const level = Math.max(...buildings.map(b => b.level))
   const base = getLevelStats(type, level)
   const stats = buildings.map(getBuildingStatsForMerge)
@@ -43,8 +55,8 @@ export function planMerge(state, buildingIds) {
   const building = {
     ...buildings[0], level, upgrade: null,
     slot: combineSlots(buildings),
-    mergeGeneration: Math.max(...buildings.map(b => b.mergeGeneration ?? 0)) + 1,
-    mergedBuildingCount: buildings.reduce((sum, b) => sum + (b.mergedBuildingCount ?? 1), 0),
+    mergeGeneration: generation,
+    mergedBuildingCount: buildingCount,
     investedValue: buildings.reduce((sum, b) => sum + (b.investedValue ?? getBuildingWorth(b.type, b.level)), 0),
     mergeFactors
   }
@@ -62,7 +74,7 @@ export function planMerge(state, buildingIds) {
     building.position = { ...position }
     if ((state.decorations ?? []).some(d => d.position.x >= position.x && d.position.x < position.x + footprint.width && d.position.y >= position.y && d.position.y < position.y + footprint.height)) continue
     if (planRelocation({ ...state, buildings: [...remaining, building] }, []).ok) {
-      return { ok: true, building, removedIds: [...ids], footprint }
+      return { ok: true, building, removedIds: [...ids], footprint, ...pricing }
     }
   }
   return { ok: false, reason: 'no_space', footprint }
@@ -74,6 +86,17 @@ function getBuildingStatsForMerge(building) { return getBuildingStats(building) 
 export function mergeBuildings(state, buildingIds) {
   const plan = planMerge(state, buildingIds)
   if (!plan.ok) return plan
+  const startedAt = now()
+  state.resources.money -= plan.cost
+  plan.building.investedValue += plan.cost
+  plan.building.upgrade = {
+    kind: 'combination', targetLevel: plan.building.level,
+    startedAt, completesAt: startedAt + MERGE_DURATION_SECONDS * 1000,
+    mergeFactors: plan.building.mergeFactors
+  }
+  // Retain the original total capacity until construction unlocks the bonus.
+  plan.building.mergeFactors = Object.fromEntries(Object.entries(plan.building.mergeFactors)
+    .map(([key, factor]) => [key, key === 'processingDurationSeconds' ? factor : factor / 1.5]))
   const ids = new Set(plan.removedIds)
   state.buildings = state.buildings.filter(b => !ids.has(b.id))
   state.buildings.push(plan.building)

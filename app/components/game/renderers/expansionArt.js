@@ -419,36 +419,90 @@ function drawExpandedField(ctx,building,p,time,h) {
     b(12,17,76,4,p.material);solar(33,16,32,6)
     for(const x of [23,50,77])l(x,21,x,26)
   } else if(generation===3) {
-    // A single butterfly-roof botanical hall with a broad planted interior.
-    b(12,36,75,37,p.water)
-    poly([[8,36],[8,17],[48,29],[91,17],[91,36]],p.roof)
-    poly([[15,23],[47,32],[47,35],[15,27]],p.water)
-    poly([[53,32],[84,23],[84,27],[53,35]],p.water)
-    for(let x=18;x<84;x+=11) {
-      l(x,38,x,72)
-      for(const y of [49,65]){b(x-3,y,7,3,p.soil);leaf(x,y,.9)}
+    // One working glasshouse and a side potting shed overlook broad crop rows.
+    b(9,23,82,51,PAVING,1)
+    b(12,32,49,24,p.wall)
+    // Roof ribs meet the actual glass edges; they do not fan from an
+    // offset point or run through the solid ridge trim.
+    poly([[10,32],[36,15],[62,32]],p.roof)
+    poly([[15,30],[36,18],[57,30]],p.water)
+    for(const x of [22,29,36,43,50]) {
+      const roofEdgeY=18+Math.abs(x-36)*12/21
+      l(x,roofEdgeY,x,30)
     }
-    b(47,37,5,35,p.material)
+    b(11,32,51,2,p.material,0)
+    b(16,36,40,16,p.water)
+    for(const x of [26,36,46])l(x,36,x,52)
+    for(const x of [21,31,41,51])leaf(x,49,.65)
+    b(15,53,43,3,p.material)
+    hall(ctx,p,h,{x:68,y:34,w:18,height:22,roof:p.roof})
+    b(72,39,10,17,DECK)
+    solar(70,29,13,4)
+    // Two long beds make this stage read as a farm even at map scale.
+    // Keep irrigation in the service gaps and plants inside their beds.
+    b(62,37,3,20,p.water,0)
+    l(64,57,88,57);l(88,57,88,74)
+    for(const y of [58,68])l(14,y,88,y)
+    for(const y of [64,73]) {
+      b(13,y-4,72,7,p.soil,1)
+      for(let x=18;x<84;x+=9)leaf(x,y+1,.65)
+    }
   } else if(generation===4) {
-    // Terraced hydroponic decks step down toward the harvest lane.
-    for(let i=0;i<3;i++) {
-      const x=22-i*6,y=18+i*19,w=52+i*12
-      growingHouse(ctx,p,h,x,y,w,18)
-      b(x-2,y+17,w+4,3,p.material)
-      for(let px=x+3;px<x+w;px+=10)leaf(px,y+16,.55)
+    // A low twin-span glasshouse opens onto working tobacco beds.
+    b(9,23,82,51,PAVING,1)
+    for(const x of [12,52]) {
+      b(x,29,35,26,p.wall)
+      poly([[x-2,29],[x+16,14],[x+37,29]],p.water)
+      poly([[x+16,14],[x+37,29],[x+37,33],[x+16,19]],p.roof)
+      for(let dx=7;dx<32;dx+=8)l(x+dx,28,x+16,17)
+      b(x+3,33,29,18,p.water)
+      for(let dx=7;dx<32;dx+=8) {
+        l(x+dx,33,x+dx,51)
+        leaf(x+dx-3,48,.6)
+      }
+      b(x+2,52,31,3,p.material)
     }
-    b(87,28,5,45,p.material);l(89,31,89,68)
+    // Exposed soil and full leafy rows keep this recognizably a farm.
+    for(const x of [13,54])for(const y of [62,71]) {
+      b(x,y-3,32,6,p.soil,1)
+      for(let dx=4;dx<31;dx+=7)leaf(x+dx,y+1,.85)
+    }
+    b(48,34,3,39,p.water,0)
+    for(const y of [58,68]){l(49,y,14,y);l(49,y,85,y)}
+    b(40,18,8,9,p.material,2);oval(44,18,4,1.5,p.water)
   } else {
-    // A broad faceted biosphere, divided into four visible growing terraces.
-    poly([[8,46],[18,25],[40,11],[64,11],[86,26],[94,46],[86,73],[17,73]],p.water)
-    for(const points of [[[8,46],[94,46]],[[40,11],[33,46],[39,73]],[[64,11],[69,46],[63,73]],[[18,25],[51,31],[86,26]],[[51,31],[51,73]]]) {
-      for(let i=1;i<points.length;i++)l(...points[i-1],...points[i])
+    // A wide farming estate: packing barn, separate growing wings, and
+    // an irrigated harvest court. All structures stay low and grounded.
+    b(9,22,82,53,PAVING,1)
+    hall(ctx,p,h,{x:29,y:25,w:39,height:16,roof:p.roof})
+    b(34,28,12,10,p.water);b(51,28,12,12,DECK)
+    solar(36,18,25,4)
+    // Long glasshouse wings flank a clear central service lane.
+    for(const x of [11,68]) {
+      b(x,42,21,29,p.wall)
+      poly([[x-2,42],[x+10,29],[x+23,42]],p.water)
+      poly([[x+10,29],[x+23,42],[x+23,45],[x+10,33]],p.roof)
+      b(x+3,45,15,22,p.water)
+      for(const dx of [7,14]) {
+        l(x+dx,44,x+dx,67)
+        for(const y of [53,63])leaf(x+dx-2,y,.6)
+      }
+      b(x+2,69,17,3,p.material)
     }
-    for(const y of [46,59])for(const x of [24,43,62]) {
-      b(x,y,13,4,p.soil);for(const dx of [3,9])leaf(x+dx,y,.65)
+    for(const x of [36,53])for(const y of [51,62,72]) {
+      b(x,y-4,12,7,p.soil,1)
+      leaf(x+3,y+1,.8);leaf(x+9,y+1,.8)
     }
-    b(42,66,18,10,p.material);b(47,68,8,8,DECK)
-    solar(12,77,22,5);solar(67,77,22,5)
+    b(49,43,2,31,p.water,0)
+    for(const y of [46,57,68]) {
+      l(35,y,65,y)
+      oval(50,y,1.3,1.3,p.material)
+    }
+    // Rear irrigation tanks and a small crate collection station.
+    for(const x of [12,79]) {
+      b(x,20,9,14,p.material,3);oval(x+4.5,20,4.5,2,p.water)
+      l(x+4,34,x+4,38)
+    }
   }
   const cartX=18+(time/3400%1)*56
   b(cartX,77,7,3,p.material);oval(cartX+1,81,1,1,INK);oval(cartX+6,81,1,1,INK)

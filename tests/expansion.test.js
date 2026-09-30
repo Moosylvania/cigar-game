@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createInitialState } from '../game/state/createInitialState.js'
+import { resolveCompletedUpgrades } from '../game/engine/upgradeEngine.js'
 import { planMerge, mergeBuildings } from '../game/engine/mergeEngine.js'
 import { getBuildingStats, getBuildingFootprint } from '../game/config/buildings/index.js'
 import { getBuildingPurchaseCost, placeBuilding, canPlaceBuilding, relocateBuildings } from '../game/engine/placementEngine.js'
@@ -59,6 +60,8 @@ test('extra depots charge escalating sextillion prices and aggregate storage and
   s.buildings.forEach(b => { b.level = 10 })
   const merged=mergeBuildings(s,s.buildings.map(b=>b.id));assert.equal(merged.ok,true)
   assert.equal(getBuildingPurchaseCost(s,'distribution'),1e24)
+  assert.equal(getMaxSlots(s),20)
+  resolveCompletedUpgrades(s,merged.building.upgrade.completesAt)
   assert.equal(getMaxSlots(s),30)
   near(getCigarStorageCapacity(s),capacity*3)
 })
@@ -84,11 +87,13 @@ test('level-10 merges preserve sum throughput ×1.5 and can be merged repeatedly
   const plan=planMerge(s,['test0','test1']);assert.equal(plan.ok,true)
   assert.equal(JSON.stringify(s),snapshot)
   const first=mergeBuildings(s,['test0','test1']).building
+  resolveCompletedUpgrades(s,first.upgrade.completesAt)
   const a=getBuildingStats(first)
   near(a.batchSize,before.reduce((sum,b)=>sum+b.batchSize,0)*1.5)
   near(a.batchSize/a.processingDurationSeconds,before.reduce((sum,b)=>sum+b.batchSize/b.processingDurationSeconds,0)*1.5)
   const other=getBuildingStats(s.buildings.find(b=>b.id==='test2'))
   const second=mergeBuildings(s,['test0','test2']).building
+  resolveCompletedUpgrades(s,second.upgrade.completesAt)
   const b=getBuildingStats(second)
   near(b.batchSize,(a.batchSize+other.batchSize)*1.5)
   near(b.batchSize/b.processingDurationSeconds,(a.batchSize/a.processingDurationSeconds+other.batchSize/other.processingDurationSeconds)*1.5)
@@ -132,12 +137,14 @@ test('combining in-flight and finished batches preserves tobacco and the slowest
   s.buildings[1].slot={status:'ready',batchSize:7,tobaccoLots:{criollo:7}}
   const b=mergeBuildings(s,['test0','test1']).building
   assert.equal(b.slot.batchSize,17);assert.equal(b.slot.completesAt,5000)
+  resolveCompletedUpgrades(s,b.upgrade.completesAt)
   resolveOfflineSlots(s,5000);assert.equal(collectBatch(b,s).ok,true)
   assert.deepEqual(s.resources.tobaccoLots.nurserySeedlings,{piloto:10,criollo:7})
 })
 
 test('merged capacity is used by batches, seed purchases, and offline automation', () => {
   const s=estate('nursery',[10,10]); const b=mergeBuildings(s,['test0','test1']).building
+  resolveCompletedUpgrades(s,b.upgrade.completesAt)
   const capacity=getBuildingStats(b).batchSize
   near(getSeedsPerBatch(s),Math.round(capacity))
   addTobaccoResource(s,'seeds',{piloto:capacity*10},capacity*10)
@@ -218,6 +225,7 @@ test('all combinable types grow through five combinations and reject a sixth ato
       if (generation>1) s.buildings.push({id:'next',type,level:10,position:{x:14,y:0},upgrade:null,slot:type==='distribution'?null:{status:'idle',batchSize:0}})
       const result = mergeBuildings(s, ['test0', generation===1?'test1':'next'])
       assert.equal(result.ok,true, type+' generation '+generation)
+      resolveCompletedUpgrades(s,result.building.upgrade.completesAt)
       assert.equal(result.building.mergeGeneration,generation)
       assert.deepEqual(getBuildingFootprint(result.building),{width:generation*2,height:generation*2})
       assert.equal(canPlaceBuilding(s,'nursery',{x:result.building.position.x+generation*2-1,y:result.building.position.y+generation*2-1}).ok,false)

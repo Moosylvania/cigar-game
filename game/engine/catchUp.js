@@ -63,10 +63,12 @@ function getCombinedMultipliers(state, atTime) {
  */
 export function runOfflineCatchUp(state, elapsedSeconds) {
   const atTime = now()
+  const availableSeconds = new Map(state.buildings.filter(b => b.upgrade?.kind === 'combination')
+    .map(b => [b.id, Math.max(0, (atTime - b.upgrade.completesAt) / 1000)]))
   resolveOfflineSlots(state, atTime)
   resolveCompletedUpgrades(state, atTime)
   const multipliers = getCombinedMultipliers(state, atTime)
-  fastForwardAutomation(state, elapsedSeconds, multipliers)
+  fastForwardAutomation(state, elapsedSeconds, multipliers, availableSeconds)
   updateCoinDelivery(state, atTime)
   pruneExpiredBoosts(state.boosts, atTime)
   return exportCigars(state, elapsedSeconds, multipliers)

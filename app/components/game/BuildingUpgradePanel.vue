@@ -313,7 +313,10 @@ function doCollectBatch() {
 
       <section class="upgrade-section">
         <h4>Upgrade</h4>
-        <template v-if="isMaxLevel">
+        <template v-if="building.upgrade?.kind === 'combination'">
+          <p class="note">Combining buildings — {{ formatDuration(upgradeRemainingSeconds) }} left</p>
+        </template>
+        <template v-else-if="isMaxLevel">
           <p class="note">Max level reached.</p>
         </template>
         <template v-else-if="building.upgrade">

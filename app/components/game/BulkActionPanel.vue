@@ -37,10 +37,11 @@ function changeTobacco(event) {
 const mergePreview = computed(() => store.previewMerge(props.buildingIds))
 const mergeMessage = computed(() => {
   const plan = mergePreview.value
+  if (plan.reason === 'insufficient_funds') return `Need $${formatCompactNumber(plan.cost)} to combine: ${plan.buildingCount} buildings × $${formatCompactNumber(plan.maxedBuildingCost)} max-out cost × ${plan.generation}^${plan.generation}. Construction takes 20 minutes.`
   if (!plan.ok) return plan.reason === 'no_space'
     ? `Clear an owned ${plan.footprint.width}×${plan.footprint.height} area near the selected buildings.`
     : MERGE_REASONS[plan.reason]
-  return `${plan.footprint.width}×${plan.footprint.height} complex at (${plan.building.position.x}, ${plan.building.position.y}) · combination ${plan.building.mergeGeneration}/5. Combined capacity and production ×1.5. Batches are kept. No cash cost.`
+  return `${plan.footprint.width}×${plan.footprint.height} complex at (${plan.building.position.x}, ${plan.building.position.y}) · combination ${plan.building.mergeGeneration}/5. Combined capacity and production ×1.5. Batches are kept; production pauses for 20 minutes. Cost: $${formatCompactNumber(plan.cost)} (${plan.buildingCount} buildings × $${formatCompactNumber(plan.maxedBuildingCost)} × ${plan.generation}^${plan.generation}).`
 })
 function doMerge() {
   const result = store.mergeSelection(props.buildingIds)
@@ -94,7 +95,7 @@ function doCollectAll() {
     </div>
 
     <div class="merge-action">
-      <button :disabled="!mergePreview.ok" @click="doMerge"><Icon name="mdi:merge" /> Combine buildings · +50%</button>
+      <button :disabled="!mergePreview.ok" @click="doMerge"><Icon name="mdi:merge" /> Combine buildings<span v-if="mergePreview.cost != null"> · ${{ formatCompactNumber(mergePreview.cost) }} · 20 min</span></button>
       <p>{{ mergeMessage }}</p>
     </div>
     <div class="bulk-actions">

@@ -186,6 +186,7 @@ export function resolveCompletedUpgrades(state, atTime = now()) {
   const allBuildings = [state.townHall, ...state.buildings]
   for (const building of allBuildings) {
     if (building.upgrade && building.upgrade.completesAt <= atTime) {
+      if (building.upgrade.kind === 'combination') building.mergeFactors = building.upgrade.mergeFactors
       building.level = building.upgrade.targetLevel
       building.upgrade = null
     }

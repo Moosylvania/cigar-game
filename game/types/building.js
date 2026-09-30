@@ -1,6 +1,6 @@
 /** @typedef {'town_hall'|'nursery'|'field'|'curing'|'steam'|'fermentation'|'rolling'|'distribution'} BuildingType */
 
-/** @typedef {{ targetLevel: number, startedAt: number, completesAt: number }} UpgradeInProgress */
+/** @typedef {{ targetLevel: number, startedAt: number, completesAt: number, kind?: string, mergeFactors?: Object<string, number> }} UpgradeInProgress */
 
 /** @typedef {'idle'|'processing'|'ready'} SlotStatus */
 

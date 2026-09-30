@@ -81,6 +81,7 @@ export function startBatch(building, state, labMultipliers, maxAmount = Infinity
  * @returns {StartBatchResult}
  */
 export function collectBatch(building, state, labMultipliers) {
+  if (building.upgrade?.kind === 'combination') return { ok: false, reason: 'building_upgrading' }
   const stage = getPipelineStage(building.type)
   if (!stage) return { ok: false, reason: 'not_a_pipeline_building' }
   if (!building.slot) return { ok: false, reason: 'no_slot' }
@@ -238,7 +239,7 @@ export function runAutomation(state, labMultipliers) {
  * @param {number} elapsedSeconds
  * @param {{ speedMultipliers: Object<string, number>, batchSizeMultipliers: Object<string, number> }} labMultipliers
  */
-export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
+export function fastForwardAutomation(state, elapsedSeconds, labMultipliers, availableSeconds = new Map()) {
   if (elapsedSeconds <= 0) return
 
   const ordered = buildingsInPipelineOrder(state).filter((building) => {
@@ -278,7 +279,8 @@ export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
       const durationSeconds = levelStats.processingDurationSeconds * speedMultiplier
       if (capacity <= 0 || durationSeconds <= 0) continue
 
-      const cyclesByTime = Math.floor(elapsedSeconds / durationSeconds)
+      const buildingSeconds = Math.min(elapsedSeconds, availableSeconds.get(building.id) ?? elapsedSeconds)
+      const cyclesByTime = Math.floor(buildingSeconds / durationSeconds)
       const cyclesByInput = Math.floor(inputSharePerBuilding / capacity)
       let cycles = Math.max(0, Math.min(cyclesByTime, cyclesByInput))
 
@@ -288,7 +290,7 @@ export function fastForwardAutomation(state, elapsedSeconds, labMultipliers) {
         cycles = Math.min(cycles, cyclesByOutputCapacity)
       }
 
-      let remainingSeconds = elapsedSeconds
+      let remainingSeconds = buildingSeconds
       let remainingShare = inputSharePerBuilding
       if (cycles > 0) {
         const tobaccoLots = takeTobaccoResource(state, stage.inputKey, cycles * capacity, getPlantingChoice(building))
