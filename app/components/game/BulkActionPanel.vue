@@ -37,8 +37,10 @@ function changeTobacco(event) {
 const mergePreview = computed(() => store.previewMerge(props.buildingIds))
 const mergeMessage = computed(() => {
   const plan = mergePreview.value
-  if (!plan.ok) return MERGE_REASONS[plan.reason]
-  return `${plan.footprint.width}×${plan.footprint.height} complex at (${plan.building.position.x}, ${plan.building.position.y}) · generation ${plan.building.mergeGeneration}. Combined capacity and production ×1.5. Batches are kept. No cash cost.`
+  if (!plan.ok) return plan.reason === 'no_space'
+    ? `Clear an owned ${plan.footprint.width}×${plan.footprint.height} area near the selected buildings.`
+    : MERGE_REASONS[plan.reason]
+  return `${plan.footprint.width}×${plan.footprint.height} complex at (${plan.building.position.x}, ${plan.building.position.y}) · combination ${plan.building.mergeGeneration}/5. Combined capacity and production ×1.5. Batches are kept. No cash cost.`
 })
 function doMerge() {
   const result = store.mergeSelection(props.buildingIds)

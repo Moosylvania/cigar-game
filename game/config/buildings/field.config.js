@@ -6,7 +6,7 @@ export const fieldConfig = {
   description: 'Mature tobacco seedlings grow into full leaf here.',
   color: '#7a9c3f',
   icon: 'mdi:wheat',
-  footprint: { width: 2, height: 2 },
+  footprint: { width: 1, height: 1 },
   levels: generateLevelCurve({
     baseCost: 80,
     costGrowth: 1.65,

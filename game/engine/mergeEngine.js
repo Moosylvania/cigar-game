@@ -1,4 +1,4 @@
-import { getBuildingFootprint, getBuildingStats, getLevelStats, getBuildingWorth } from '../config/buildings/index.js'
+import { getBuildingFootprint, getBuildingStats, getLevelStats, getBuildingWorth, MAX_MERGE_GENERATION } from '../config/buildings/index.js'
 import { normalizeTobaccoLots } from './tobaccoEngine.js'
 import { planRelocation } from './placementEngine.js'
 
@@ -9,7 +9,8 @@ export const MERGE_REASONS = {
   busy: 'Finish construction before combining.',
   level_required: 'Upgrade every selected building to level 10 before combining.',
   different_tobacco: 'Set the same tobacco choice on all selected buildings first.',
-  no_space: 'Clear an owned 2×2 area (4×4 for fields) near the selected buildings.',
+  no_space: 'Clear enough owned land near the selected buildings for the larger complex.',
+  max_combinations: 'This building has reached the maximum of 5 combinations (10×10).',
   capacity_limit: 'This combination exceeds the supported production range.'
 }
 
@@ -20,6 +21,7 @@ export function planMerge(state, buildingIds) {
   if (buildings.length < 2 || buildings.length !== ids.size) return { ok: false, reason: 'select_multiple' }
   const type = buildings[0].type
   if (buildings.some(b => b.type !== type)) return { ok: false, reason: 'mixed_types' }
+  if (buildings.some(b => (b.mergeGeneration ?? 0) >= MAX_MERGE_GENERATION)) return { ok: false, reason: 'max_combinations' }
   if (buildings.some(b => b.upgrade)) return { ok: false, reason: 'busy' }
   if (buildings.some(b => b.level !== 10)) return { ok: false, reason: 'level_required' }
   if (new Set(buildings.map(b => b.seedVarietyId ?? null)).size > 1) return { ok: false, reason: 'different_tobacco' }
@@ -51,7 +53,7 @@ export function planMerge(state, buildingIds) {
   // Prefer a selected origin, then nearby offsets. Never silently relocate across town.
   const candidates = buildings.map(b => b.position)
   const anchor = { x: Math.min(...buildings.map(b => b.position.x)), y: Math.min(...buildings.map(b => b.position.y)) }
-  for (let radius = 0; radius <= 4; radius++) {
+  for (let radius = 0; radius <= footprint.width; radius++) {
     for (let x = -radius; x <= radius; x++) for (let y = -radius; y <= radius; y++) {
       if (Math.max(Math.abs(x), Math.abs(y)) === radius) candidates.push({ x: anchor.x + x, y: anchor.y + y })
     }
@@ -63,7 +65,7 @@ export function planMerge(state, buildingIds) {
       return { ok: true, building, removedIds: [...ids], footprint }
     }
   }
-  return { ok: false, reason: 'no_space' }
+  return { ok: false, reason: 'no_space', footprint }
 }
 
 // Avoid Array.map passing its index as the optional level argument.

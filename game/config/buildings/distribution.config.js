@@ -23,7 +23,7 @@ export const distributionConfig = {
   description: 'Exports cigars from storage at a rate set by your vehicle fleet - let production outrun that rate and cigars overflow and are lost.',
   color: '#3a5a7a',
   icon: 'mdi:warehouse',
-  footprint: { width: 2, height: 2 },
+  footprint: { width: 1, height: 1 },
   // cigarStorageCapacity starts at a level-1 base of 100, growing to a
   // level-10 base of 174110 (100 * 2.29135^9). Warehouse Expansion research
   // maxed out (30 levels @ 6%) multiplies that by ~5.74x, so a fully

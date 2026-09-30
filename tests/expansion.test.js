@@ -94,20 +94,20 @@ test('level-10 merges preserve sum throughput ×1.5 and can be merged repeatedly
   near(b.batchSize/b.processingDurationSeconds,(a.batchSize/a.processingDurationSeconds+other.batchSize/other.processingDurationSeconds)*1.5)
   assert.equal(second.mergeGeneration,2)
   assert.equal(second.mergedBuildingCount,3)
-  assert.deepEqual(getBuildingFootprint(second),{width:2,height:2})
+  assert.deepEqual(getBuildingFootprint(second),{width:4,height:4})
 })
 
-test('combined fields occupy 4×4 for placement, relocation, and save reload', () => {
+test('combined fields occupy 2×2 for placement, relocation, and save reload', () => {
   const s=estate('field',[10,10])
   const result=mergeBuildings(s,['test0','test1']);assert.equal(result.ok,true)
-  assert.deepEqual(getBuildingFootprint(result.building),{width:4,height:4})
-  assert.equal(canPlaceBuilding(s,'nursery',{x:3,y:3}).reason,'overlaps_existing_building')
+  assert.deepEqual(getBuildingFootprint(result.building),{width:2,height:2})
+  assert.equal(canPlaceBuilding(s,'nursery',{x:1,y:1}).reason,'overlaps_existing_building')
   const before=JSON.stringify(s)
-  assert.equal(relocateBuildings(s,[{id:result.building.id,position:{x:14,y:14}}]).ok,false)
+  assert.equal(relocateBuildings(s,[{id:result.building.id,position:{x:15,y:15}}]).ok,false)
   assert.equal(JSON.stringify(s),before)
   const restored=migrateSave(JSON.parse(JSON.stringify({version:1,state:s}))).state
   assert.deepEqual(getBuildingStats(restored.buildings[0]),getBuildingStats(result.building))
-  assert.deepEqual(getBuildingFootprint(restored.buildings[0]),{width:4,height:4})
+  assert.deepEqual(getBuildingFootprint(restored.buildings[0]),{width:2,height:2})
 })
 
 test('invalid selections and blocked land fail atomically', () => {
@@ -120,6 +120,7 @@ test('invalid selections and blocked land fail atomically', () => {
   assert.equal(planMerge(s,[s.townHall.id,'test0']).reason,'town_hall')
   s.land.purchasedTiles=[];s.townHall.position={x:2,y:2}
   s.buildings=estate('field',[10,10]).buildings
+  s.buildings[0].mergeGeneration=2
   const before=JSON.stringify(s)
   assert.equal(mergeBuildings(s,['test0','test1']).reason,'no_space')
   assert.equal(JSON.stringify(s),before)
@@ -207,4 +208,23 @@ test('rockets launch visibly from the pad and travel only north in game and gall
       }
     }
   } finally { setShowcaseLanes(null);clock.nowMs.value=previousTime }
+})
+
+test('all combinable types grow through five combinations and reject a sixth atomically', () => {
+  for (const type of ['nursery','field','curing','steam','fermentation','rolling','distribution']) {
+    const s = estate(type)
+    assert.deepEqual(getBuildingFootprint(s.buildings[0]), {width:1,height:1})
+    for (let generation=1; generation<=5; generation++) {
+      if (generation>1) s.buildings.push({id:'next',type,level:10,position:{x:14,y:0},upgrade:null,slot:type==='distribution'?null:{status:'idle',batchSize:0}})
+      const result = mergeBuildings(s, ['test0', generation===1?'test1':'next'])
+      assert.equal(result.ok,true, type+' generation '+generation)
+      assert.equal(result.building.mergeGeneration,generation)
+      assert.deepEqual(getBuildingFootprint(result.building),{width:generation*2,height:generation*2})
+      assert.equal(canPlaceBuilding(s,'nursery',{x:result.building.position.x+generation*2-1,y:result.building.position.y+generation*2-1}).ok,false)
+    }
+    s.buildings.push({id:'last',type,level:10,position:{x:14,y:0}})
+    const before = JSON.stringify(s)
+    assert.equal(mergeBuildings(s,['test0','last']).reason,'max_combinations')
+    assert.equal(JSON.stringify(s),before)
+  }
 })

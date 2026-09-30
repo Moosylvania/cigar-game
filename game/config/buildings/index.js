@@ -33,6 +33,7 @@ export function getLevelStats(type, level) {
 }
 
 export const MAX_BUILDING_LEVEL = 10
+export const MAX_MERGE_GENERATION = 5
 
 /**
  * Total money ever invested in a building to reach `level` - the sum of
@@ -56,7 +57,7 @@ export function getBuildingWorth(type, level) {
 /** Instance-aware footprint shared by placement, selection, and rendering. */
 export function getBuildingFootprint(building) {
   if (building.mergeGeneration > 0) {
-    const size = building.type === 'field' ? 4 : 2
+    const size = Math.min(MAX_MERGE_GENERATION, building.mergeGeneration) * 2
     return { width: size, height: size }
   }
   return getBuildingConfig(building.type).footprint

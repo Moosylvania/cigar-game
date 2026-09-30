@@ -80,6 +80,7 @@ function cargoBelt(ctx,p,h,x,y,w,time) {
 export function drawSpaceport(ctx, building, p, time, h) {
   const {b,l,poly,oval,window,vent,solar,crate} = tools(ctx,p,h)
   const generation = building.mergeGeneration ?? 0
+  if(generation >= 2) return drawExpandedSpaceport(ctx,building,p,time,h)
   ctx.save();ctx.strokeStyle=INK;ctx.lineWidth=1.05
   // Low freight hangar to the left; mission control spans the rear.
   foundation(ctx,p,h)
@@ -99,29 +100,11 @@ export function drawSpaceport(ctx, building, p, time, h) {
   b(84,29,7,10,p.material)
   l(88,27,88,15);l(85,17,91,17)
   oval(88,14,1,1,p.water)
-  // Pad and hangar have a clear air gap and separate ground circulation.
-  const {x:cx,y:cy}=LAUNCH_PAD
-  const pad=[[cx-22,cy-12],[cx-12,cy-21],[cx+12,cy-21],[cx+22,cy-12],[cx+22,cy+10],[cx+12,cy+18],[cx-12,cy+18],[cx-22,cy+10]]
-  poly(pad,p.material)
-  poly(pad.map(([x,y])=>[cx+(x-cx)*.89,cy+(y-cy)*.89]),DECK)
-  ctx.save();ctx.strokeStyle=p.wall;ctx.lineWidth=.9
-  ctx.beginPath();ctx.ellipse(cx,cy,15,11,0,0,Math.PI*2);ctx.stroke()
-  // Four short alignment marks read as a launch target, never a second helipad.
-  l(cx-19,cy,cx-13,cy);l(cx+13,cy,cx+19,cy)
-  l(cx,cy-15,cx,cy-9);l(cx,cy+9,cx,cy+14)
-  ctx.restore()
-  for(const [x,y] of [[54,54],[91,54],[56,76],[89,76]])oval(x,y,.9,.9,Math.sin(time/700+x)>.4?p.water:'#e6d6a3',false)
-  // The service gantry stays at the far edge, with its arm retracted.
-  b(94,41,2,28,p.wall,.2)
-  ctx.save();ctx.lineWidth=.65
-  for(let y=43;y<66;y+=6){l(94,y,96,y+4);l(96,y,94,y+4)}
-  ctx.restore()
-  b(89,40,8,2,p.material,.3)
+  drawLaunchApron(ctx,p,time,h)
   // Freight yard: cargo stacks and one compact autonomous tug.
   crate(12,69);crate(20,69);crate(12,63)
   b(32,65,10,5,p.roof,1);b(36,62,5,4,p.water)
   oval(34,71,1.4,1.4,INK);oval(40,71,1.4,1.4,INK)
-  if(generation>=2){vent(51,38,14);vent(69,38,14)}
   ctx.restore()
 }
 
@@ -246,7 +229,6 @@ function field(ctx,building,p,time,h) {
   b(42,16,43,4,p.water,1)
   ctx.save();ctx.strokeStyle=p.material;ctx.lineWidth=1
   l(46,20,46,71);l(83,20,83,24);ctx.restore()
-  if(building.mergeGeneration>=2)for(const y of [37,59]){b(47,y,4,1.5,p.water,.3);l(49,y+1,49,y+4)}
   for(let x=15;x<87;x+=12)leaf(x,79,.65)
   const cartX=12+(time/3200%1)*66
   b(cartX,44,8,4,p.material,1)
@@ -257,26 +239,263 @@ const PRODUCTION_DESIGNS = { nursery, curing, steam, fermentation, rolling, fiel
 
 export function drawMergedComplex(ctx, building, p, time, h) {
   if(building.type==='distribution' && building.level >= 10) return drawSpaceport(ctx,building,p,time,h)
-  const {b,solar,vent,crate} = tools(ctx,p,h)
+  if(building.mergeGeneration >= 2) return drawExpandedProduction(ctx,building,p,time,h)
+  const {b,crate} = tools(ctx,p,h)
   ctx.save();ctx.strokeStyle=INK;ctx.lineWidth=building.type==='field'?.7:1.05;ctx.lineJoin='round'
   foundation(ctx,p,h)
   if(building.type==='distribution') {
     hall(ctx,p,h,{x:9,y:38,w:78,height:35,saw:true})
     for(let x=15;x<80;x+=22){b(x,45,17,26,DECK);b(x+2,47,13,20,p.water);crate(x,73)}
   } else PRODUCTION_DESIGNS[building.type]?.(ctx,building,p,time,h)
-  // Generation upgrades add equipment to the building, not a tower above it.
-  if(building.mergeGeneration>=2 && building.type!=='field') {
-    const roofY={nursery:31,curing:30,steam:39,fermentation:32,rolling:29,distribution:29}[building.type]
-    solar(building.type==='fermentation'?17:46,roofY,23,5)
-  }
-  if(building.mergeGeneration>=3 && building.type!=='field') {
-    const equipmentY=building.type==='steam'?36:32
-    b(74,equipmentY,12,5,p.material,.5);vent(76,equipmentY+1,8)
-  }
   // A row of small equipment indicators records continued generations.
   for(let i=0;i<Math.min(6,building.mergeGeneration);i++) {
     ctx.save();ctx.fillStyle=i%2?p.water:p.material
     ctx.fillRect(74+i*2.4,77,1.4,1);ctx.restore()
   }
+  ctx.restore()
+}
+
+function drawLaunchApron(ctx,p,time,h) {
+  const {b,l,poly,oval} = tools(ctx,p,h)
+  // Pad and hangar have a clear air gap and separate ground circulation.
+  const {x:cx,y:cy}=LAUNCH_PAD
+  const pad=[[cx-22,cy-12],[cx-12,cy-21],[cx+12,cy-21],[cx+22,cy-12],[cx+22,cy+10],[cx+12,cy+18],[cx-12,cy+18],[cx-22,cy+10]]
+  poly(pad,p.material)
+  poly(pad.map(([x,y])=>[cx+(x-cx)*.89,cy+(y-cy)*.89]),DECK)
+  ctx.save();ctx.strokeStyle=p.wall;ctx.lineWidth=.9
+  ctx.beginPath();ctx.ellipse(cx,cy,15,11,0,0,Math.PI*2);ctx.stroke()
+  // Four short alignment marks read as a launch target, never a second helipad.
+  l(cx-19,cy,cx-13,cy);l(cx+13,cy,cx+19,cy)
+  l(cx,cy-15,cx,cy-9);l(cx,cy+9,cx,cy+14)
+  ctx.restore()
+  for(const [x,y] of [[54,54],[91,54],[56,76],[89,76]])oval(x,y,.9,.9,Math.sin(time/700+x)>.4?p.water:'#e6d6a3',false)
+  // The service gantry stays at the far edge, with its arm retracted.
+  b(94,41,2,28,p.wall,.2)
+  ctx.save();ctx.lineWidth=.65
+  for(let y=43;y<66;y+=6){l(94,y,96,y+4);l(96,y,94,y+4)}
+  ctx.restore()
+  b(89,40,8,2,p.material,.3)
+}
+
+// Generations 2–5 use independent floor plans. Every type retains its own
+// production machinery, materials, and motion within those new silhouettes.
+function productionBay(ctx,type,p,time,h,x,y,w,height) {
+  const {b,l,oval,window,leaf} = tools(ctx,p,h)
+  b(x,y,w,height,DECK,1)
+  const count = Math.max(2,Math.floor(w/13))
+  const step = w/count
+  for(let i=0;i<count;i++) {
+    const cx=x+step*(i+.5)
+    if(type==='nursery') {
+      window(cx-step*.4,y+1,step*.8,height-2)
+      for(const row of [.45,.85]) {
+        b(cx-step*.35,y+height*row,step*.7,2,p.soil)
+        leaf(cx,y+height*row,.75)
+      }
+    } else if(type==='curing') {
+      l(cx-step*.38,y+3,cx+step*.38,y+3)
+      for(const offset of [-2.5,2.5]) {
+        l(cx+offset,y+3,cx+offset,y+6)
+        oval(cx+offset+Math.sin(time/1500+i)*.25,y+height*.55,1.7,height*.28,p.material)
+      }
+    } else if(type==='steam') {
+      b(cx-step*.37,y+3,step*.74,height-5,p.water,3)
+      oval(cx,y+3,step*.37,2,p.wall)
+      b(cx-step*.37,y+height*.7,step*.74,1.5,p.material,0)
+      oval(cx,y+height*.42,2,2,p.wall)
+      l(cx,y+height*.42,cx+1,y+height*.42-1)
+    } else if(type==='fermentation') {
+      b(cx-step*.38,y+2,step*.76,height-3,p.material,3)
+      oval(cx,y+3,step*.37,2,p.wall)
+      for(const row of [.35,.8])b(cx-step*.38,y+height*row,step*.76,1.4,DECK,0)
+      oval(cx,y+height*.57,1.4,1.4,p.water)
+    } else {
+      b(cx-3,y+height-5,6,4,p.material)
+      const reach=Math.sin(time/900+i)*2
+      l(cx,y+height-5,cx-3,y+5);l(cx-3,y+5,cx+3+reach,y+8)
+      oval(cx-3,y+5,1.4,1.4,p.water)
+      b(cx+2+reach,y+8,3,2,p.roof)
+    }
+  }
+}
+
+function roofEquipment(ctx,type,p,time,h,x,y,w) {
+  const {b,l,oval,vent,solar} = tools(ctx,p,h)
+  if(type==='nursery')solar(x,y,w,5)
+  else if(type==='curing')for(let dx=0;dx<w-5;dx+=10)vent(x+dx,y,8)
+  else if(type==='steam') {
+    for(let dx=0;dx<w-5;dx+=12) {
+      b(x+dx,y-9,5,12,DECK);b(x+dx-1,y-10,7,2,p.material)
+      if(time) {
+        const phase=(time/2600+dx/30)%1
+        ctx.save();ctx.globalAlpha*=.4*(1-phase)
+        oval(x+dx+2+phase*3,y-10-phase*2,2+phase*2,1+phase,p.wall,false);ctx.restore()
+      }
+    }
+  } else if(type==='fermentation') {
+    b(x,y,w,3,p.material);for(let dx=4;dx<w;dx+=9){l(x+dx,y,x+dx,y-5);oval(x+dx,y-5,2,2,p.water)}
+  } else {
+    b(x,y,w,3,p.material);b(x+2,y-5,3,5,p.water);b(x+w-5,y-5,3,5,p.water)
+    l(x+3,y-5,x+w-3,y-5)
+  }
+}
+
+function drawExpandedProduction(ctx,building,p,time,h) {
+  if(building.type==='field') return drawExpandedField(ctx,building,p,time,h)
+  const {b,l,poly,window,crate} = tools(ctx,p,h)
+  const generation=Math.min(5,building.mergeGeneration)
+  const type=building.type
+  ctx.save();ctx.strokeStyle=INK;ctx.lineWidth=.8;ctx.lineJoin='round'
+  foundation(ctx,p,h)
+  if(generation===2) {
+    // Offset clerestory wing and broad, open production floor.
+    hall(ctx,p,h,{x:12,y:28,w:45,height:23})
+    window(17,31,34,10)
+    hall(ctx,p,h,{x:9,y:53,w:77,height:22})
+    productionBay(ctx,type,p,time,h,14,56,65,16)
+    roofEquipment(ctx,type,p,time,h,19,21,29)
+    b(82,57,4,16,p.material)
+  } else if(generation===3) {
+    // Two deep wings connected by a low service bridge; central loading court.
+    hall(ctx,p,h,{x:12,y:27,w:70,height:16})
+    window(18,29,57,9)
+    hall(ctx,p,h,{x:8,y:49,w:27,height:27,saw:true})
+    hall(ctx,p,h,{x:61,y:49,w:27,height:27,saw:true})
+    productionBay(ctx,type,p,time,h,11,52,21,20)
+    productionBay(ctx,type,p,time,h,64,52,21,20)
+    b(41,47,14,5,p.material)
+    for(let y=56;y<76;y+=7){b(42,y,12,2,p.wall,0)}
+    roofEquipment(ctx,type,p,time,h,25,18,39)
+    crate(47,70)
+  } else if(generation===4) {
+    // Long diagonal monitor roof above a continuous industrial shed.
+    b(10,39,78,36,p.wall)
+    poly([[7,39],[27,16],[92,16],[91,39]],p.roof)
+    for(let x=22;x<82;x+=12) {
+      poly([[x-6,34],[x+5,20],[x+11,20],[x,34]],p.water)
+      l(x-6,35,x,35)
+    }
+    b(8,38,83,3,p.material)
+    productionBay(ctx,type,p,time,h,15,47,66,23)
+    window(14,42,67,3)
+    b(5,53,7,23,p.material);b(87,49,7,27,p.material)
+    roofEquipment(ctx,type,p,time,h,28,14,40)
+  } else {
+    // Terraced megafactory: three staggered rooflines and two working floors.
+    hall(ctx,p,h,{x:25,y:24,w:49,height:19})
+    window(30,27,37,8)
+    hall(ctx,p,h,{x:15,y:45,w:66,height:18,saw:true})
+    productionBay(ctx,type,p,time,h,20,48,54,12)
+    hall(ctx,p,h,{x:7,y:66,w:81,height:12})
+    productionBay(ctx,type,p,time,h,12,67,69,9)
+    roofEquipment(ctx,type,p,time,h,34,13,31)
+    for(const x of [10,84]){b(x,38,4,39,p.material);l(x+1,42,x+1,71)}
+  }
+  if(type==='rolling')cargoBelt(ctx,p,h,16,76,64,time)
+  else {crate(13,75);crate(78,75)}
+  ctx.restore()
+}
+
+function growingHouse(ctx,p,h,x,y,w,height,arched=false) {
+  const {b,l,poly,leaf} = tools(ctx,p,h)
+  b(x,y,w,height,p.water,arched?Math.min(w/2,9):1)
+  if(!arched)poly([[x-2,y+2],[x+5,y-6],[x+w+2,y-6],[x+w+2,y+2]],p.roof)
+  for(let dx=5;dx<w-2;dx+=7) {
+    l(x+dx,y+2,x+dx,y+height-1)
+    for(let dy=9;dy<height;dy+=9){b(x+dx-2,y+dy,4,1.5,p.soil,0);leaf(x+dx,y+dy,.55)}
+  }
+  b(x,y+height-2,w,2,p.material,0)
+}
+
+function drawExpandedField(ctx,building,p,time,h) {
+  const {b,l,poly,oval,solar,leaf} = tools(ctx,p,h)
+  const generation=Math.min(5,building.mergeGeneration)
+  ctx.save();ctx.strokeStyle=INK;ctx.lineWidth=.65;ctx.lineJoin='round'
+  foundation(ctx,p,h)
+  b(8,23,83,54,p.soil,2)
+  if(generation===2) {
+    // Parallel barrel-vault growing tunnels, with an open irrigation headland.
+    for(const x of [12,39,66])growingHouse(ctx,p,h,x,26,22,45,true)
+    b(12,17,76,4,p.material);solar(33,16,32,6)
+    for(const x of [23,50,77])l(x,21,x,26)
+  } else if(generation===3) {
+    // A single butterfly-roof botanical hall with a broad planted interior.
+    b(12,36,75,37,p.water)
+    poly([[8,36],[8,17],[48,29],[91,17],[91,36]],p.roof)
+    poly([[15,23],[47,32],[47,35],[15,27]],p.water)
+    poly([[53,32],[84,23],[84,27],[53,35]],p.water)
+    for(let x=18;x<84;x+=11) {
+      l(x,38,x,72)
+      for(const y of [49,65]){b(x-3,y,7,3,p.soil);leaf(x,y,.9)}
+    }
+    b(47,37,5,35,p.material)
+  } else if(generation===4) {
+    // Terraced hydroponic decks step down toward the harvest lane.
+    for(let i=0;i<3;i++) {
+      const x=22-i*6,y=18+i*19,w=52+i*12
+      growingHouse(ctx,p,h,x,y,w,18)
+      b(x-2,y+17,w+4,3,p.material)
+      for(let px=x+3;px<x+w;px+=10)leaf(px,y+16,.55)
+    }
+    b(87,28,5,45,p.material);l(89,31,89,68)
+  } else {
+    // A broad faceted biosphere, divided into four visible growing terraces.
+    poly([[8,46],[18,25],[40,11],[64,11],[86,26],[94,46],[86,73],[17,73]],p.water)
+    for(const points of [[[8,46],[94,46]],[[40,11],[33,46],[39,73]],[[64,11],[69,46],[63,73]],[[18,25],[51,31],[86,26]],[[51,31],[51,73]]]) {
+      for(let i=1;i<points.length;i++)l(...points[i-1],...points[i])
+    }
+    for(const y of [46,59])for(const x of [24,43,62]) {
+      b(x,y,13,4,p.soil);for(const dx of [3,9])leaf(x+dx,y,.65)
+    }
+    b(42,66,18,10,p.material);b(47,68,8,8,DECK)
+    solar(12,77,22,5);solar(67,77,22,5)
+  }
+  const cartX=18+(time/3400%1)*56
+  b(cartX,77,7,3,p.material);oval(cartX+1,81,1,1,INK);oval(cartX+6,81,1,1,INK)
+  ctx.restore()
+}
+
+function drawExpandedSpaceport(ctx,building,p,time,h) {
+  const {b,l,poly,window,solar,crate,vent} = tools(ctx,p,h)
+  const generation=Math.min(5,building.mergeGeneration)
+  ctx.save();ctx.strokeStyle=INK;ctx.lineWidth=.8;ctx.lineJoin='round'
+  foundation(ctx,p,h)
+  b(8,45,85,34,PAVING,1)
+  if(generation===2) {
+    // Twin-bay freight terminal and a cantilevered flight-control bridge.
+    hall(ctx,p,h,{x:8,y:40,w:35,height:31,saw:true})
+    for(const x of [12,28]){b(x,46,12,22,DECK);window(x+1,47,10,7)}
+    b(47,24,42,13,p.wall);poly([[44,24],[54,14],[93,14],[91,24]],p.roof)
+    window(51,27,33,6);solar(58,19,22,4)
+  } else if(generation===3) {
+    // A curved assembly hangar alongside the separate launch apron.
+    b(9,25,34,47,p.roof,14)
+    b(13,40,26,30,DECK,9)
+    for(let x=17;x<39;x+=6)l(x,43,x,67)
+    b(13,64,26,5,p.material)
+    hall(ctx,p,h,{x:50,y:25,w:36,height:12})
+    window(54,28,28,6)
+    for(const x of [11,39]){b(x,42,3,29,p.material)}
+    b(9,41,34,3,p.material)
+  } else if(generation===4) {
+    // Angular mission center with a long, low wing and detached cargo silos.
+    poly([[8,35],[18,13],[39,13],[46,35],[42,71],[9,71]],p.wall)
+    poly([[8,35],[18,13],[39,13],[46,35]],p.roof)
+    window(15,37,22,10);b(15,53,21,18,DECK)
+    for(const x of [51,64,77]){b(x,21,10,17,p.material,3);vent(x+1,23,8)}
+    solar(17,27,20,6)
+  } else {
+    // Stepped orbital freight campus, with two decks and a tracking dish.
+    hall(ctx,p,h,{x:16,y:24,w:65,height:13})
+    window(22,27,52,6)
+    hall(ctx,p,h,{x:8,y:49,w:33,height:24,saw:true})
+    b(12,54,24,18,DECK);window(14,55,20,5)
+    b(48,16,4,7,p.material)
+    poly([[38,9],[62,9],[57,16],[44,16]],p.water)
+    l(50,10,53,5)
+    for(const x of [12,24,36])solar(x,38,9,4)
+  }
+  drawLaunchApron(ctx,p,time,h)
+  crate(12,74);crate(21,74);crate(30,74)
   ctx.restore()
 }
