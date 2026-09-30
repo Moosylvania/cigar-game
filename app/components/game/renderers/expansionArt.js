@@ -398,11 +398,30 @@ function drawExpandedProduction(ctx,building,p,time,h) {
 
 function growingHouse(ctx,p,h,x,y,w,height,arched=false) {
   const {b,l,poly,leaf} = tools(ctx,p,h)
-  b(x,y,w,height,p.water,arched?Math.min(w/2,9):1)
-  if(!arched)poly([[x-2,y+2],[x+5,y-6],[x+w+2,y-6],[x+w+2,y+2]],p.roof)
-  for(let dx=5;dx<w-2;dx+=7) {
-    l(x+dx,y+2,x+dx,y+height-1)
-    for(let dy=9;dy<height;dy+=9){b(x+dx-2,y+dy,4,1.5,p.soil,0);leaf(x+dx,y+dy,.55)}
+  if(arched) {
+    const radius=Math.min(w/2,9)
+    b(x,y,w,height,p.water,radius)
+    // Frame ends follow the rounded glass edge; crops sit between frames.
+    for(const fraction of [1/3,2/3]) {
+      const dx=w*fraction
+      const edgeDistance=Math.min(dx,w-dx)
+      const inset=edgeDistance<radius ? radius-Math.sqrt(radius**2-(radius-edgeDistance)**2) : 0
+      l(x+dx,y+inset,x+dx,y+height-3)
+    }
+    for(let cell=0;cell<3;cell++) {
+      const cx=x+w*(cell+.5)/3
+      for(let dy=12;dy<height-3;dy+=9) {
+        b(cx-2.5,y+dy,5,1.5,p.soil,0)
+        leaf(cx,y+dy,.43)
+      }
+    }
+  } else {
+    b(x,y,w,height,p.water,1)
+    poly([[x-2,y+2],[x+5,y-6],[x+w+2,y-6],[x+w+2,y+2]],p.roof)
+    for(let dx=5;dx<w-2;dx+=7) {
+      l(x+dx,y+2,x+dx,y+height-1)
+      for(let dy=9;dy<height;dy+=9){b(x+dx-2,y+dy,4,1.5,p.soil,0);leaf(x+dx,y+dy,.55)}
+    }
   }
   b(x,y+height-2,w,2,p.material,0)
 }
@@ -452,24 +471,23 @@ function drawExpandedField(ctx,building,p,time,h) {
     b(9,23,82,51,PAVING,1)
     for(const x of [12,52]) {
       b(x,29,35,26,p.wall)
-      poly([[x-2,29],[x+16,14],[x+37,29]],p.water)
-      poly([[x+16,14],[x+37,29],[x+37,33],[x+16,19]],p.roof)
-      for(let dx=7;dx<32;dx+=8)l(x+dx,28,x+16,17)
+      poly([[x-2,29],[x+17.5,14],[x+37,29]],p.roof)
+      poly([[x+3,27],[x+17.5,17],[x+32,27]],p.water)
+      for(const dx of [10.25,17.5,24.75])l(x+dx,17+Math.abs(dx-17.5)*10/14.5,x+dx,27)
+      b(x-1,29,37,2,p.material,0)
       b(x+3,33,29,18,p.water)
-      for(let dx=7;dx<32;dx+=8) {
-        l(x+dx,33,x+dx,51)
-        leaf(x+dx-3,48,.6)
-      }
+      for(const dx of [10.25,17.5,24.75])l(x+dx,33,x+dx,51)
+      for(let cell=0;cell<4;cell++)leaf(x+3+7.25*(cell+.5),48,.55)
       b(x+2,52,31,3,p.material)
     }
     // Exposed soil and full leafy rows keep this recognizably a farm.
     for(const x of [13,54])for(const y of [62,71]) {
       b(x,y-3,32,6,p.soil,1)
-      for(let dx=4;dx<31;dx+=7)leaf(x+dx,y+1,.85)
+      for(let dx=4;dx<31;dx+=7)leaf(x+dx,y+1,.5)
     }
     b(48,34,3,39,p.water,0)
-    for(const y of [58,68]){l(49,y,14,y);l(49,y,85,y)}
-    b(40,18,8,9,p.material,2);oval(44,18,4,1.5,p.water)
+    for(const y of [58,67]){l(49,y,14,y);l(49,y,85,y)}
+
   } else {
     // A wide farming estate: packing barn, separate growing wings, and
     // an irrigated harvest court. All structures stay low and grounded.
@@ -477,32 +495,33 @@ function drawExpandedField(ctx,building,p,time,h) {
     hall(ctx,p,h,{x:29,y:25,w:39,height:16,roof:p.roof})
     b(34,28,12,10,p.water);b(51,28,12,12,DECK)
     solar(36,18,25,4)
+    // Tanks are drawn behind the wings, so their pipes never cross glass.
+    for(const x of [12,79]) {
+      b(x,20,9,14,p.material,3);oval(x+4.5,20,4.5,2,p.water)
+      l(x+4.5,34,x+4.5,38)
+    }
     // Long glasshouse wings flank a clear central service lane.
     for(const x of [11,68]) {
       b(x,42,21,29,p.wall)
-      poly([[x-2,42],[x+10,29],[x+23,42]],p.water)
-      poly([[x+10,29],[x+23,42],[x+23,45],[x+10,33]],p.roof)
+      poly([[x-2,42],[x+10.5,29],[x+23,42]],p.roof)
+      poly([[x+2,40],[x+10.5,32],[x+19,40]],p.water)
+      for(const dx of [6.25,10.5,14.75])l(x+dx,32+Math.abs(dx-10.5)*8/8.5,x+dx,40)
+      b(x-1,42,23,2,p.material,0)
       b(x+3,45,15,22,p.water)
-      for(const dx of [7,14]) {
-        l(x+dx,44,x+dx,67)
-        for(const y of [53,63])leaf(x+dx-2,y,.6)
-      }
+      l(x+10.5,45,x+10.5,67)
+      for(const dx of [6.75,14.25])for(const y of [53,63])leaf(x+dx,y,.5)
       b(x+2,69,17,3,p.material)
     }
     for(const x of [36,53])for(const y of [51,62,72]) {
       b(x,y-4,12,7,p.soil,1)
-      leaf(x+3,y+1,.8);leaf(x+9,y+1,.8)
+      leaf(x+3,y+1,.5);leaf(x+9,y+1,.5)
     }
     b(49,43,2,31,p.water,0)
-    for(const y of [46,57,68]) {
+    for(const y of [46,57,67]) {
       l(35,y,65,y)
       oval(50,y,1.3,1.3,p.material)
     }
-    // Rear irrigation tanks and a small crate collection station.
-    for(const x of [12,79]) {
-      b(x,20,9,14,p.material,3);oval(x+4.5,20,4.5,2,p.water)
-      l(x+4,34,x+4,38)
-    }
+
   }
   const cartX=18+(time/3400%1)*56
   b(cartX,77,7,3,p.material);oval(cartX+1,81,1,1,INK);oval(cartX+6,81,1,1,INK)
